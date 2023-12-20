@@ -4,6 +4,7 @@ use bevy::{
     ecs::component::Component,
     math::{Vec2, Vec3},
     reflect::Reflect,
+    transform::components::Transform,
 };
 
 /// When the user starts moving the camera, the rotation point must be set. This is done in camera
@@ -16,29 +17,51 @@ pub struct EditorCam {
     pub smoothness: Smoothness,
     /// Input sensitivity of camera motion.
     pub sensitivity: Sensitivity,
+    /// Amount of camera momentum after inputs have stopped.
+    pub momentum: Momentum,
     /// Current camera motion.
-    pub(crate) motion: Motion,
-    /// If the camera should start rotating, but there is nothing under the pointer, the controller
-    /// will rotate about a point in the direction the camera is facing, at this depth. This will be
+    motion: Motion,
+    /// If the camera start moving, but there is nothing under the pointer, the controller will
+    /// rotate about a point in the direction the camera is facing, at this depth. This will be
     /// overwritten with the latest depth if a hit is found, to ensure the anchor point doesn't
     /// change suddenly if the user moves the pointer away from an object.
-    pub(crate) fallback_depth: f32,
+    fallback_depth: f32,
 }
 
 impl EditorCam {
-    pub fn new(orbit: OrbitMode, smoothness: Smoothness, sensitivity: Sensitivity) -> Self {
+    pub fn new(
+        orbit: OrbitMode,
+        smoothness: Smoothness,
+        sensitivity: Sensitivity,
+        momentum: Momentum,
+        initial_anchor_depth: f32,
+    ) -> Self {
         Self {
             orbit,
             smoothness,
             sensitivity,
-            motion: Motion::Stationary,
-            fallback_depth: 1.0,
+            momentum,
+            motion: Motion::Inactive {
+                velocity: Velocity::default(),
+            },
+            fallback_depth: initial_anchor_depth,
         }
     }
 
-    pub fn start_orbit(&mut self, anchor: Vec3) {
+    /// Returns the best guess at an anchor point if none is provided.
+    ///
+    /// Updates the fallback value with the latest hit to ensure that if the camera starts orbiting
+    /// again, but has no hit to anchor onto, the anchor doesn't suddenly change distance, which is
+    /// what would happen if we used a fixed value.
+    fn anchor_or_fallback(&mut self, anchor: Option<Vec3>) -> Vec3 {
+        let anchor = anchor.unwrap_or(Vec3::new(0.0, 0.0, self.fallback_depth));
+        self.fallback_depth = anchor.z;
+        anchor
+    }
+
+    pub fn start_orbit(&mut self, anchor: Option<Vec3>) {
         self.motion = Motion::Active {
-            anchor,
+            anchor: self.anchor_or_fallback(anchor),
             motion_inputs: MotionInputs::OrbitZoom {
                 movement: VecDeque::new(),
             },
@@ -46,9 +69,9 @@ impl EditorCam {
         }
     }
 
-    pub fn start_pan(&mut self, anchor: Vec3) {
+    pub fn start_pan(&mut self, anchor: Option<Vec3>) {
         self.motion = Motion::Active {
-            anchor,
+            anchor: self.anchor_or_fallback(anchor),
             motion_inputs: MotionInputs::PanZoom {
                 movement: VecDeque::new(),
             },
@@ -56,9 +79,9 @@ impl EditorCam {
         }
     }
 
-    pub fn start_zoom(&mut self, anchor: Vec3) {
+    pub fn start_zoom(&mut self, anchor: Option<Vec3>) {
         self.motion = Motion::Active {
-            anchor,
+            anchor: self.anchor_or_fallback(anchor),
             motion_inputs: MotionInputs::Zoom,
             zoom_inputs: VecDeque::new(),
         }
@@ -96,7 +119,50 @@ impl EditorCam {
     }
 
     pub fn end_move(&mut self) {
-        self.motion = Motion::Stationary;
+        let velocity = match self.motion {
+            Motion::Inactive { .. } => return,
+            Motion::Active {
+                anchor,
+                ref motion_inputs,
+                ..
+            } => match motion_inputs {
+                MotionInputs::OrbitZoom { .. } => Velocity::Orbit {
+                    anchor,
+                    velocity: motion_inputs.orbit_velocity(),
+                },
+                MotionInputs::PanZoom { .. } => Velocity::Pan {
+                    anchor,
+                    velocity: motion_inputs.pan_velocity(),
+                },
+                MotionInputs::Zoom => Velocity::None,
+            },
+        };
+        self.motion = Motion::Inactive { velocity };
+    }
+
+    pub fn update_camera(&mut self, cam_transform: &mut Transform) {
+        let (anchor, orbit, pan, zoom) = match &mut self.motion {
+            Motion::Inactive { mut velocity } => {
+                velocity.decay(self.momentum);
+                match velocity {
+                    Velocity::None => return,
+                    Velocity::Orbit { anchor, velocity } => (anchor, velocity, Vec2::ZERO, 0.0),
+                    Velocity::Pan { anchor, velocity } => (anchor, Vec2::ZERO, velocity, 0.0),
+                }
+            }
+            Motion::Active {
+                anchor,
+                motion_inputs,
+                zoom_inputs,
+            } => (
+                *anchor,
+                motion_inputs.orbit_velocity(),
+                motion_inputs.pan_velocity(),
+                zoom_inputs.iter().sum::<f32>() / zoom_inputs.len() as f32,
+            ),
+        };
+
+        // TODO: use the anchor and velocities to update the camera's transform.
     }
 }
 
@@ -120,6 +186,68 @@ pub struct Sensitivity {
     zoom: f32,
 }
 
+#[derive(Debug, Clone, Copy, Reflect)]
+pub struct Momentum {
+    pan: u8,
+    orbit: u8,
+}
+
+impl Momentum {
+    fn pan_decay(self) -> f32 {
+        self.pan as f32 / 256.0
+    }
+
+    fn orbit_decay(self) -> f32 {
+        self.orbit as f32 / 256.0
+    }
+}
+
+#[derive(Debug, Clone, Reflect)]
+enum Motion {
+    Inactive {
+        /// Contains inherited velocity, if any. This will decay based on
+        velocity: Velocity,
+    },
+    Active {
+        /// The point the camera is rotating about, zooming into, or panning with, in view space
+        /// (relative to the camera).
+        ///
+        /// - Rotation: the direction of the anchor does not change, it is fixed in screenspace.
+        /// - Panning: the depth of the anchor does not change, the camera only moves in x and y.
+        /// - Zoom: the direction of the anchor does not change, but the length does.
+        anchor: Vec3,
+        /// Pan and orbit are mutually exclusive, however both can be used with zoom.
+        motion_inputs: MotionInputs,
+        /// A queue of zoom inputs.
+        zoom_inputs: VecDeque<f32>,
+    },
+}
+
+#[derive(Debug, Clone, Copy, Default, Reflect)]
+enum Velocity {
+    #[default]
+    None,
+    Orbit {
+        anchor: Vec3,
+        velocity: Vec2,
+    },
+    Pan {
+        anchor: Vec3,
+        velocity: Vec2,
+    },
+}
+
+impl Velocity {
+    /// Decay the velocity based on the momentum setting.
+    fn decay(&mut self, momentum: Momentum) {
+        match self {
+            Velocity::None => (),
+            Velocity::Orbit { mut velocity, .. } => velocity *= momentum.orbit_decay(),
+            Velocity::Pan { mut velocity, .. } => velocity *= momentum.pan_decay(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Reflect)]
 enum MotionInputs {
     /// The camera can orbit and zoom
@@ -136,20 +264,20 @@ enum MotionInputs {
     Zoom,
 }
 
-#[derive(Debug, Clone, Reflect)]
-enum Motion {
-    Stationary,
-    Active {
-        /// The point the camera is rotating about, zooming into, or panning with, in view space
-        /// (relative to the camera).
-        ///
-        /// - Rotation: the direction of the anchor does not change, it is fixed in screenspace.
-        /// - Panning: the depth of the anchor does not change, the camera only moves in x and y.
-        /// - Zoom: the direction of the anchor does not change, but the length does.
-        anchor: Vec3,
-        /// Pan and orbit are mutually exclusive, however both can be used with zoom.
-        motion_inputs: MotionInputs,
-        /// A queue of zoom inputs.
-        zoom_inputs: VecDeque<f32>,
-    },
+impl MotionInputs {
+    fn orbit_velocity(&self) -> Vec2 {
+        if let Self::OrbitZoom { movement } = self {
+            movement.iter().sum::<Vec2>() / movement.len() as f32
+        } else {
+            Vec2::ZERO
+        }
+    }
+
+    fn pan_velocity(&self) -> Vec2 {
+        if let Self::PanZoom { movement } = self {
+            movement.iter().sum::<Vec2>() / movement.len() as f32
+        } else {
+            Vec2::ZERO
+        }
+    }
 }

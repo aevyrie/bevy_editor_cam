@@ -7,10 +7,8 @@ use bevy::{
         system::{Local, Query, Res, ResMut, Resource},
     },
     input::{keyboard::KeyCode, Input},
-    math::Vec3,
     prelude::{Deref, DerefMut},
     reflect::Reflect,
-    render::camera::Camera,
     transform::components::GlobalTransform,
     utils::HashMap,
 };
@@ -91,27 +89,20 @@ impl CameraControllerEvent {
 
             match event {
                 CameraControllerEvent::Start { kind, pointer, .. } => {
-                    let anchor = if let Some(world_space_hit) = pointer_map
+                    let anchor = pointer_map
                         .get_entity(*pointer)
                         .and_then(|entity| pointer_interactions.get(entity).ok())
                         .and_then(|interaction| interaction.get_nearest_hit())
                         .and_then(|(_, hit)| hit.position)
-                    {
-                        // Convert the world space hit to view (camera) space
-                        cam_transform
-                            .affine()
-                            .inverse()
-                            .transform_point3(world_space_hit)
-                    } else {
-                        // If the pointer is not over anything, we simply set the anchor to the
-                        // direction the camera is looking, at a predefined depth.
-                        Vec3::new(0.0, 0.0, controller.fallback_depth)
-                    };
+                        .map(|world_space_hit| {
+                            // Convert the world space hit to view (camera) space
+                            cam_transform
+                                .affine()
+                                .inverse()
+                                .transform_point3(world_space_hit)
+                        });
 
-                    // Update with the latest hit to ensure that if the camera starts orbiting
-                    // again, but has no hit to anchor onto, the anchor doesn't suddenly change
-                    // distance, which is what would happen if we used a fixed value.
-                    controller.fallback_depth = anchor.z;
+                    // TODO: zoom should use the pointer direction, even if there is no hit.
 
                     match kind {
                         MotionKind::OrbitZoom => controller.start_orbit(anchor),
