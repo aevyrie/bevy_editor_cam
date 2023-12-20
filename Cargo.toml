@@ -15,4 +15,14 @@ bevy = { version = "0.12.1", default-features = false, features = [
 bevy_picking_core = "0.17"
 
 [dev-dependencies]
-bevy = "0.12"
+bevy = { version = "0.12", default-features = false, features = [
+    "bevy_winit",
+    "x11",
+    "bevy_gltf",
+    "bevy_scene",
+    "bevy_ui",
+    "png",
+    "ktx2",
+    "zstd",
+    "tonemapping_luts",
+] }
