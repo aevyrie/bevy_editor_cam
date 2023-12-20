@@ -1,15 +1,6 @@
 use bevy::{
-    app::{Plugin, Update},
-    ecs::{
-        entity::Entity,
-        event::{Event, EventReader, EventWriter},
-        schedule::IntoSystemConfigs,
-        system::{Local, Query, Res, ResMut, Resource},
-    },
-    input::{keyboard::KeyCode, Input},
-    prelude::{Deref, DerefMut},
-    reflect::Reflect,
-    transform::components::GlobalTransform,
+    input::mouse::{MouseMotion, MouseWheel},
+    prelude::*,
     utils::HashMap,
 };
 use bevy_picking_core::pointer::{
@@ -119,8 +110,43 @@ impl CameraControllerEvent {
         }
     }
 
-    pub fn update_moves(camera_map: Res<CameraPointerMap>, moves: EventReader<InputMove>) {
-        for (camera, pointer) in camera_map.iter() {}
+    pub fn update_moves(
+        camera_map: Res<CameraPointerMap>,
+        mut camera_controllers: Query<&mut EditorCam>,
+        mut mouse_wheel: EventReader<MouseWheel>,
+        mut mouse_motion: EventReader<MouseMotion>,
+        touches: Res<Touches>,
+        mut moves: EventReader<InputMove>,
+    ) {
+        let moves: Vec<_> = moves.read().collect();
+        for (camera, pointer) in camera_map.iter() {
+            let Ok(mut camera_controller) = camera_controllers.get_mut(*camera) else {
+                continue;
+            };
+
+            let screenspace_input = match pointer {
+                PointerId::Mouse => mouse_motion.read().map(|mm| mm.delta).sum(),
+                PointerId::Touch(id) => touches
+                    .get_pressed(*id)
+                    .map(|t| t.delta())
+                    .unwrap_or_default(),
+                PointerId::Custom(_) => moves
+                    .iter()
+                    .filter(|m| m.pointer_id.eq(pointer))
+                    .map(|m| m.delta)
+                    .sum(),
+            };
+
+            let zoom_amount = match pointer {
+                // FIXME: account for different scroll units
+                // TODO: add pinch zoom support
+                PointerId::Mouse => mouse_wheel.read().map(|mw| mw.y).sum(),
+                _ => 0.0,
+            };
+
+            camera_controller.send_screen_movement(screenspace_input);
+            camera_controller.send_zoom(zoom_amount);
+        }
     }
 }
 

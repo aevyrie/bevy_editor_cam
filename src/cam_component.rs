@@ -87,7 +87,7 @@ impl EditorCam {
         }
     }
 
-    pub fn with_screen_movement(&mut self, screenspace_input: Vec2) {
+    pub fn send_screen_movement(&mut self, screenspace_input: Vec2) {
         if let Motion::Active {
             ref mut motion_inputs,
             ..
@@ -107,7 +107,7 @@ impl EditorCam {
         }
     }
 
-    pub fn with_zoom(&mut self, zoom_amount: f32) {
+    pub fn send_zoom(&mut self, zoom_amount: f32) {
         if let Motion::Active {
             zoom_inputs: ref mut zoom,
             ..
