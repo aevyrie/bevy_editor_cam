@@ -44,7 +44,7 @@ impl EditorCam {
             motion: Motion::Inactive {
                 velocity: Velocity::default(),
             },
-            fallback_depth: initial_anchor_depth,
+            fallback_depth: initial_anchor_depth.abs() * -1.0, // ensure the depth is correct sign
         }
     }
 
@@ -147,13 +147,14 @@ impl EditorCam {
     }
 
     pub fn update_camera(&mut self, cam_transform: &mut Transform) {
+        dbg!(&self);
         let (anchor, orbit, pan, zoom) = match &mut self.motion {
-            Motion::Inactive { mut velocity } => {
+            Motion::Inactive { ref mut velocity } => {
                 velocity.decay(self.momentum);
                 match velocity {
                     Velocity::None => return,
-                    Velocity::Orbit { anchor, velocity } => (anchor, velocity, Vec2::ZERO, 0.0),
-                    Velocity::Pan { anchor, velocity } => (anchor, Vec2::ZERO, velocity, 0.0),
+                    Velocity::Orbit { anchor, velocity } => (*anchor, *velocity, Vec2::ZERO, 0.0),
+                    Velocity::Pan { anchor, velocity } => (*anchor, Vec2::ZERO, *velocity, 0.0),
                 }
             }
             Motion::Active {
@@ -167,6 +168,8 @@ impl EditorCam {
                 zoom_inputs.iter().sum::<f32>() / zoom_inputs.len() as f32,
             ),
         };
+
+        cam_transform.translation += cam_transform.rotation * Vec3::new(-pan.x, pan.y, 0.0) * 0.01;
 
         // TODO: use the anchor and velocities to update the camera's transform.
     }
@@ -275,10 +278,24 @@ enum Velocity {
 impl Velocity {
     /// Decay the velocity based on the momentum setting.
     fn decay(&mut self, momentum: Momentum) {
+        let mut is_none = false;
         match self {
             Velocity::None => (),
-            Velocity::Orbit { mut velocity, .. } => velocity *= momentum.orbit_decay(),
-            Velocity::Pan { mut velocity, .. } => velocity *= momentum.pan_decay(),
+            Velocity::Orbit {
+                ref mut velocity, ..
+            } => {
+                *velocity *= momentum.orbit_decay();
+                is_none = velocity.length() <= f32::EPSILON;
+            }
+            Velocity::Pan {
+                ref mut velocity, ..
+            } => {
+                *velocity *= momentum.pan_decay();
+                is_none = velocity.length() <= f32::EPSILON;
+            }
+        }
+        if is_none {
+            *self = Velocity::None;
         }
     }
 }

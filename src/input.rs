@@ -169,6 +169,7 @@ impl CameraControllerEvent {
             camera_controller.send_screen_movement(screenspace_input);
             camera_controller.send_zoom(zoom_amount);
         }
+        mouse_motion.clear();
     }
 }
 
