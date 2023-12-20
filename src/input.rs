@@ -2,35 +2,57 @@ use bevy::{
     input::mouse::{MouseMotion, MouseWheel},
     prelude::*,
     utils::HashMap,
+    window::PrimaryWindow,
 };
 use bevy_picking_core::pointer::{
-    InputMove, InputPress, PointerButton, PointerId, PointerInteraction, PointerMap,
+    InputMove, InputPress, PointerButton, PointerId, PointerInteraction, PointerLocation,
+    PointerMap,
 };
 
 use crate::prelude::EditorCam;
 
-pub struct CameraControllerInputPlugin;
+pub fn default_camera_inputs(
+    mut controller: EventWriter<CameraControllerEvent>,
+    mut pointer_presses: EventReader<InputPress>,
+    // mut keyboard: Res<Input<KeyCode>>,
+    cameras: Query<(Entity, &Camera), With<EditorCam>>,
+    pointers: Query<&PointerLocation>,
+    pointer_map: Res<PointerMap>,
+    primary_window: Query<Entity, With<PrimaryWindow>>,
+) {
+    for press in pointer_presses.read() {
+        let Some(pointer_location) = pointer_map
+            .get_entity(press.pointer_id)
+            .and_then(|entity| pointers.get(entity).ok().and_then(|p| p.location()))
+        else {
+            continue;
+        };
 
-impl Plugin for CameraControllerInputPlugin {
-    fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_event::<CameraControllerEvent>()
-            .init_resource::<CameraPointerMap>()
-            .add_systems(
-                Update,
-                (
-                    CameraControllerEvent::receive_events,
-                    CameraControllerEvent::update_moves,
-                )
-                    .chain(),
-            );
+        let Some((camera, _)) = cameras
+            .iter()
+            .find(|(_, camera)| pointer_location.is_in_viewport(camera, &primary_window))
+        else {
+            continue;
+        };
+
+        if press.is_just_down(PointerButton::Secondary) {
+            controller.send(CameraControllerEvent::Start {
+                kind: MotionKind::OrbitZoom,
+                camera,
+                pointer: press.pointer_id,
+            });
+        } else if press.is_just_down(PointerButton::Middle) {
+            controller.send(CameraControllerEvent::Start {
+                kind: MotionKind::PanZoom,
+                camera,
+                pointer: press.pointer_id,
+            });
+        } else if press.is_just_up(PointerButton::Secondary)
+            || press.is_just_up(PointerButton::Middle)
+        {
+            controller.send(CameraControllerEvent::End { camera });
+        }
     }
-}
-
-#[derive(Debug, Clone, Copy, Reflect)]
-pub enum MotionKind {
-    OrbitZoom,
-    PanZoom,
-    Zoom,
 }
 
 /// Maps a camera to the pointer that is currently controlling it.
@@ -150,17 +172,9 @@ impl CameraControllerEvent {
     }
 }
 
-pub fn default_camera_inputs(
-    mut controller: EventWriter<CameraControllerEvent>,
-    mut pointer_button: EventReader<InputPress>,
-    mut pointer_move: EventReader<InputMove>,
-    mut keyboard: Res<Input<KeyCode>>,
-    // Maps cameras to the pointer they are currently being controlled by
-    mut moving_pointers: Local<HashMap<Entity, PointerId>>,
-) {
-    for press in pointer_button.read() {
-        if press.is_just_down(PointerButton::Middle) {
-            // press.
-        }
-    }
+#[derive(Debug, Clone, Copy, Reflect)]
+pub enum MotionKind {
+    OrbitZoom,
+    PanZoom,
+    Zoom,
 }

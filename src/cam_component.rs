@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use bevy::{
-    ecs::component::Component,
+    ecs::{component::Component, system::Query},
     math::{Vec2, Vec3},
     reflect::Reflect,
     transform::components::Transform,
@@ -140,6 +140,12 @@ impl EditorCam {
         self.motion = Motion::Inactive { velocity };
     }
 
+    pub fn update_camera_positions(mut cameras: Query<(&mut EditorCam, &mut Transform)>) {
+        for (mut camera_controller, ref mut cam_transform) in cameras.iter_mut() {
+            camera_controller.update_camera(cam_transform)
+        }
+    }
+
     pub fn update_camera(&mut self, cam_transform: &mut Transform) {
         let (anchor, orbit, pan, zoom) = match &mut self.motion {
             Motion::Inactive { mut velocity } => {
@@ -174,22 +180,51 @@ pub enum OrbitMode {
 
 #[derive(Debug, Clone, Copy, Reflect)]
 pub struct Smoothness {
-    pan: u8,
-    orbit: u8,
-    zoom: u8,
+    pub pan: u8,
+    pub orbit: u8,
+    pub zoom: u8,
+}
+
+impl Smoothness {
+    pub fn same(amount: u8) -> Self {
+        Self {
+            pan: amount,
+            orbit: amount,
+            zoom: amount,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Reflect)]
 pub struct Sensitivity {
-    pan: f32,
-    orbit: f32,
-    zoom: f32,
+    pub pan: f32,
+    pub orbit: f32,
+    pub zoom: f32,
+}
+
+impl Sensitivity {
+    pub fn same(amount: f32) -> Self {
+        Self {
+            pan: amount,
+            orbit: amount,
+            zoom: amount,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Reflect)]
 pub struct Momentum {
-    pan: u8,
-    orbit: u8,
+    pub pan: u8,
+    pub orbit: u8,
+}
+
+impl Momentum {
+    pub fn same(amount: u8) -> Self {
+        Self {
+            pan: amount,
+            orbit: amount,
+        }
+    }
 }
 
 impl Momentum {

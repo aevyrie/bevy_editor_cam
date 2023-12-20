@@ -1,42 +1,26 @@
-use bevy::{
-    app::{Plugin, PreUpdate},
-    ecs::{event::EventReader, schedule::IntoSystemConfigs, system::Query},
-    render::camera::Camera,
-};
-use bevy_picking_core::{
-    events::{Down, Pointer},
-    pointer::{InputMove, InputPress},
-};
+use bevy::prelude::*;
+use bevy_picking_core::PickSet;
 
-use crate::cam_component::EditorCam;
+use crate::{
+    cam_component::EditorCam,
+    input::{CameraControllerEvent, CameraPointerMap},
+};
 
 pub struct EditorCamPlugin;
 
 impl Plugin for EditorCamPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_systems(
-            PreUpdate,
-            (Self::start_motion, Self::update_cam_position).chain(),
-        );
+        app.add_event::<CameraControllerEvent>()
+            .init_resource::<CameraPointerMap>()
+            .add_systems(
+                PreUpdate,
+                (
+                    CameraControllerEvent::receive_events,
+                    CameraControllerEvent::update_moves,
+                    EditorCam::update_camera_positions,
+                )
+                    .chain()
+                    .after(PickSet::Last),
+            );
     }
-}
-
-impl EditorCamPlugin {
-    pub fn start_motion(
-        mut cameras: Query<&mut EditorCam, &Camera>,
-        mut presses: EventReader<InputPress>,
-        mut down_events: EventReader<Pointer<Down>>,
-    ) {
-    }
-
-    pub fn update_motion(mut cameras: Query<&mut EditorCam>, mut moves: EventReader<InputMove>) {}
-
-    pub fn end_motion(mut cameras: Query<&mut EditorCam>, mut presses: EventReader<InputPress>) {
-        for press in presses.read() {
-            if press.is_just_down(bevy_picking_core::pointer::PointerButton::Middle) {}
-            for camera in cameras.iter_mut() {}
-        }
-    }
-
-    pub fn update_cam_position() {}
 }
