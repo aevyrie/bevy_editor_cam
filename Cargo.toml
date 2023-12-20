@@ -1,0 +1,18 @@
+[package]
+name = "bevy_editor_cam"
+version = "0.1.0"
+edition = "2021"
+description = "A camera controller for editors and CAD."
+repository = "https://github.com/aevyrie/bevy_editor_cam"
+keywords = ["editor, camera, bevy"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bevy = { version = "0.12.1", default-features = false, features = [
+    "bevy_render",
+] }
+bevy_picking_core = "0.17"
+
+[dev-dependencies]
+bevy = "0.12"
