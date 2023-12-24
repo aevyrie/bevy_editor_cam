@@ -27,19 +27,21 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         EditorCam::new(
             OrbitMode::Free,
             Smoothness {
-                pan: 0,
-                orbit: 1,
-                zoom: 1,
+                pan: 3,
+                orbit: 3,
+                zoom: 10,
             },
             Sensitivity::same(1.0),
-            Momentum::same(
-                150,
-                Smoothness {
+            Momentum {
+                smoothness: Smoothness {
                     pan: 10,
                     orbit: 10,
                     zoom: 10,
                 },
-            ),
+                pan: 150,
+                orbit: 50,
+                zoom: 30,
+            },
             5.0,
         ),
     ));

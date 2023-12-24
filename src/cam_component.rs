@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 use bevy::{
     ecs::{component::Component, system::Query},
     log::error,
-    math::{Vec2, Vec3},
+    math::{DVec2, DVec3, Vec2, Vec3},
     reflect::Reflect,
     render::camera::{Camera, CameraProjection, Projection},
     transform::components::Transform,
@@ -27,7 +27,7 @@ pub struct EditorCam {
     /// rotate about a point in the direction the camera is facing, at this depth. This will be
     /// overwritten with the latest depth if a hit is found, to ensure the anchor point doesn't
     /// change suddenly if the user moves the pointer away from an object.
-    pub fallback_depth: f32,
+    pub fallback_depth: f64,
 }
 
 impl EditorCam {
@@ -36,7 +36,7 @@ impl EditorCam {
         smoothness: Smoothness,
         sensitivity: Sensitivity,
         momentum: Momentum,
-        initial_anchor_depth: f32,
+        initial_anchor_depth: f64,
     ) -> Self {
         Self {
             orbit,
@@ -55,13 +55,13 @@ impl EditorCam {
     /// Updates the fallback value with the latest hit to ensure that if the camera starts orbiting
     /// again, but has no hit to anchor onto, the anchor doesn't suddenly change distance, which is
     /// what would happen if we used a fixed value.
-    fn anchor_or_fallback(&mut self, anchor: Option<Vec3>) -> Vec3 {
-        let anchor = anchor.unwrap_or(Vec3::new(0.0, 0.0, self.fallback_depth));
+    fn anchor_or_fallback(&mut self, anchor: Option<DVec3>) -> DVec3 {
+        let anchor = anchor.unwrap_or(DVec3::new(0.0, 0.0, self.fallback_depth));
         self.fallback_depth = anchor.z;
         anchor
     }
 
-    pub fn start_orbit(&mut self, anchor: Option<Vec3>) {
+    pub fn start_orbit(&mut self, anchor: Option<DVec3>) {
         self.motion = Motion::Active {
             anchor: self.anchor_or_fallback(anchor),
             motion_inputs: MotionInputs::OrbitZoom {
@@ -71,7 +71,7 @@ impl EditorCam {
         }
     }
 
-    pub fn start_pan(&mut self, anchor: Option<Vec3>) {
+    pub fn start_pan(&mut self, anchor: Option<DVec3>) {
         self.motion = Motion::Active {
             anchor: self.anchor_or_fallback(anchor),
             motion_inputs: MotionInputs::PanZoom {
@@ -81,7 +81,7 @@ impl EditorCam {
         }
     }
 
-    pub fn start_zoom(&mut self, anchor: Option<Vec3>) {
+    pub fn start_zoom(&mut self, anchor: Option<DVec3>) {
         self.motion = Motion::Active {
             anchor: self.anchor_or_fallback(anchor),
             motion_inputs: MotionInputs::Zoom {
@@ -176,13 +176,13 @@ impl EditorCam {
                         anchor,
                         velocity,
                         zoom,
-                    } => (anchor, *velocity, Vec2::ZERO, *zoom),
+                    } => (anchor, *velocity, DVec2::ZERO, *zoom),
                     Velocity::Pan {
                         anchor,
                         velocity,
                         zoom,
-                    } => (anchor, Vec2::ZERO, *velocity, *zoom),
-                    Velocity::Zoom { anchor, zoom } => (anchor, Vec2::ZERO, Vec2::ZERO, *zoom),
+                    } => (anchor, DVec2::ZERO, *velocity, *zoom),
+                    Velocity::Zoom { anchor, zoom } => (anchor, DVec2::ZERO, DVec2::ZERO, *zoom),
                 }
             }
             Motion::Active {
@@ -197,8 +197,8 @@ impl EditorCam {
         };
 
         let screen_to_view_space_at_depth =
-            |camera: &Camera, proj: &Projection, depth: f32| -> Option<Vec2> {
-                let target_size = camera.logical_viewport_size()?;
+            |camera: &Camera, proj: &Projection, depth: f64| -> Option<DVec2> {
+                let target_size = camera.logical_viewport_size()?.as_dvec2();
                 // This is a strangle looking, but key part of the otherwise normal looking
                 // screen-to-view transformation. What we are trying to do here is answer "if we
                 // move by one pixel in x and y, how much distance do we cover in the world at the
@@ -208,11 +208,11 @@ impl EditorCam {
                 let mut viewport_position = target_size / 2.0 - 1.0;
                 // Flip the Y co-ordinate origin from the top to the bottom.
                 viewport_position.y = target_size.y - viewport_position.y;
-                let ndc = viewport_position * 2. / target_size - Vec2::ONE;
-                let ndc_to_view = proj.get_projection_matrix().inverse();
+                let ndc = viewport_position * 2. / target_size - DVec2::ONE;
+                let ndc_to_view = proj.get_projection_matrix().as_dmat4().inverse();
                 let view_near_plane = ndc_to_view.project_point3(ndc.extend(1.));
                 // Using EPSILON because an ndc with Z = 0 returns NaNs.
-                let view_far_plane = ndc_to_view.project_point3(ndc.extend(f32::EPSILON));
+                let view_far_plane = ndc_to_view.project_point3(ndc.extend(f64::EPSILON));
                 let direction = view_far_plane - view_near_plane;
                 let depth_normalized_direction = direction / direction.z;
                 let view_pos = depth_normalized_direction * depth;
@@ -230,10 +230,10 @@ impl EditorCam {
         // Varies from 0 to anchor.z over x = [0..inf]
         let scaled_zoom = (1.0 - 1.0 / (zoom.abs() + 1.0)) * zoom.signum() * anchor.z * -0.05;
 
-        // let scaled_zoom = anchor.z * zoom;
         let zoom_translation_view_space = anchor.normalize() * scaled_zoom;
-        cam_transform.translation +=
-            cam_transform.rotation * (pan_translation_view_space + zoom_translation_view_space);
+        cam_transform.translation += (cam_transform.rotation.as_f64()
+            * (pan_translation_view_space + zoom_translation_view_space))
+            .as_vec3();
 
         *anchor -= pan_translation_view_space + zoom_translation_view_space;
         // Prevent the anchor from going behind the camera
@@ -301,16 +301,16 @@ impl Momentum {
 }
 
 impl Momentum {
-    fn orbit_decay(self) -> f32 {
-        (self.orbit as f32 / 256.0).powf(0.1)
+    fn orbit_decay(self) -> f64 {
+        (self.orbit as f64 / 256.0).powf(0.1)
     }
 
-    fn pan_decay(self) -> f32 {
-        (self.pan as f32 / 256.0).powf(0.1)
+    fn pan_decay(self) -> f64 {
+        (self.pan as f64 / 256.0).powf(0.1)
     }
 
-    fn zoom_decay(self) -> f32 {
-        (self.zoom as f32 / 256.0).powf(0.1)
+    fn zoom_decay(self) -> f64 {
+        (self.zoom as f64 / 256.0).powf(0.1)
     }
 }
 
@@ -327,13 +327,23 @@ pub enum Motion {
         /// - Rotation: the direction of the anchor does not change, it is fixed in screenspace.
         /// - Panning: the depth of the anchor does not change, the camera only moves in x and y.
         /// - Zoom: the direction of the anchor does not change, but the length does.
-        anchor: Vec3,
+        anchor: DVec3,
         /// Pan and orbit are mutually exclusive, however both can be used with zoom.
         motion_inputs: MotionInputs,
     },
 }
 
 impl Motion {
+    /// Returns `true` if the camera is moving due to inputs or momentum.
+    pub fn is_moving(&self) -> bool {
+        !matches!(
+            self,
+            Motion::Inactive {
+                velocity: Velocity::None
+            }
+        )
+    }
+
     pub fn inputs(&self) -> Option<&MotionInputs> {
         match self {
             Motion::Inactive { .. } => None,
@@ -369,7 +379,7 @@ impl Motion {
         )
     }
 
-    pub fn zoom_motion(&self, smoothness: Smoothness) -> f32 {
+    pub fn zoom_motion(&self, smoothness: Smoothness) -> f64 {
         match self {
             Motion::Inactive { velocity } => velocity.zoom(),
             Motion::Active { motion_inputs, .. } => motion_inputs.zoom_velocity(smoothness),
@@ -382,22 +392,23 @@ pub enum Velocity {
     #[default]
     None,
     Orbit {
-        anchor: Vec3,
-        velocity: Vec2,
-        zoom: f32,
+        anchor: DVec3,
+        velocity: DVec2,
+        zoom: f64,
     },
     Pan {
-        anchor: Vec3,
-        velocity: Vec2,
-        zoom: f32,
+        anchor: DVec3,
+        velocity: DVec2,
+        zoom: f64,
     },
     Zoom {
-        anchor: Vec3,
-        zoom: f32,
+        anchor: DVec3,
+        zoom: f64,
     },
 }
 
 impl Velocity {
+    const DECAY_THRESHOLD: f64 = 1e-3;
     /// Decay the velocity based on the momentum setting.
     fn decay(&mut self, momentum: Momentum) {
         let mut is_none = false;
@@ -410,7 +421,7 @@ impl Velocity {
             } => {
                 *velocity *= momentum.orbit_decay();
                 *zoom *= momentum.zoom_decay();
-                is_none = velocity.length() + *zoom <= f32::EPSILON;
+                is_none = velocity.length() + zoom.abs() <= Self::DECAY_THRESHOLD;
             }
             Velocity::Pan {
                 ref mut velocity,
@@ -419,11 +430,11 @@ impl Velocity {
             } => {
                 *velocity *= momentum.pan_decay();
                 *zoom *= momentum.zoom_decay();
-                is_none = velocity.length() + *zoom <= f32::EPSILON;
+                is_none = velocity.length() + zoom.abs() <= Self::DECAY_THRESHOLD;
             }
             Velocity::Zoom { ref mut zoom, .. } => {
                 *zoom *= momentum.zoom_decay();
-                is_none = *zoom <= f32::EPSILON;
+                is_none = zoom.abs() <= Self::DECAY_THRESHOLD;
             }
         }
         if is_none {
@@ -431,7 +442,7 @@ impl Velocity {
         }
     }
 
-    pub fn zoom(&self) -> f32 {
+    pub fn zoom(&self) -> f64 {
         match self {
             Velocity::None => 0.0,
             Velocity::Orbit { zoom, .. } => *zoom,
@@ -465,30 +476,36 @@ pub enum MotionInputs {
 }
 
 impl MotionInputs {
-    pub fn orbit_velocity(&self, smoothness: Smoothness) -> Vec2 {
+    pub fn orbit_velocity(&self, smoothness: Smoothness) -> DVec2 {
         if let Self::OrbitZoom { movement, .. } = self {
             let n_elements = movement.len().min(smoothness.orbit as usize + 1);
-            movement.iter().take(n_elements).sum::<Vec2>() / n_elements as f32
+            movement.iter().take(n_elements).sum::<Vec2>().as_dvec2() / n_elements as f64
         } else {
-            Vec2::ZERO
+            DVec2::ZERO
         }
     }
 
-    pub fn pan_velocity(&self, smoothness: Smoothness) -> Vec2 {
+    pub fn pan_velocity(&self, smoothness: Smoothness) -> DVec2 {
         if let Self::PanZoom { movement, .. } = self {
             let n_elements = movement.len().min(smoothness.pan as usize + 1);
-            movement.iter().take(n_elements).sum::<Vec2>() / n_elements as f32
+            movement.iter().take(n_elements).sum::<Vec2>().as_dvec2() / n_elements as f64
         } else {
-            Vec2::ZERO
+            DVec2::ZERO
         }
     }
 
-    pub fn zoom_velocity(&self, smoothness: Smoothness) -> f32 {
-        if let Self::Zoom { zoom_inputs, .. } = self {
-            let n_elements = zoom_inputs.len().min(smoothness.zoom as usize + 1);
-            zoom_inputs.iter().take(n_elements).sum::<f32>() / n_elements as f32
-        } else {
+    pub fn zoom_velocity(&self, smoothness: Smoothness) -> f64 {
+        let zoom_inputs = match self {
+            MotionInputs::OrbitZoom { zoom_inputs, .. } => zoom_inputs,
+            MotionInputs::PanZoom { zoom_inputs, .. } => zoom_inputs,
+            MotionInputs::Zoom { zoom_inputs } => zoom_inputs,
+        };
+        let n_elements = zoom_inputs.len().min(smoothness.zoom as usize + 1);
+        let velocity = zoom_inputs.iter().take(n_elements).sum::<f32>() as f64 / n_elements as f64;
+        if !velocity.is_finite() {
             0.0
+        } else {
+            velocity
         }
     }
 }

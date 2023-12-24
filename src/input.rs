@@ -1,7 +1,6 @@
-use std::time::Duration;
-
 use bevy::{
-    input::mouse::{MouseMotion, MouseWheel},
+    input::mouse::MouseWheel,
+    math::{DVec2, DVec3},
     prelude::*,
     render::camera::CameraProjection,
     utils::hashbrown::HashMap,
@@ -11,7 +10,7 @@ use bevy_picking_core::pointer::{
     InputMove, PointerId, PointerInteraction, PointerLocation, PointerMap,
 };
 
-use crate::prelude::EditorCam;
+use crate::prelude::{EditorCam, Smoothness};
 
 pub fn default_camera_inputs(
     pointers: Query<(&PointerId, &PointerLocation)>,
@@ -26,18 +25,14 @@ pub fn default_camera_inputs(
     let pan_start = MouseButton::Left;
 
     if let Some(&camera) = pointer_map.get(&PointerId::Mouse) {
-        let is_zooming = cameras
-            .get(camera)
+        let camera_query = cameras.get(camera).ok();
+        let is_in_zoom_mode = camera_query
             .map(|(.., editor_cam)| editor_cam.motion.is_zooming_only())
             .unwrap_or(false);
-        let is_zoom_moving = cameras
-            .get(camera)
-            .ok()
-            .map(|(.., editor_cam)| {
-                editor_cam.motion.zoom_motion(editor_cam.smoothness).abs() > 0.0
-            })
-            .unwrap_or(false);
-        let should_zoom_end = is_zooming && !is_zoom_moving;
+        let zoom_amount = camera_query
+            .map(|(.., editor_cam)| editor_cam.motion.zoom_motion(editor_cam.smoothness))
+            .unwrap_or(0.0);
+        let should_zoom_end = is_in_zoom_mode && zoom_amount.abs() < 0.1;
 
         if mouse_input.any_just_released([orbit_start, pan_start]) || should_zoom_end {
             controller.send(CameraControllerEvent::End { camera });
@@ -56,6 +51,12 @@ pub fn default_camera_inputs(
                     continue;
                 };
 
+                let camera_query = cameras.get(camera).ok();
+                let is_cam_moving = camera_query
+                    .map(|(.., editor_cam)| editor_cam.motion.is_moving())
+                    .unwrap_or(false);
+                let scroll_distance = mouse_wheel.read().map(|mw| mw.y).sum::<f32>();
+
                 // At this point we know the pointer is in the camera's viewport, now we just need
                 // to check if we should be initiating a camera movement.
 
@@ -71,9 +72,11 @@ pub fn default_camera_inputs(
                         camera,
                         pointer,
                     });
-                } else if mouse_wheel.read().filter(|mw| mw.y != 0.0).count() > 0
-                    && !pointer_map.contains_key(&pointer)
+                } else if !pointer_map.contains_key(&pointer)
+                    && ((scroll_distance.abs() > 0.0 && !is_cam_moving)
+                        || scroll_distance.abs() > 4.0)
                 {
+                    dbg!(scroll_distance);
                     controller.send(CameraControllerEvent::Start {
                         kind: MotionKind::Zoom,
                         camera,
@@ -132,14 +135,15 @@ impl CameraControllerEvent {
         cameras: Query<(&Camera, &Projection)>,
     ) {
         let screen_to_view_space =
-            |camera: &Camera, proj: &Projection, mut viewport_position: Vec2| -> Option<Vec3> {
-                let target_size = camera.logical_viewport_size()?;
+            |camera: &Camera, proj: &Projection, viewport_position: Vec2| -> Option<DVec3> {
+                let target_size = camera.logical_viewport_size()?.as_dvec2();
+                let mut viewport_position = viewport_position.as_dvec2();
                 viewport_position.y = target_size.y - viewport_position.y;
-                let ndc = viewport_position * 2. / target_size - Vec2::ONE;
-                let ndc_to_view = proj.get_projection_matrix().inverse();
+                let ndc = viewport_position * 2. / target_size - DVec2::ONE;
+                let ndc_to_view = proj.get_projection_matrix().as_dmat4().inverse();
                 let view_near_plane = ndc_to_view.project_point3(ndc.extend(1.));
                 // Using EPSILON because an ndc with Z = 0 returns NaNs.
-                let view_far_plane = ndc_to_view.project_point3(ndc.extend(f32::EPSILON));
+                let view_far_plane = ndc_to_view.project_point3(ndc.extend(f64::EPSILON));
                 Some((view_far_plane - view_near_plane).normalize())
             };
 
@@ -159,9 +163,10 @@ impl CameraControllerEvent {
                         .map(|world_space_hit| {
                             // Convert the world space hit to view (camera) space
                             cam_transform
-                                .affine()
+                                .compute_matrix()
+                                .as_dmat4()
                                 .inverse()
-                                .transform_point3(world_space_hit)
+                                .transform_point3(world_space_hit.into())
                         })
                         .or_else(|| {
                             let camera = cameras.get(event.camera()).ok();
@@ -181,10 +186,6 @@ impl CameraControllerEvent {
                                 None
                             }
                         });
-
-                    dbg!(anchor);
-
-                    // TODO: zoom should use the pointer direction, even if there is no hit.
 
                     match kind {
                         MotionKind::OrbitZoom => controller.start_orbit(anchor),
@@ -214,7 +215,6 @@ impl CameraControllerEvent {
         camera_map: Res<CameraPointerMap>,
         mut camera_controllers: Query<&mut EditorCam>,
         mut mouse_wheel: EventReader<MouseWheel>,
-        mut mouse_motion: EventReader<MouseMotion>,
         mut moves: EventReader<InputMove>,
     ) {
         let moves_list: Vec<_> = moves.read().collect();
@@ -222,19 +222,6 @@ impl CameraControllerEvent {
             let Ok(mut camera_controller) = camera_controllers.get_mut(*camera) else {
                 continue;
             };
-
-            // let screenspace_input = match pointer {
-            //     PointerId::Mouse => mouse_motion.read().map(|mm| mm.delta).sum(),
-            //     PointerId::Touch(id) => touches
-            //         .get_pressed(*id)
-            //         .map(|t| t.delta())
-            //         .unwrap_or_default(),
-            //     PointerId::Custom(_) => moves_list
-            //         .iter()
-            //         .filter(|m| m.pointer_id.eq(pointer))
-            //         .map(|m| m.delta)
-            //         .sum(),
-            // };
 
             let screenspace_input = moves_list
                 .iter()
@@ -252,7 +239,6 @@ impl CameraControllerEvent {
             camera_controller.send_screen_movement(screenspace_input);
             camera_controller.send_zoom(zoom_amount);
         }
-        mouse_motion.clear();
         mouse_wheel.clear();
         moves.clear();
     }
