@@ -2,8 +2,10 @@ use std::collections::VecDeque;
 
 use bevy::{
     ecs::{component::Component, system::Query},
+    log::error,
     math::{Vec2, Vec3},
     reflect::Reflect,
+    render::camera::{Camera, CameraProjection, Projection},
     transform::components::Transform,
 };
 
@@ -20,12 +22,12 @@ pub struct EditorCam {
     /// Amount of camera momentum after inputs have stopped.
     pub momentum: Momentum,
     /// Current camera motion.
-    motion: Motion,
+    pub motion: Motion,
     /// If the camera start moving, but there is nothing under the pointer, the controller will
     /// rotate about a point in the direction the camera is facing, at this depth. This will be
     /// overwritten with the latest depth if a hit is found, to ensure the anchor point doesn't
     /// change suddenly if the user moves the pointer away from an object.
-    fallback_depth: f32,
+    pub fallback_depth: f32,
 }
 
 impl EditorCam {
@@ -64,8 +66,8 @@ impl EditorCam {
             anchor: self.anchor_or_fallback(anchor),
             motion_inputs: MotionInputs::OrbitZoom {
                 movement: VecDeque::new(),
+                zoom_inputs: VecDeque::new(),
             },
-            zoom_inputs: VecDeque::new(),
         }
     }
 
@@ -74,16 +76,17 @@ impl EditorCam {
             anchor: self.anchor_or_fallback(anchor),
             motion_inputs: MotionInputs::PanZoom {
                 movement: VecDeque::new(),
+                zoom_inputs: VecDeque::new(),
             },
-            zoom_inputs: VecDeque::new(),
         }
     }
 
     pub fn start_zoom(&mut self, anchor: Option<Vec3>) {
         self.motion = Motion::Active {
             anchor: self.anchor_or_fallback(anchor),
-            motion_inputs: MotionInputs::Zoom,
-            zoom_inputs: VecDeque::new(),
+            motion_inputs: MotionInputs::Zoom {
+                zoom_inputs: VecDeque::new(),
+            },
         }
     }
 
@@ -94,27 +97,31 @@ impl EditorCam {
         } = self.motion
         {
             match motion_inputs {
-                MotionInputs::OrbitZoom { ref mut movement } => {
+                MotionInputs::OrbitZoom {
+                    ref mut movement, ..
+                } => {
                     movement.push_front(screenspace_input);
-                    movement.truncate(self.smoothness.orbit as usize + 1)
+                    movement.truncate(u8::MAX as usize + 1)
                 }
-                MotionInputs::PanZoom { ref mut movement } => {
+                MotionInputs::PanZoom {
+                    ref mut movement, ..
+                } => {
                     movement.push_front(screenspace_input);
-                    movement.truncate(self.smoothness.pan as usize + 1)
+                    movement.truncate(u8::MAX as usize + 1)
                 }
-                MotionInputs::Zoom => (), // When in zoom-only, we ignore pan and zoom
+                MotionInputs::Zoom { .. } => (), // When in zoom-only, we ignore pan and zoom
             }
         }
     }
 
     pub fn send_zoom(&mut self, zoom_amount: f32) {
         if let Motion::Active {
-            zoom_inputs: ref mut zoom,
+            motion_inputs: MotionInputs::Zoom { zoom_inputs },
             ..
-        } = self.motion
+        } = &mut self.motion
         {
-            zoom.push_front(zoom_amount);
-            zoom.truncate(self.smoothness.zoom as usize + 1);
+            zoom_inputs.push_front(zoom_amount);
+            zoom_inputs.truncate(u8::MAX as usize + 1);
         }
     }
 
@@ -128,50 +135,96 @@ impl EditorCam {
             } => match motion_inputs {
                 MotionInputs::OrbitZoom { .. } => Velocity::Orbit {
                     anchor,
-                    velocity: motion_inputs.orbit_velocity(),
+                    velocity: motion_inputs.orbit_velocity(self.momentum.smoothness),
                 },
                 MotionInputs::PanZoom { .. } => Velocity::Pan {
                     anchor,
-                    velocity: motion_inputs.pan_velocity(),
+                    velocity: motion_inputs.pan_velocity(self.momentum.smoothness),
                 },
-                MotionInputs::Zoom => Velocity::None,
+                MotionInputs::Zoom { .. } => Velocity::None,
             },
         };
         self.motion = Motion::Inactive { velocity };
     }
 
-    pub fn update_camera_positions(mut cameras: Query<(&mut EditorCam, &mut Transform)>) {
-        for (mut camera_controller, ref mut cam_transform) in cameras.iter_mut() {
-            camera_controller.update_camera(cam_transform)
+    pub fn update_camera_positions(
+        mut cameras: Query<(&mut EditorCam, &Camera, &mut Transform, &Projection)>,
+    ) {
+        for (mut camera_controller, camera, ref mut cam_transform, projection) in cameras.iter_mut()
+        {
+            camera_controller.update_camera(camera, cam_transform, projection)
         }
     }
 
-    pub fn update_camera(&mut self, cam_transform: &mut Transform) {
-        dbg!(&self);
+    pub fn update_camera(
+        &mut self,
+        camera: &Camera,
+        cam_transform: &mut Transform,
+        projection: &Projection,
+    ) {
         let (anchor, orbit, pan, zoom) = match &mut self.motion {
             Motion::Inactive { ref mut velocity } => {
                 velocity.decay(self.momentum);
                 match velocity {
                     Velocity::None => return,
-                    Velocity::Orbit { anchor, velocity } => (*anchor, *velocity, Vec2::ZERO, 0.0),
-                    Velocity::Pan { anchor, velocity } => (*anchor, Vec2::ZERO, *velocity, 0.0),
+                    Velocity::Orbit { anchor, velocity } => (anchor, *velocity, Vec2::ZERO, 0.0),
+                    Velocity::Pan { anchor, velocity } => (anchor, Vec2::ZERO, *velocity, 0.0),
                 }
             }
             Motion::Active {
                 anchor,
                 motion_inputs,
-                zoom_inputs,
             } => (
-                *anchor,
-                motion_inputs.orbit_velocity(),
-                motion_inputs.pan_velocity(),
-                zoom_inputs.iter().sum::<f32>() / zoom_inputs.len() as f32,
+                anchor,
+                motion_inputs.orbit_velocity(self.smoothness),
+                motion_inputs.pan_velocity(self.smoothness),
+                motion_inputs.zoom_velocity(self.smoothness),
             ),
         };
 
-        cam_transform.translation += cam_transform.rotation * Vec3::new(-pan.x, pan.y, 0.0) * 0.01;
+        let screen_to_view_space_at_depth =
+            |camera: &Camera, proj: &Projection, depth: f32| -> Option<Vec2> {
+                let target_size = camera.logical_viewport_size()?;
+                // This is a strangle looking, but key part of the otherwise normal looking
+                // screen-to-view transformation. What we are trying to do here is answer "if we
+                // move by one pixel in x and y, how much distance do we cover in the world at the
+                // specified depth?" Because the viewport position's origin is in the corner, we
+                // need to half of the target size, and subtract one pixel. This gets us a viewport
+                // position one pixel diagonal offset from the center of the screen.
+                let mut viewport_position = target_size / 2.0 - 1.0;
+                // Flip the Y co-ordinate origin from the top to the bottom.
+                viewport_position.y = target_size.y - viewport_position.y;
+                let ndc = viewport_position * 2. / target_size - Vec2::ONE;
+                let ndc_to_view = proj.get_projection_matrix().inverse();
+                let view_near_plane = ndc_to_view.project_point3(ndc.extend(1.));
+                // Using EPSILON because an ndc with Z = 0 returns NaNs.
+                let view_far_plane = ndc_to_view.project_point3(ndc.extend(f32::EPSILON));
+                let direction = view_far_plane - view_near_plane;
+                let depth_normalized_direction = direction / direction.z;
+                let view_pos = depth_normalized_direction * depth;
+                debug_assert_eq!(view_pos.z, depth);
+                Some(view_pos.truncate())
+            };
 
-        // TODO: use the anchor and velocities to update the camera's transform.
+        let Some(view_offset) = screen_to_view_space_at_depth(camera, projection, anchor.z) else {
+            error!("Malformed camera");
+            return;
+        };
+
+        let pan_translation_view_space = (pan * view_offset).extend(0.0);
+
+        // Varies from 0 to anchor.z over x = [0..inf]
+        let scaled_zoom = (1.0 - 1.0 / (zoom.abs() + 1.0)) * zoom.signum() * anchor.z * -0.05;
+
+        // let scaled_zoom = anchor.z * zoom;
+        let zoom_translation_view_space = anchor.normalize() * scaled_zoom;
+        cam_transform.translation +=
+            cam_transform.rotation * (pan_translation_view_space + zoom_translation_view_space);
+
+        *anchor -= pan_translation_view_space + zoom_translation_view_space;
+        // Prevent the anchor from going behind the camera
+        anchor.z = anchor.z.min(0.0);
+        self.fallback_depth = anchor.z;
     }
 }
 
@@ -186,16 +239,6 @@ pub struct Smoothness {
     pub pan: u8,
     pub orbit: u8,
     pub zoom: u8,
-}
-
-impl Smoothness {
-    pub fn same(amount: u8) -> Self {
-        Self {
-            pan: amount,
-            orbit: amount,
-            zoom: amount,
-        }
-    }
 }
 
 #[derive(Debug, Clone, Copy, Reflect)]
@@ -217,13 +260,24 @@ impl Sensitivity {
 
 #[derive(Debug, Clone, Copy, Reflect)]
 pub struct Momentum {
+    /// When the camera is being dragged and released, the latest velocity will be used as the
+    /// initial velocity for momentum calculations. This smoothing value determines how smoothed
+    /// that velocity should be when the user stops dragging. Without this, only the last input will
+    /// be considered, which can often be near zero as the user stops dragging. Smoothing this out
+    /// makes it easier to "flick" the camera and have it start with some velocity.
+    ///
+    /// It is helpful to decouple this from the input smoothing, as it might be desirable to make
+    /// inputs snappy and not-over-smoothed, while also making momentum smoothing high to allow
+    /// easily "flicking" the camera.
+    pub smoothness: Smoothness,
     pub pan: u8,
     pub orbit: u8,
 }
 
 impl Momentum {
-    pub fn same(amount: u8) -> Self {
+    pub fn same(amount: u8, smoothness: Smoothness) -> Self {
         Self {
+            smoothness,
             pan: amount,
             orbit: amount,
         }
@@ -232,18 +286,18 @@ impl Momentum {
 
 impl Momentum {
     fn pan_decay(self) -> f32 {
-        self.pan as f32 / 256.0
+        (self.pan as f32 / 256.0).powf(0.1)
     }
 
     fn orbit_decay(self) -> f32 {
-        self.orbit as f32 / 256.0
+        (self.orbit as f32 / 256.0).powf(0.1)
     }
 }
 
 #[derive(Debug, Clone, Reflect)]
-enum Motion {
+pub enum Motion {
     Inactive {
-        /// Contains inherited velocity, if any. This will decay based on
+        /// Contains inherited velocity, if any. This will decay based on momentum settings.
         velocity: Velocity,
     },
     Active {
@@ -256,13 +310,48 @@ enum Motion {
         anchor: Vec3,
         /// Pan and orbit are mutually exclusive, however both can be used with zoom.
         motion_inputs: MotionInputs,
-        /// A queue of zoom inputs.
-        zoom_inputs: VecDeque<f32>,
     },
 }
 
+impl Motion {
+    pub fn inputs(&self) -> Option<&MotionInputs> {
+        match self {
+            Motion::Inactive { .. } => None,
+            Motion::Active { motion_inputs, .. } => Some(motion_inputs),
+        }
+    }
+
+    pub fn is_orbiting(&self) -> bool {
+        matches!(
+            self,
+            Self::Active {
+                motion_inputs: MotionInputs::OrbitZoom { .. },
+                ..
+            }
+        )
+    }
+    pub fn is_panning(&self) -> bool {
+        matches!(
+            self,
+            Self::Active {
+                motion_inputs: MotionInputs::PanZoom { .. },
+                ..
+            }
+        )
+    }
+    pub fn is_zooming_only(&self) -> bool {
+        matches!(
+            self,
+            Self::Active {
+                motion_inputs: MotionInputs::Zoom { .. },
+                ..
+            }
+        )
+    }
+}
+
 #[derive(Debug, Clone, Copy, Default, Reflect)]
-enum Velocity {
+pub enum Velocity {
     #[default]
     None,
     Orbit {
@@ -301,35 +390,53 @@ impl Velocity {
 }
 
 #[derive(Debug, Clone, Reflect)]
-enum MotionInputs {
+pub enum MotionInputs {
     /// The camera can orbit and zoom
     OrbitZoom {
         /// A queue of screenspace orbiting inputs; usually the mouse drag vector.
         movement: VecDeque<Vec2>,
+        /// A queue of zoom inputs.
+        zoom_inputs: VecDeque<f32>,
     },
     /// The camera can pan and zoom
     PanZoom {
         /// A queue of screenspace panning inputs; usually the mouse drag vector.
         movement: VecDeque<Vec2>,
+        /// A queue of zoom inputs.
+        zoom_inputs: VecDeque<f32>,
     },
     /// The camera can only zoom
-    Zoom,
+    Zoom {
+        /// A queue of zoom inputs.
+        zoom_inputs: VecDeque<f32>,
+    },
 }
 
 impl MotionInputs {
-    fn orbit_velocity(&self) -> Vec2 {
-        if let Self::OrbitZoom { movement } = self {
-            movement.iter().sum::<Vec2>() / movement.len() as f32
+    pub fn orbit_velocity(&self, smoothness: Smoothness) -> Vec2 {
+        if let Self::OrbitZoom { movement, .. } = self {
+            let n_elements = movement.len().min(smoothness.orbit as usize + 1);
+            movement.iter().take(n_elements).sum::<Vec2>() / n_elements as f32
         } else {
             Vec2::ZERO
         }
     }
 
-    fn pan_velocity(&self) -> Vec2 {
-        if let Self::PanZoom { movement } = self {
-            movement.iter().sum::<Vec2>() / movement.len() as f32
+    pub fn pan_velocity(&self, smoothness: Smoothness) -> Vec2 {
+        if let Self::PanZoom { movement, .. } = self {
+            let n_elements = movement.len().min(smoothness.pan as usize + 1);
+            movement.iter().take(n_elements).sum::<Vec2>() / n_elements as f32
         } else {
             Vec2::ZERO
+        }
+    }
+
+    pub fn zoom_velocity(&self, smoothness: Smoothness) -> f32 {
+        if let Self::Zoom { zoom_inputs, .. } = self {
+            let n_elements = zoom_inputs.len().min(smoothness.zoom as usize + 1);
+            zoom_inputs.iter().take(n_elements).sum::<f32>() / n_elements as f32
+        } else {
+            0.0
         }
     }
 }
