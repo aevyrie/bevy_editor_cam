@@ -136,12 +136,17 @@ impl EditorCam {
                 MotionInputs::OrbitZoom { .. } => Velocity::Orbit {
                     anchor,
                     velocity: motion_inputs.orbit_velocity(self.momentum.smoothness),
+                    zoom: motion_inputs.zoom_velocity(self.momentum.smoothness),
                 },
                 MotionInputs::PanZoom { .. } => Velocity::Pan {
                     anchor,
                     velocity: motion_inputs.pan_velocity(self.momentum.smoothness),
+                    zoom: motion_inputs.zoom_velocity(self.momentum.smoothness),
                 },
-                MotionInputs::Zoom { .. } => Velocity::None,
+                MotionInputs::Zoom { .. } => Velocity::Zoom {
+                    anchor,
+                    zoom: motion_inputs.zoom_velocity(self.momentum.smoothness),
+                },
             },
         };
         self.motion = Motion::Inactive { velocity };
@@ -167,8 +172,17 @@ impl EditorCam {
                 velocity.decay(self.momentum);
                 match velocity {
                     Velocity::None => return,
-                    Velocity::Orbit { anchor, velocity } => (anchor, *velocity, Vec2::ZERO, 0.0),
-                    Velocity::Pan { anchor, velocity } => (anchor, Vec2::ZERO, *velocity, 0.0),
+                    Velocity::Orbit {
+                        anchor,
+                        velocity,
+                        zoom,
+                    } => (anchor, *velocity, Vec2::ZERO, *zoom),
+                    Velocity::Pan {
+                        anchor,
+                        velocity,
+                        zoom,
+                    } => (anchor, Vec2::ZERO, *velocity, *zoom),
+                    Velocity::Zoom { anchor, zoom } => (anchor, Vec2::ZERO, Vec2::ZERO, *zoom),
                 }
             }
             Motion::Active {
@@ -272,6 +286,7 @@ pub struct Momentum {
     pub smoothness: Smoothness,
     pub pan: u8,
     pub orbit: u8,
+    pub zoom: u8,
 }
 
 impl Momentum {
@@ -280,17 +295,22 @@ impl Momentum {
             smoothness,
             pan: amount,
             orbit: amount,
+            zoom: amount,
         }
     }
 }
 
 impl Momentum {
+    fn orbit_decay(self) -> f32 {
+        (self.orbit as f32 / 256.0).powf(0.1)
+    }
+
     fn pan_decay(self) -> f32 {
         (self.pan as f32 / 256.0).powf(0.1)
     }
 
-    fn orbit_decay(self) -> f32 {
-        (self.orbit as f32 / 256.0).powf(0.1)
+    fn zoom_decay(self) -> f32 {
+        (self.zoom as f32 / 256.0).powf(0.1)
     }
 }
 
@@ -348,6 +368,13 @@ impl Motion {
             }
         )
     }
+
+    pub fn zoom_motion(&self, smoothness: Smoothness) -> f32 {
+        match self {
+            Motion::Inactive { velocity } => velocity.zoom(),
+            Motion::Active { motion_inputs, .. } => motion_inputs.zoom_velocity(smoothness),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Default, Reflect)]
@@ -357,10 +384,16 @@ pub enum Velocity {
     Orbit {
         anchor: Vec3,
         velocity: Vec2,
+        zoom: f32,
     },
     Pan {
         anchor: Vec3,
         velocity: Vec2,
+        zoom: f32,
+    },
+    Zoom {
+        anchor: Vec3,
+        zoom: f32,
     },
 }
 
@@ -371,20 +404,39 @@ impl Velocity {
         match self {
             Velocity::None => (),
             Velocity::Orbit {
-                ref mut velocity, ..
+                ref mut velocity,
+                ref mut zoom,
+                ..
             } => {
                 *velocity *= momentum.orbit_decay();
-                is_none = velocity.length() <= f32::EPSILON;
+                *zoom *= momentum.zoom_decay();
+                is_none = velocity.length() + *zoom <= f32::EPSILON;
             }
             Velocity::Pan {
-                ref mut velocity, ..
+                ref mut velocity,
+                ref mut zoom,
+                ..
             } => {
                 *velocity *= momentum.pan_decay();
-                is_none = velocity.length() <= f32::EPSILON;
+                *zoom *= momentum.zoom_decay();
+                is_none = velocity.length() + *zoom <= f32::EPSILON;
+            }
+            Velocity::Zoom { ref mut zoom, .. } => {
+                *zoom *= momentum.zoom_decay();
+                is_none = *zoom <= f32::EPSILON;
             }
         }
         if is_none {
             *self = Velocity::None;
+        }
+    }
+
+    pub fn zoom(&self) -> f32 {
+        match self {
+            Velocity::None => 0.0,
+            Velocity::Orbit { zoom, .. } => *zoom,
+            Velocity::Pan { zoom, .. } => *zoom,
+            Velocity::Zoom { zoom, .. } => *zoom,
         }
     }
 }

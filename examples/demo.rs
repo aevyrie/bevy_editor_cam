@@ -9,22 +9,27 @@ fn main() {
         .run()
 }
 
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Camera3dBundle {
             transform: Transform::from_xyz(10.0, 10.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
+            projection: Projection::Perspective(PerspectiveProjection {
+                near: 1e-8,
+                ..Default::default()
+            }),
+            // projection: Projection::Orthographic(OrthographicProjection {
+            //     near: 1e-8,
+            //     scale: 0.01,
+            //     ..Default::default()
+            // }),
             ..default()
         },
         EditorCam::new(
             OrbitMode::Free,
             Smoothness {
-                pan: 1,
+                pan: 0,
                 orbit: 1,
-                zoom: 3,
+                zoom: 1,
             },
             Sensitivity::same(1.0),
             Momentum::same(
@@ -38,26 +43,24 @@ fn setup(
             5.0,
         ),
     ));
-    let cube = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
-    let cube_matl = materials.add(Color::rgb_u8(124, 144, 255).into());
-    let width = -5..5;
-    let spacing = 10.0;
+    let helmet = asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0");
+    let width = -2..2;
+    let spacing = 2.0;
     for x in width.clone() {
         for y in width.clone() {
             for z in width.clone() {
-                commands.spawn(PbrBundle {
-                    mesh: cube.clone(),
-                    material: cube_matl.clone(),
+                commands.spawn((SceneBundle {
+                    scene: helmet.clone(),
                     transform: Transform::from_translation(IVec3::new(x, y, z).as_vec3() * spacing),
                     ..default()
-                });
+                },));
             }
         }
     }
 
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            illuminance: 5000.0,
+            illuminance: 25_000.0,
             shadows_enabled: false,
             ..default()
         },

@@ -33,11 +33,8 @@ pub fn default_camera_inputs(
         let is_zoom_moving = cameras
             .get(camera)
             .ok()
-            .and_then(|(.., editor_cam)| {
-                editor_cam
-                    .motion
-                    .inputs()
-                    .map(|i| i.zoom_velocity(editor_cam.smoothness).abs() > 0.0)
+            .map(|(.., editor_cam)| {
+                editor_cam.motion.zoom_motion(editor_cam.smoothness).abs() > 0.0
             })
             .unwrap_or(false);
         let should_zoom_end = is_zooming && !is_zoom_moving;
