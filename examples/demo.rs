@@ -27,7 +27,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         EditorCam::new(
             OrbitMode::Free,
             Smoothness {
-                pan: 3,
+                pan: 1,
                 orbit: 3,
                 zoom: 10,
             },
