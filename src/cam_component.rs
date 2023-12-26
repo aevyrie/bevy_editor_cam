@@ -1,11 +1,18 @@
-use std::collections::VecDeque;
+use std::{
+    collections::VecDeque,
+    f32::consts::{FRAC_PI_2, PI},
+};
 
 use bevy::{
     ecs::{component::Component, system::Query},
+    gizmos::gizmos::Gizmos,
     log::error,
-    math::{DVec2, DVec3, Vec2, Vec3},
+    math::{DQuat, DVec2, DVec3, Quat, Vec2, Vec3},
     reflect::Reflect,
-    render::camera::{Camera, CameraProjection, Projection},
+    render::{
+        camera::{Camera, CameraProjection, Projection},
+        color::Color,
+    },
     transform::components::Transform,
 };
 
@@ -163,11 +170,12 @@ impl EditorCam {
 
     pub fn update_camera_positions(
         mut cameras: Query<(&mut EditorCam, &Camera, &mut Transform, &mut Projection)>,
+        mut gizmos: Gizmos,
     ) {
         for (mut camera_controller, camera, ref mut cam_transform, ref mut projection) in
             cameras.iter_mut()
         {
-            camera_controller.update_camera(camera, cam_transform, projection)
+            camera_controller.update_camera(camera, cam_transform, projection, &mut gizmos)
         }
     }
 
@@ -176,8 +184,9 @@ impl EditorCam {
         camera: &Camera,
         cam_transform: &mut Transform,
         projection: &mut Projection,
+        gizmos: &mut Gizmos,
     ) {
-        let (anchor, _orbit, pan, zoom) = match &mut self.motion {
+        let (anchor, orbit, pan, zoom) = match &mut self.motion {
             Motion::Inactive { ref mut velocity } => {
                 velocity.decay(self.momentum);
                 match velocity {
@@ -249,9 +258,95 @@ impl EditorCam {
             .as_vec3();
 
         *anchor -= pan_translation_view_space + zoom_translation_view_space;
+
+        let orbit = orbit * DVec2::new(-1.0, 1.0);
+        let anchor_world = cam_transform
+            .compute_matrix()
+            .as_dmat4()
+            .transform_point3(*anchor);
+        let orbit_dir = orbit.normalize().extend(0.0);
+        let orbit_axis_world = cam_transform
+            .rotation
+            .as_f64()
+            .mul_vec3(orbit_dir.cross(DVec3::NEG_Z).normalize())
+            .normalize();
+
+        let orbit_multiplier = 0.008;
+        if orbit.is_finite() && orbit.length() != 0.0 {
+            match self.orbit {
+                OrbitMode::Constrained(up) => {
+                    let yaw = Quat::from_axis_angle(up, orbit.x as f32 * orbit_multiplier);
+                    let pitch = Quat::from_axis_angle(
+                        cam_transform.left(),
+                        orbit.y as f32 * orbit_multiplier,
+                    );
+                    cam_transform.rotate_around(anchor_world.as_vec3(), yaw * pitch);
+
+                    let how_upright = cam_transform.up().angle_between(up).abs();
+                    if how_upright > 0.01 && how_upright < FRAC_PI_2 - 0.01 {
+                        cam_transform.look_to(cam_transform.forward(), up);
+                    } else if how_upright > FRAC_PI_2 + 0.01 && how_upright < PI - 0.01 {
+                        cam_transform.look_to(cam_transform.forward(), -up);
+                    }
+                }
+                OrbitMode::Free => {
+                    let orbit_rotation = Quat::from_axis_angle(
+                        orbit_axis_world.as_vec3(),
+                        orbit.length() as f32 * orbit_multiplier,
+                    );
+                    cam_transform.rotate_around(anchor_world.as_vec3(), orbit_rotation);
+                }
+            }
+        }
+
         // Prevent the anchor from going behind the camera
         anchor.z = anchor.z.min(0.0);
         self.fallback_depth = anchor.z;
+
+        // Draw gizmos
+        let depth = anchor.z as f32;
+        if matches!(
+            self.motion,
+            Motion::Active {
+                motion_inputs: MotionInputs::OrbitZoom { .. },
+                ..
+            }
+        ) {
+            let gizmo_color = || Color::rgba(0.5, 0.5, 0.5, 1.0);
+            let axis_offset = orbit_axis_world.as_vec3() * 0.01 * depth;
+            gizmos.ray(
+                anchor_world.as_vec3() - axis_offset,
+                axis_offset * 2.0,
+                gizmo_color(),
+            );
+            gizmos.circle(
+                anchor_world.as_vec3(),
+                cam_transform.local_z(),
+                0.01 * depth,
+                gizmo_color(),
+            );
+            let offset = 0.015 * depth;
+            gizmos.ray(
+                anchor_world.as_vec3() + offset * cam_transform.left(),
+                offset * 0.5 * cam_transform.left(),
+                gizmo_color(),
+            );
+            gizmos.ray(
+                anchor_world.as_vec3() + offset * cam_transform.right(),
+                offset * 0.5 * cam_transform.right(),
+                gizmo_color(),
+            );
+            gizmos.ray(
+                anchor_world.as_vec3() + offset * cam_transform.up(),
+                offset * 0.5 * cam_transform.up(),
+                gizmo_color(),
+            );
+            gizmos.ray(
+                anchor_world.as_vec3() + offset * cam_transform.down(),
+                offset * 0.5 * cam_transform.down(),
+                gizmo_color(),
+            );
+        }
     }
 }
 
