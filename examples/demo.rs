@@ -29,18 +29,18 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             Smoothness {
                 pan: 1,
                 orbit: 3,
-                zoom: 10,
+                zoom: 8,
             },
             Sensitivity::same(1.0),
             Momentum {
+                // These should all be larger than the base smoothness
                 smoothness: Smoothness {
                     pan: 10,
                     orbit: 10,
-                    zoom: 10,
+                    zoom: 0,
                 },
                 pan: 150,
                 orbit: 50,
-                zoom: 30,
             },
             5.0,
         ),

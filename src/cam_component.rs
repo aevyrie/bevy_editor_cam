@@ -50,6 +50,13 @@ impl EditorCam {
         }
     }
 
+    pub fn mode(&self) -> Option<MotionKind> {
+        match &self.motion {
+            Motion::Inactive { .. } => None,
+            Motion::Active { motion_inputs, .. } => Some(motion_inputs.into()),
+        }
+    }
+
     /// Returns the best guess at an anchor point if none is provided.
     ///
     /// Updates the fallback value with the latest hit to ensure that if the camera starts orbiting
@@ -82,11 +89,18 @@ impl EditorCam {
     }
 
     pub fn start_zoom(&mut self, anchor: Option<DVec3>) {
+        let anchor = self.anchor_or_fallback(anchor);
+        // Inherit current camera velocity
+        let zoom_inputs = match self.motion {
+            Motion::Inactive { .. } => VecDeque::from_iter([0.0; u8::MAX as usize + 1]),
+            Motion::Active {
+                ref mut motion_inputs,
+                ..
+            } => motion_inputs.zoom_inputs_mut().drain(..).collect(),
+        };
         self.motion = Motion::Active {
-            anchor: self.anchor_or_fallback(anchor),
-            motion_inputs: MotionInputs::Zoom {
-                zoom_inputs: VecDeque::new(),
-            },
+            anchor,
+            motion_inputs: MotionInputs::Zoom { zoom_inputs },
         }
     }
 
@@ -136,26 +150,22 @@ impl EditorCam {
                 MotionInputs::OrbitZoom { .. } => Velocity::Orbit {
                     anchor,
                     velocity: motion_inputs.orbit_velocity(self.momentum.smoothness),
-                    zoom: motion_inputs.zoom_velocity(self.momentum.smoothness),
                 },
                 MotionInputs::PanZoom { .. } => Velocity::Pan {
                     anchor,
                     velocity: motion_inputs.pan_velocity(self.momentum.smoothness),
-                    zoom: motion_inputs.zoom_velocity(self.momentum.smoothness),
                 },
-                MotionInputs::Zoom { .. } => Velocity::Zoom {
-                    anchor,
-                    zoom: motion_inputs.zoom_velocity(self.momentum.smoothness),
-                },
+                MotionInputs::Zoom { .. } => Velocity::None,
             },
         };
         self.motion = Motion::Inactive { velocity };
     }
 
     pub fn update_camera_positions(
-        mut cameras: Query<(&mut EditorCam, &Camera, &mut Transform, &Projection)>,
+        mut cameras: Query<(&mut EditorCam, &Camera, &mut Transform, &mut Projection)>,
     ) {
-        for (mut camera_controller, camera, ref mut cam_transform, projection) in cameras.iter_mut()
+        for (mut camera_controller, camera, ref mut cam_transform, ref mut projection) in
+            cameras.iter_mut()
         {
             camera_controller.update_camera(camera, cam_transform, projection)
         }
@@ -165,24 +175,15 @@ impl EditorCam {
         &mut self,
         camera: &Camera,
         cam_transform: &mut Transform,
-        projection: &Projection,
+        projection: &mut Projection,
     ) {
         let (anchor, orbit, pan, zoom) = match &mut self.motion {
             Motion::Inactive { ref mut velocity } => {
                 velocity.decay(self.momentum);
                 match velocity {
                     Velocity::None => return,
-                    Velocity::Orbit {
-                        anchor,
-                        velocity,
-                        zoom,
-                    } => (anchor, *velocity, DVec2::ZERO, *zoom),
-                    Velocity::Pan {
-                        anchor,
-                        velocity,
-                        zoom,
-                    } => (anchor, DVec2::ZERO, *velocity, *zoom),
-                    Velocity::Zoom { anchor, zoom } => (anchor, DVec2::ZERO, DVec2::ZERO, *zoom),
+                    Velocity::Orbit { anchor, velocity } => (anchor, *velocity, DVec2::ZERO, 0.0),
+                    Velocity::Pan { anchor, velocity } => (anchor, DVec2::ZERO, *velocity, 0.0),
                 }
             }
             Motion::Active {
@@ -196,41 +197,53 @@ impl EditorCam {
             ),
         };
 
-        let screen_to_view_space_at_depth =
-            |camera: &Camera, proj: &Projection, depth: f64| -> Option<DVec2> {
-                let target_size = camera.logical_viewport_size()?.as_dvec2();
-                // This is a strangle looking, but key part of the otherwise normal looking
-                // screen-to-view transformation. What we are trying to do here is answer "if we
-                // move by one pixel in x and y, how much distance do we cover in the world at the
-                // specified depth?" Because the viewport position's origin is in the corner, we
-                // need to half of the target size, and subtract one pixel. This gets us a viewport
-                // position one pixel diagonal offset from the center of the screen.
-                let mut viewport_position = target_size / 2.0 - 1.0;
-                // Flip the Y co-ordinate origin from the top to the bottom.
-                viewport_position.y = target_size.y - viewport_position.y;
-                let ndc = viewport_position * 2. / target_size - DVec2::ONE;
-                let ndc_to_view = proj.get_projection_matrix().as_dmat4().inverse();
-                let view_near_plane = ndc_to_view.project_point3(ndc.extend(1.));
-                // Using EPSILON because an ndc with Z = 0 returns NaNs.
-                let view_far_plane = ndc_to_view.project_point3(ndc.extend(f64::EPSILON));
-                let direction = view_far_plane - view_near_plane;
-                let depth_normalized_direction = direction / direction.z;
-                let view_pos = depth_normalized_direction * depth;
-                debug_assert_eq!(view_pos.z, depth);
-                Some(view_pos.truncate())
-            };
+        let screen_to_view_space_at_depth = |camera: &Camera, depth: f64| -> Option<DVec2> {
+            let target_size = camera.logical_viewport_size()?.as_dvec2();
+            // This is a strangle looking, but key part of the otherwise normal looking
+            // screen-to-view transformation. What we are trying to do here is answer "if we
+            // move by one pixel in x and y, how much distance do we cover in the world at
+            // the specified depth?" Because the viewport position's origin is in the
+            // corner, we need to half of the target size, and subtract one pixel. This gets
+            // us a viewport position one pixel diagonal offset from the center of the
+            // screen.
+            let mut viewport_position = target_size / 2.0 - 1.0;
+            // Flip the Y co-ordinate origin from the top to the bottom.
+            viewport_position.y = target_size.y - viewport_position.y;
+            let ndc = viewport_position * 2. / target_size - DVec2::ONE;
+            let ndc_to_view = projection.get_projection_matrix().as_dmat4().inverse();
+            let view_near_plane = ndc_to_view.project_point3(ndc.extend(1.));
+            match &projection {
+                Projection::Perspective(_) => {
+                    // Using EPSILON because an ndc with Z = 0 returns NaNs.
+                    let view_far_plane = ndc_to_view.project_point3(ndc.extend(f64::EPSILON));
+                    let direction = view_far_plane - view_near_plane;
+                    let depth_normalized_direction = direction / direction.z;
+                    let view_pos = depth_normalized_direction * depth;
+                    debug_assert_eq!(view_pos.z, depth);
+                    Some(view_pos.truncate())
+                }
+                Projection::Orthographic(_) => Some(view_near_plane.truncate()),
+            }
+        };
 
-        let Some(view_offset) = screen_to_view_space_at_depth(camera, projection, anchor.z) else {
+        let Some(view_offset) = screen_to_view_space_at_depth(camera, anchor.z) else {
             error!("Malformed camera");
             return;
         };
 
         let pan_translation_view_space = (pan * view_offset).extend(0.0);
 
-        // Varies from 0 to anchor.z over x = [0..inf]
-        let scaled_zoom = (1.0 - 1.0 / (zoom.abs() + 1.0)) * zoom.signum() * anchor.z * -0.05;
+        let zoom_prescale = (zoom.abs() / 60.0).powf(1.5);
+        // Varies from 0 to 1 over x = [0..inf]
+        let scaled_zoom = (1.0 - 1.0 / (zoom_prescale + 1.0)) * zoom.signum();
+        let zoom_translation_view_space = match projection {
+            Projection::Perspective(_) => anchor.normalize() * scaled_zoom * anchor.z * -0.15,
+            Projection::Orthographic(ref mut ortho) => {
+                ortho.scale *= 1.0 - scaled_zoom as f32 * 0.1;
+                ((*anchor * scaled_zoom).truncate()).extend(0.0) * 0.1
+            }
+        };
 
-        let zoom_translation_view_space = anchor.normalize() * scaled_zoom;
         cam_transform.translation += (cam_transform.rotation.as_f64()
             * (pan_translation_view_space + zoom_translation_view_space))
             .as_vec3();
@@ -286,7 +299,6 @@ pub struct Momentum {
     pub smoothness: Smoothness,
     pub pan: u8,
     pub orbit: u8,
-    pub zoom: u8,
 }
 
 impl Momentum {
@@ -295,7 +307,6 @@ impl Momentum {
             smoothness,
             pan: amount,
             orbit: amount,
-            zoom: amount,
         }
     }
 }
@@ -307,10 +318,6 @@ impl Momentum {
 
     fn pan_decay(self) -> f64 {
         (self.pan as f64 / 256.0).powf(0.1)
-    }
-
-    fn zoom_decay(self) -> f64 {
-        (self.zoom as f64 / 256.0).powf(0.1)
     }
 }
 
@@ -378,13 +385,6 @@ impl Motion {
             }
         )
     }
-
-    pub fn zoom_motion(&self, smoothness: Smoothness) -> f64 {
-        match self {
-            Motion::Inactive { velocity } => velocity.zoom(),
-            Motion::Active { motion_inputs, .. } => motion_inputs.zoom_velocity(smoothness),
-        }
-    }
 }
 
 #[derive(Debug, Clone, Copy, Default, Reflect)]
@@ -394,16 +394,10 @@ pub enum Velocity {
     Orbit {
         anchor: DVec3,
         velocity: DVec2,
-        zoom: f64,
     },
     Pan {
         anchor: DVec3,
         velocity: DVec2,
-        zoom: f64,
-    },
-    Zoom {
-        anchor: DVec3,
-        zoom: f64,
     },
 }
 
@@ -411,43 +405,41 @@ impl Velocity {
     const DECAY_THRESHOLD: f64 = 1e-3;
     /// Decay the velocity based on the momentum setting.
     fn decay(&mut self, momentum: Momentum) {
-        let mut is_none = false;
-        match self {
-            Velocity::None => (),
+        let is_none = match self {
+            Velocity::None => true,
             Velocity::Orbit {
-                ref mut velocity,
-                ref mut zoom,
-                ..
+                ref mut velocity, ..
             } => {
                 *velocity *= momentum.orbit_decay();
-                *zoom *= momentum.zoom_decay();
-                is_none = velocity.length() + zoom.abs() <= Self::DECAY_THRESHOLD;
+                velocity.length() <= Self::DECAY_THRESHOLD
             }
             Velocity::Pan {
-                ref mut velocity,
-                ref mut zoom,
-                ..
+                ref mut velocity, ..
             } => {
                 *velocity *= momentum.pan_decay();
-                *zoom *= momentum.zoom_decay();
-                is_none = velocity.length() + zoom.abs() <= Self::DECAY_THRESHOLD;
+                velocity.length() <= Self::DECAY_THRESHOLD
             }
-            Velocity::Zoom { ref mut zoom, .. } => {
-                *zoom *= momentum.zoom_decay();
-                is_none = zoom.abs() <= Self::DECAY_THRESHOLD;
-            }
-        }
+        };
+
         if is_none {
             *self = Velocity::None;
         }
     }
+}
 
-    pub fn zoom(&self) -> f64 {
-        match self {
-            Velocity::None => 0.0,
-            Velocity::Orbit { zoom, .. } => *zoom,
-            Velocity::Pan { zoom, .. } => *zoom,
-            Velocity::Zoom { zoom, .. } => *zoom,
+#[derive(Debug, Clone, Copy, Reflect, PartialEq, Eq)]
+pub enum MotionKind {
+    OrbitZoom,
+    PanZoom,
+    Zoom,
+}
+
+impl From<&MotionInputs> for MotionKind {
+    fn from(value: &MotionInputs) -> Self {
+        match value {
+            MotionInputs::OrbitZoom { .. } => MotionKind::OrbitZoom,
+            MotionInputs::PanZoom { .. } => MotionKind::PanZoom,
+            MotionInputs::Zoom { .. } => MotionKind::Zoom,
         }
     }
 }
@@ -476,6 +468,10 @@ pub enum MotionInputs {
 }
 
 impl MotionInputs {
+    pub fn kind(&self) -> MotionKind {
+        self.into()
+    }
+
     pub fn orbit_velocity(&self, smoothness: Smoothness) -> DVec2 {
         if let Self::OrbitZoom { movement, .. } = self {
             let n_elements = movement.len().min(smoothness.orbit as usize + 1);
@@ -494,14 +490,46 @@ impl MotionInputs {
         }
     }
 
+    pub fn zoom_inputs(&self) -> &VecDeque<f32> {
+        match self {
+            MotionInputs::OrbitZoom { zoom_inputs, .. } => zoom_inputs,
+            MotionInputs::PanZoom { zoom_inputs, .. } => zoom_inputs,
+            MotionInputs::Zoom { zoom_inputs } => zoom_inputs,
+        }
+    }
+
+    pub fn zoom_inputs_mut(&mut self) -> &mut VecDeque<f32> {
+        match self {
+            MotionInputs::OrbitZoom { zoom_inputs, .. } => zoom_inputs,
+            MotionInputs::PanZoom { zoom_inputs, .. } => zoom_inputs,
+            MotionInputs::Zoom { zoom_inputs } => zoom_inputs,
+        }
+    }
+
     pub fn zoom_velocity(&self, smoothness: Smoothness) -> f64 {
+        let zoom_inputs = self.zoom_inputs();
+        let n_elements = zoom_inputs.len().min(smoothness.zoom as usize + 1);
+        let velocity = zoom_inputs.iter().take(n_elements).sum::<f32>() as f64 / n_elements as f64;
+        if !velocity.is_finite() {
+            0.0
+        } else {
+            velocity
+        }
+    }
+
+    pub fn zoom_velocity_abs(&self, smoothness: Smoothness) -> f64 {
         let zoom_inputs = match self {
             MotionInputs::OrbitZoom { zoom_inputs, .. } => zoom_inputs,
             MotionInputs::PanZoom { zoom_inputs, .. } => zoom_inputs,
             MotionInputs::Zoom { zoom_inputs } => zoom_inputs,
         };
         let n_elements = zoom_inputs.len().min(smoothness.zoom as usize + 1);
-        let velocity = zoom_inputs.iter().take(n_elements).sum::<f32>() as f64 / n_elements as f64;
+        let velocity = zoom_inputs
+            .iter()
+            .take(n_elements)
+            .map(|input| input.abs())
+            .sum::<f32>() as f64
+            / n_elements as f64;
         if !velocity.is_finite() {
             0.0
         } else {
