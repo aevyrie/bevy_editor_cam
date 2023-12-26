@@ -10,7 +10,7 @@ use bevy_picking_core::pointer::{
     InputMove, PointerId, PointerInteraction, PointerLocation, PointerMap,
 };
 
-use crate::prelude::{EditorCam, MotionKind, Smoothness};
+use crate::prelude::{EditorCam, MotionKind};
 
 pub fn default_camera_inputs(
     pointers: Query<(&PointerId, &PointerLocation)>,

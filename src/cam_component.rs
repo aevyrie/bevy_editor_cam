@@ -177,7 +177,7 @@ impl EditorCam {
         cam_transform: &mut Transform,
         projection: &mut Projection,
     ) {
-        let (anchor, orbit, pan, zoom) = match &mut self.motion {
+        let (anchor, _orbit, pan, zoom) = match &mut self.motion {
             Motion::Inactive { ref mut velocity } => {
                 velocity.decay(self.momentum);
                 match velocity {
