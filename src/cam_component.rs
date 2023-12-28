@@ -4,16 +4,17 @@ use std::{
 };
 
 use bevy::{
-    ecs::{component::Component, system::Query},
+    ecs::{component::Component, event::EventWriter, system::Query},
     gizmos::gizmos::Gizmos,
     log::error,
-    math::{DQuat, DVec2, DVec3, Quat, Vec2, Vec3},
+    math::{DVec2, DVec3, Quat, Vec2, Vec3},
     reflect::Reflect,
     render::{
         camera::{Camera, CameraProjection, Projection},
         color::Color,
     },
     transform::components::Transform,
+    window::RequestRedraw,
 };
 
 /// When the user starts moving the camera, the rotation point must be set. This is done in camera
@@ -171,11 +172,18 @@ impl EditorCam {
     pub fn update_camera_positions(
         mut cameras: Query<(&mut EditorCam, &Camera, &mut Transform, &mut Projection)>,
         mut gizmos: Gizmos,
+        mut event: EventWriter<RequestRedraw>,
     ) {
         for (mut camera_controller, camera, ref mut cam_transform, ref mut projection) in
             cameras.iter_mut()
         {
-            camera_controller.update_camera(camera, cam_transform, projection, &mut gizmos)
+            camera_controller.update_camera(
+                camera,
+                cam_transform,
+                projection,
+                &mut gizmos,
+                &mut event,
+            )
         }
     }
 
@@ -185,6 +193,7 @@ impl EditorCam {
         cam_transform: &mut Transform,
         projection: &mut Projection,
         gizmos: &mut Gizmos,
+        redraw: &mut EventWriter<RequestRedraw>,
     ) {
         let (anchor, orbit, pan, zoom) = match &mut self.motion {
             Motion::Inactive { ref mut velocity } => {
@@ -205,6 +214,9 @@ impl EditorCam {
                 motion_inputs.zoom_velocity(self.smoothness),
             ),
         };
+
+        // If there is no motion, we will have already early-exited.
+        redraw.send(RequestRedraw);
 
         let screen_to_view_space_at_depth = |camera: &Camera, depth: f64| -> Option<DVec2> {
             let target_size = camera.logical_viewport_size()?.as_dvec2();
@@ -304,7 +316,10 @@ impl EditorCam {
         self.fallback_depth = anchor.z;
 
         // Draw gizmos
-        let depth = anchor.z as f32;
+        let depth = match projection {
+            Projection::Perspective(_) => anchor.z as f32,
+            Projection::Orthographic(ortho) => ortho.scale * 1000.0,
+        };
         if matches!(
             self.motion,
             Motion::Active {
@@ -312,13 +327,14 @@ impl EditorCam {
                 ..
             }
         ) {
-            let gizmo_color = || Color::rgba(0.5, 0.5, 0.5, 1.0);
-            let axis_offset = orbit_axis_world.as_vec3() * 0.01 * depth;
-            gizmos.ray(
-                anchor_world.as_vec3() - axis_offset,
-                axis_offset * 2.0,
-                gizmo_color(),
-            );
+            let gizmo_color = || Color::rgb(1.0, 1.0, 1.0);
+            // Rotation axis:
+            // let axis_offset = orbit_axis_world.as_vec3() * 0.01 * depth;
+            // gizmos.ray(
+            //     anchor_world.as_vec3() - axis_offset,
+            //     axis_offset * 2.0,
+            //     gizmo_color().with_a(0.2),
+            // );
             gizmos.circle(
                 anchor_world.as_vec3(),
                 cam_transform.local_z(),

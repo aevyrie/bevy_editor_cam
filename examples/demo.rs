@@ -1,112 +1,111 @@
 use bevy::{
-    core_pipeline::{
-        experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin},
-        Skybox,
-    },
-    pbr::ScreenSpaceAmbientOcclusionBundle,
+    core_pipeline::{bloom::BloomSettings, tonemapping::Tonemapping, Skybox},
     prelude::*,
+    render::view::ColorGrading,
+    winit::WinitSettings,
 };
 use bevy_editor_cam::prelude::*;
-use bevy_mod_picking::DefaultPickingPlugins;
 
 fn main() {
     App::new()
-        .insert_resource(ClearColor(Color::rgb(0.8, 0.8, 0.8)))
+        .insert_resource(AmbientLight {
+            brightness: 0.0,
+            ..default()
+        })
+        .insert_resource(WinitSettings::desktop_app())
         .add_plugins((
             DefaultPlugins,
-            TemporalAntiAliasPlugin,
-            DefaultPickingPlugins,
+            bevy_mod_picking::DefaultPickingPlugins,
+            bevy_framepace::FramepacePlugin,
             EditorCamPlugin,
         ))
         .add_systems(Startup, setup)
-        .add_systems(Update, update_lighting)
+        .add_systems(Update, send_events)
         .run()
 }
 
-#[derive(Component)]
-struct CameraLight;
+fn send_events(keyboard: Res<Input<KeyCode>>, mut cam_events: EventWriter<EditorCamEvent>) {
+    if keyboard.just_pressed(KeyCode::P) {
+        cam_events.send(EditorCamEvent::Projection(ProjectionChange::Toggle));
+    }
+}
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands
-        .spawn((
-            Camera3dBundle {
-                transform: Transform::from_xyz(10.0, 10.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
-                camera: Camera {
-                    hdr: true,
-                    ..default()
-                },
-                projection: Projection::Perspective(PerspectiveProjection {
-                    near: 1e-8,
-                    ..Default::default()
-                }),
-                // projection: Projection::Orthographic(OrthographicProjection {
-                //     near: 1e-8,
-                //     scale: 0.01,
-                //     ..Default::default()
-                // }),
+    commands.spawn(DirectionalLightBundle {
+        directional_light: DirectionalLight {
+            illuminance: 2_000.0,
+            shadows_enabled: true,
+            ..default()
+        },
+        transform: Transform::from_xyz(0.1, 1.0, -0.1).looking_at(Vec3::ZERO, Vec3::Y),
+        ..default()
+    });
+
+    commands.spawn((
+        Camera3dBundle {
+            transform: Transform::from_xyz(6.0, 6.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
+            camera: Camera {
+                hdr: true,
                 ..default()
             },
-            EnvironmentMapLight {
-                diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
-                specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            color_grading: ColorGrading {
+                exposure: 1.02,
+                ..default()
             },
-            EditorCam::new(
-                OrbitMode::Constrained(Vec3::Y),
-                // OrbitMode::Free,
-                Smoothness {
-                    pan: 0,
-                    orbit: 6,
-                    zoom: 8,
+            tonemapping: Tonemapping::AcesFitted,
+            // projection: Projection::Perspective(PerspectiveProjection {
+            //     near: 1e-8,
+            //     ..Default::default()
+            // }),
+            projection: Projection::Orthographic(OrthographicProjection {
+                near: 1e-8,
+                scale: 0.01,
+                ..Default::default()
+            }),
+            ..default()
+        },
+        BloomSettings::default(),
+        EnvironmentMapLight {
+            diffuse_map: asset_server.load("environment_maps/diffuse_rgb9e5_zstd.ktx2"),
+            specular_map: asset_server.load("environment_maps/specular_rgb9e5_zstd.ktx2"),
+        },
+        Skybox(asset_server.load("environment_maps/diffuse_rgb9e5_zstd.ktx2")),
+        EditorCam::new(
+            OrbitMode::Constrained(Vec3::Y),
+            // OrbitMode::Free,
+            Smoothness {
+                pan: 1,
+                orbit: 3,
+                zoom: 8,
+            },
+            Sensitivity::same(1.0),
+            Momentum {
+                // These should all be larger than the base smoothness
+                smoothness: Smoothness {
+                    pan: 10,
+                    orbit: 5,
+                    zoom: 0,
                 },
-                Sensitivity::same(1.0),
-                Momentum {
-                    // These should all be larger than the base smoothness
-                    smoothness: Smoothness {
-                        pan: 10,
-                        orbit: 10,
-                        zoom: 0,
-                    },
-                    pan: 200,
-                    orbit: 200,
-                },
-                5.0,
-            ),
-            Skybox(asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2")),
-        ))
-        .insert(ScreenSpaceAmbientOcclusionBundle::default())
-        .insert(TemporalAntiAliasBundle::default());
-    let helmet = asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0");
-    let half_width = 2;
+                pan: 150,
+                orbit: 100,
+            },
+            5.0,
+        ),
+    ));
+
+    let scene = asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0");
+    let half_width = 1;
     let width = -half_width..=half_width;
-    let spacing = 3.0;
+    let spacing = 2.0;
     for x in width.clone() {
         for y in width.clone() {
             for z in width.clone() {
                 commands.spawn((SceneBundle {
-                    scene: helmet.clone(),
+                    scene: scene.clone(),
                     transform: Transform::from_translation(IVec3::new(x, y, z).as_vec3() * spacing),
                     ..default()
                 },));
             }
         }
     }
-
-    commands
-        .spawn(DirectionalLightBundle {
-            directional_light: DirectionalLight {
-                illuminance: 5_000.0,
-                shadows_enabled: false,
-                ..default()
-            },
-            transform: Transform::from_xyz(8.0, 6.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        })
-        .insert(CameraLight);
-}
-
-fn update_lighting(
-    mut light: Query<&mut Transform, With<CameraLight>>,
-    cam: Query<&Transform, (With<Camera>, Without<CameraLight>)>,
-) {
-    *light.single_mut() = *cam.single();
 }

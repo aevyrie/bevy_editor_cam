@@ -30,3 +30,4 @@ bevy = { version = "0.12", default-features = false, features = [
 bevy_mod_picking = { version = "0.17", default-features = false, features = [
     "backend_raycast",
 ] }
+bevy_framepace = "0.14"

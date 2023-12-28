@@ -15,7 +15,7 @@ use crate::prelude::{EditorCam, MotionKind};
 pub fn default_camera_inputs(
     pointers: Query<(&PointerId, &PointerLocation)>,
     pointer_map: Res<CameraPointerMap>,
-    mut controller: EventWriter<CameraControllerEvent>,
+    mut controller: EventWriter<EditorCamInputEvent>,
     mut mouse_wheel: EventReader<MouseWheel>,
     mouse_input: Res<Input<MouseButton>>,
     cameras: Query<(Entity, &Camera, &EditorCam)>,
@@ -40,7 +40,7 @@ pub fn default_camera_inputs(
         let should_zoom_end = is_in_zoom_mode && zoom_amount_abs <= zoom_stop;
 
         if mouse_input.any_just_released([orbit_start, pan_start]) || should_zoom_end {
-            controller.send(CameraControllerEvent::End { camera });
+            controller.send(EditorCamInputEvent::End { camera });
         }
     }
 
@@ -62,19 +62,19 @@ pub fn default_camera_inputs(
                 // to check if we should be initiating a camera movement.
 
                 if mouse_input.just_pressed(orbit_start) {
-                    controller.send(CameraControllerEvent::Start {
+                    controller.send(EditorCamInputEvent::Start {
                         kind: MotionKind::OrbitZoom,
                         camera,
                         pointer,
                     });
                 } else if mouse_input.just_pressed(pan_start) {
-                    controller.send(CameraControllerEvent::Start {
+                    controller.send(EditorCamInputEvent::Start {
                         kind: MotionKind::PanZoom,
                         camera,
                         pointer,
                     });
                 } else if !pointer_map.contains_key(&pointer) && (scroll_distance.abs() > 0.0) {
-                    controller.send(CameraControllerEvent::Start {
+                    controller.send(EditorCamInputEvent::Start {
                         kind: MotionKind::Zoom,
                         camera,
                         pointer,
@@ -96,8 +96,9 @@ pub fn default_camera_inputs(
 #[derive(Debug, Clone, Default, Deref, DerefMut, Reflect, Resource)]
 pub struct CameraPointerMap(HashMap<PointerId, Entity>);
 
+/// Events used when implementing input systems for the [`EditorCam`].
 #[derive(Debug, Clone, Reflect, Event)]
-pub enum CameraControllerEvent {
+pub enum EditorCamInputEvent {
     /// Send this event to start moving the camera. The anchor and inputs will be computed
     /// automatically until the [`CameraControllerEvent::End`] event is received.
     Start {
@@ -113,12 +114,12 @@ pub enum CameraControllerEvent {
     End { camera: Entity },
 }
 
-impl CameraControllerEvent {
+impl EditorCamInputEvent {
     /// Get the camera entity associated with this event.
     pub fn camera(&self) -> Entity {
         match self {
-            CameraControllerEvent::Start { camera, .. } => *camera,
-            CameraControllerEvent::End { camera } => *camera,
+            EditorCamInputEvent::Start { camera, .. } => *camera,
+            EditorCamInputEvent::End { camera } => *camera,
         }
     }
 
@@ -150,7 +151,9 @@ impl CameraControllerEvent {
                     let direction = (view_far_plane - view_near_plane).normalize();
                     Some((direction / direction.z) * controller.fallback_depth)
                 }
-                Projection::Orthographic(_) => Some(dbg!(view_near_plane)),
+                Projection::Orthographic(_) => {
+                    Some(view_near_plane + DVec3::new(0.0, 0.0, controller.fallback_depth))
+                }
             }
         };
 
@@ -160,7 +163,7 @@ impl CameraControllerEvent {
             };
 
             match event {
-                CameraControllerEvent::Start { kind, pointer, .. } => {
+                EditorCamInputEvent::Start { kind, pointer, .. } => {
                     info!("Start {kind:?}");
                     let anchor = pointer_map
                         .get_entity(*pointer)
@@ -202,7 +205,7 @@ impl CameraControllerEvent {
                     }
                     camera_map.insert(*pointer, event.camera());
                 }
-                CameraControllerEvent::End { .. } => {
+                EditorCamInputEvent::End { .. } => {
                     info!("End");
                     controller.end_move();
                     if let Some(pointer) = camera_map
