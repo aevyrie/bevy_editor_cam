@@ -5,13 +5,15 @@ use crate::{
     cam_component::EditorCam,
     events::EditorCamEvent,
     input::{CameraPointerMap, EditorCamInputEvent},
+    skybox::SkyboxCamPlugin,
 };
 
 pub struct EditorCamPlugin;
 
 impl Plugin for EditorCamPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_event::<EditorCamInputEvent>()
+        app.add_plugins(SkyboxCamPlugin)
+            .add_event::<EditorCamInputEvent>()
             .add_event::<EditorCamEvent>()
             .init_resource::<CameraPointerMap>()
             .add_systems(

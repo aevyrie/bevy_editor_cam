@@ -1,10 +1,10 @@
 use bevy::{
-    core_pipeline::{bloom::BloomSettings, tonemapping::Tonemapping, Skybox},
+    core_pipeline::{bloom::BloomSettings, tonemapping::Tonemapping},
     prelude::*,
     render::view::ColorGrading,
     winit::WinitSettings,
 };
-use bevy_editor_cam::prelude::*;
+use bevy_editor_cam::{prelude::*, skybox::SkyboxCamConfig};
 
 fn main() {
     App::new()
@@ -41,11 +41,19 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..default()
     });
 
+    let diffuse_map = asset_server.load("environment_maps/diffuse_rgb9e5_zstd.ktx2");
+    let specular_map = asset_server.load("environment_maps/specular_rgb9e5_zstd.ktx2");
+
     commands.spawn((
         Camera3dBundle {
             transform: Transform::from_xyz(6.0, 6.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
             camera: Camera {
                 hdr: true,
+                order: 1,
+                ..default()
+            },
+            camera_3d: Camera3d {
+                clear_color: bevy::core_pipeline::clear_color::ClearColorConfig::None,
                 ..default()
             },
             color_grading: ColorGrading {
@@ -66,10 +74,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         BloomSettings::default(),
         EnvironmentMapLight {
-            diffuse_map: asset_server.load("environment_maps/diffuse_rgb9e5_zstd.ktx2"),
-            specular_map: asset_server.load("environment_maps/specular_rgb9e5_zstd.ktx2"),
+            diffuse_map: diffuse_map.clone(),
+            specular_map,
         },
-        Skybox(asset_server.load("environment_maps/diffuse_rgb9e5_zstd.ktx2")),
         EditorCam::new(
             OrbitMode::Constrained(Vec3::Y),
             // OrbitMode::Free,
@@ -91,6 +98,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             5.0,
         ),
+        SkyboxCamConfig::new(diffuse_map),
     ));
 
     let scene = asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0");
