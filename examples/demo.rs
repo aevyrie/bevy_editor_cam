@@ -1,5 +1,5 @@
 use bevy::{
-    core_pipeline::{bloom::BloomSettings, tonemapping::Tonemapping},
+    core_pipeline::{bloom::BloomSettings, fxaa::Fxaa, tonemapping::Tonemapping},
     prelude::*,
     render::view::ColorGrading,
     winit::WinitSettings,
@@ -72,6 +72,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             }),
             ..default()
         },
+        Fxaa::default(),
         BloomSettings::default(),
         EnvironmentMapLight {
             diffuse_map: diffuse_map.clone(),

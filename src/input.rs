@@ -164,7 +164,6 @@ impl EditorCamInputEvent {
 
             match event {
                 EditorCamInputEvent::Start { kind, pointer, .. } => {
-                    info!("Start {kind:?}");
                     let anchor = pointer_map
                         .get_entity(*pointer)
                         .and_then(|entity| pointer_interactions.get(entity).ok())
@@ -206,7 +205,6 @@ impl EditorCamInputEvent {
                     camera_map.insert(*pointer, event.camera());
                 }
                 EditorCamInputEvent::End { .. } => {
-                    info!("End");
                     controller.end_move();
                     if let Some(pointer) = camera_map
                         .iter()
