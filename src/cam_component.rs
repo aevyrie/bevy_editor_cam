@@ -58,8 +58,29 @@ impl EditorCam {
         }
     }
 
+    pub fn is_enabled(&self) -> bool {
+        !matches!(self.motion, Motion::Disabled)
+    }
+
+    pub fn is_disabled(&self) -> bool {
+        !self.is_enabled()
+    }
+
+    pub fn enable(&mut self) {
+        if self.is_disabled() {
+            self.motion = Motion::Inactive {
+                velocity: Velocity::None,
+            };
+        }
+    }
+
+    pub fn disable(&mut self) {
+        self.motion = Motion::Disabled;
+    }
+
     pub fn mode(&self) -> Option<MotionKind> {
         match &self.motion {
+            Motion::Disabled => None,
             Motion::Inactive { .. } => None,
             Motion::Active { motion_inputs, .. } => Some(motion_inputs.into()),
         }
@@ -100,6 +121,7 @@ impl EditorCam {
         let anchor = self.anchor_or_fallback(anchor);
         // Inherit current camera velocity
         let zoom_inputs = match self.motion {
+            Motion::Disabled => return,
             Motion::Inactive { .. } => VecDeque::from_iter([0.0; u8::MAX as usize + 1]),
             Motion::Active {
                 ref mut motion_inputs,
@@ -149,6 +171,7 @@ impl EditorCam {
 
     pub fn end_move(&mut self) {
         let velocity = match self.motion {
+            Motion::Disabled => return,
             Motion::Inactive { .. } => return,
             Motion::Active {
                 anchor,
@@ -196,6 +219,7 @@ impl EditorCam {
         redraw: &mut EventWriter<RequestRedraw>,
     ) {
         let (anchor, orbit, pan, zoom) = match &mut self.motion {
+            Motion::Disabled => return,
             Motion::Inactive { ref mut velocity } => {
                 velocity.decay(self.momentum);
                 match velocity {
@@ -434,6 +458,7 @@ impl Momentum {
 
 #[derive(Debug, Clone, Reflect)]
 pub enum Motion {
+    Disabled,
     Inactive {
         /// Contains inherited velocity, if any. This will decay based on momentum settings.
         velocity: Velocity,
@@ -464,6 +489,7 @@ impl Motion {
 
     pub fn inputs(&self) -> Option<&MotionInputs> {
         match self {
+            Motion::Disabled => None,
             Motion::Inactive { .. } => None,
             Motion::Active { motion_inputs, .. } => Some(motion_inputs),
         }

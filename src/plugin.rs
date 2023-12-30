@@ -3,7 +3,7 @@ use bevy_picking_core::PickSet;
 
 use crate::{
     cam_component::EditorCam,
-    events::EditorCamEvent,
+    dolly_zoom::DollyZoomPlugin,
     input::{CameraPointerMap, EditorCamInputEvent},
     skybox::SkyboxCamPlugin,
 };
@@ -12,9 +12,8 @@ pub struct EditorCamPlugin;
 
 impl Plugin for EditorCamPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_plugins(SkyboxCamPlugin)
+        app.add_plugins((SkyboxCamPlugin, DollyZoomPlugin))
             .add_event::<EditorCamInputEvent>()
-            .add_event::<EditorCamEvent>()
             .init_resource::<CameraPointerMap>()
             .add_systems(
                 PreUpdate,

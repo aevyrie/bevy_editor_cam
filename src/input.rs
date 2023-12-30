@@ -247,6 +247,6 @@ impl EditorCamInputEvent {
             camera_controller.send_zoom(zoom_amount);
         }
         mouse_wheel.clear();
-        moves.clear();
+        // moves.clear();
     }
 }
