@@ -86,10 +86,10 @@ impl DollyZoom {
                             *proj = Projection::Orthographic(OrthographicProjection {
                                 near: dolly.near,
                                 far: dolly.far,
-                                scale: editor_cam.fallback_depth as f32, // compute this gooder?
+                                scale: editor_cam.latest_depth as f32, // compute this gooder?
                                 ..Default::default()
                             });
-                            editor_cam.fallback_depth += dolly.dist_to_target as f64;
+                            editor_cam.latest_depth += dolly.dist_to_target as f64;
                             transform.translation += forward * dolly.dist_to_target;
                             dolly.dist_to_target = 0.0;
                         }
@@ -112,7 +112,7 @@ impl DollyZoom {
         // sin(new_angle) = base / (anchor_distance + dist_to_target)
         // new_angle = asin(base / (anchor_distance + dist_to_target))
         //
-        let anchor_dist = editor_cam.fallback_depth as f32;
+        let anchor_dist = editor_cam.latest_depth as f32;
         let base = self.perspective_fov.sin() * anchor_dist;
         (base / (anchor_dist + new_distance)).asin()
     }

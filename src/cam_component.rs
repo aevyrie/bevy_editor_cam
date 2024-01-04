@@ -17,8 +17,7 @@ use bevy::{
     window::RequestRedraw,
 };
 
-/// When the user starts moving the camera, the rotation point must be set. This is done in camera
-/// (view) space. Subsequent camera movement is done relative to this point.
+/// Settings component for an editor camera.
 #[derive(Debug, Clone, Reflect, Component)]
 pub struct EditorCam {
     /// Current [`OrbitMode`] setting.
@@ -35,7 +34,7 @@ pub struct EditorCam {
     /// rotate about a point in the direction the camera is facing, at this depth. This will be
     /// overwritten with the latest depth if a hit is found, to ensure the anchor point doesn't
     /// change suddenly if the user moves the pointer away from an object.
-    pub fallback_depth: f64,
+    pub latest_depth: f64,
 }
 
 impl EditorCam {
@@ -54,7 +53,7 @@ impl EditorCam {
             motion: Motion::Inactive {
                 velocity: Velocity::default(),
             },
-            fallback_depth: initial_anchor_depth.abs() * -1.0, // ensure the depth is correct sign
+            latest_depth: initial_anchor_depth.abs() * -1.0, // ensure the depth is correct sign
         }
     }
 
@@ -92,8 +91,8 @@ impl EditorCam {
     /// again, but has no hit to anchor onto, the anchor doesn't suddenly change distance, which is
     /// what would happen if we used a fixed value.
     fn anchor_or_fallback(&mut self, anchor: Option<DVec3>) -> DVec3 {
-        let anchor = anchor.unwrap_or(DVec3::new(0.0, 0.0, self.fallback_depth));
-        self.fallback_depth = anchor.z;
+        let anchor = anchor.unwrap_or(DVec3::new(0.0, 0.0, self.latest_depth));
+        self.latest_depth = anchor.z;
         anchor
     }
 
@@ -159,13 +158,11 @@ impl EditorCam {
     }
 
     pub fn send_zoom(&mut self, zoom_amount: f32) {
-        if let Motion::Active {
-            motion_inputs: MotionInputs::Zoom { zoom_inputs },
-            ..
-        } = &mut self.motion
-        {
-            zoom_inputs.push_front(zoom_amount);
-            zoom_inputs.truncate(u8::MAX as usize + 1);
+        if let Motion::Active { motion_inputs, .. } = &mut self.motion {
+            motion_inputs.zoom_inputs_mut().push_front(zoom_amount);
+            motion_inputs
+                .zoom_inputs_mut()
+                .truncate(u8::MAX as usize + 1);
         }
     }
 
@@ -278,7 +275,7 @@ impl EditorCam {
 
         let pan_translation_view_space = (pan * view_offset).extend(0.0);
 
-        let zoom_prescale = (zoom.abs() / 60.0).powf(1.5);
+        let zoom_prescale = (zoom.abs() / 60.0).powf(1.3);
         // Varies from 0 to 1 over x = [0..inf]
         let scaled_zoom = (1.0 - 1.0 / (zoom_prescale + 1.0)) * zoom.signum();
         let zoom_translation_view_space = match projection {
@@ -337,7 +334,7 @@ impl EditorCam {
 
         // Prevent the anchor from going behind the camera
         anchor.z = anchor.z.min(0.0);
-        self.fallback_depth = anchor.z;
+        self.latest_depth = anchor.z;
 
         // Draw gizmos
         let depth = match projection {

@@ -149,10 +149,10 @@ impl EditorCamInputEvent {
                     // Using EPSILON because an ndc with Z = 0 returns NaNs.
                     let view_far_plane = ndc_to_view.project_point3(ndc.extend(f64::EPSILON));
                     let direction = (view_far_plane - view_near_plane).normalize();
-                    Some((direction / direction.z) * controller.fallback_depth)
+                    Some((direction / direction.z) * controller.latest_depth)
                 }
                 Projection::Orthographic(_) => {
-                    Some(view_near_plane + DVec3::new(0.0, 0.0, controller.fallback_depth))
+                    Some(view_near_plane + DVec3::new(0.0, 0.0, controller.latest_depth))
                 }
             }
         };
