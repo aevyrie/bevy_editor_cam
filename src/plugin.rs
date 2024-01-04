@@ -18,6 +18,7 @@ impl Plugin for EditorCamPlugin {
             .add_systems(
                 PreUpdate,
                 (
+                    crate::cam_component::update_fps,
                     crate::input::default_camera_inputs,
                     EditorCamInputEvent::receive_events,
                     EditorCamInputEvent::update_moves,

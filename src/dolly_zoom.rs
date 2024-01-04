@@ -1,9 +1,4 @@
-use std::time::Duration;
-
-use bevy::{
-    app::prelude::*, ecs::prelude::*, math::Mat4, render::prelude::*, transform::prelude::*,
-    utils::Instant,
-};
+use bevy::{app::prelude::*, ecs::prelude::*, render::prelude::*, transform::prelude::*};
 
 use crate::cam_component::EditorCam;
 
@@ -58,8 +53,7 @@ impl DollyZoom {
                         }
                     }
                     Projection::Orthographic(_) => {
-                        todo!("calculate fallback depth based on scale and desired fov");
-                        todo!("calcualte new dist to target = max dolly zoom - fallback depth");
+                        todo!("calculate fallback depth based on scale and desired fov, calcualte new dist to target = max dolly zoom - fallback depth");
                         // dolly.dist_to_target = dolly.maximum_dolly_pull - ;
                         // *proj = Projection::Perspective(PerspectiveProjection {
                         //     near: dolly.near,

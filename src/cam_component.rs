@@ -1,10 +1,17 @@
 use std::{
     collections::VecDeque,
     f32::consts::{FRAC_PI_2, PI},
+    sync::{OnceLock, RwLock},
+    time::Duration,
 };
 
 use bevy::{
-    ecs::{component::Component, event::EventWriter, system::Query},
+    diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
+    ecs::{
+        component::Component,
+        event::EventWriter,
+        system::{Query, Res},
+    },
     gizmos::gizmos::Gizmos,
     log::error,
     math::{DVec2, DVec3, Quat, Vec2, Vec3},
@@ -395,9 +402,9 @@ pub enum OrbitMode {
 
 #[derive(Debug, Clone, Copy, Reflect)]
 pub struct Smoothness {
-    pub pan: u8,
-    pub orbit: u8,
-    pub zoom: u8,
+    pub pan: Duration,
+    pub orbit: Duration,
+    pub zoom: Duration,
 }
 
 #[derive(Debug, Clone, Copy, Reflect)]
@@ -578,6 +585,26 @@ impl From<&MotionInputs> for MotionKind {
     }
 }
 
+static FPS: OnceLock<RwLock<f32>> = OnceLock::new();
+
+pub(crate) fn update_fps(diagnostics: Res<DiagnosticsStore>) {
+    let Ok(mut fps_lock) = FPS.get_or_init(RwLock::default).try_write() else {
+        return;
+    };
+
+    *fps_lock = diagnostics
+        .get(FrameTimeDiagnosticsPlugin::FPS)
+        .and_then(|diag| diag.average())
+        .unwrap_or(60.0) as f32;
+}
+
+fn read_fps() -> f32 {
+    FPS.get()
+        .and_then(|f| f.try_read().ok())
+        .map(|d| *d)
+        .unwrap_or(60.0)
+}
+
 #[derive(Debug, Clone, Reflect)]
 pub enum MotionInputs {
     /// The camera can orbit and zoom
@@ -608,7 +635,8 @@ impl MotionInputs {
 
     pub fn orbit_velocity(&self, smoothness: Smoothness) -> DVec2 {
         if let Self::OrbitZoom { movement, .. } = self {
-            let n_elements = movement.len().min(smoothness.orbit as usize + 1);
+            let smoothness = (smoothness.orbit.as_secs_f32() * read_fps()) as usize;
+            let n_elements = movement.len().min(smoothness + 1);
             movement.iter().take(n_elements).sum::<Vec2>().as_dvec2() / n_elements as f64
         } else {
             DVec2::ZERO
@@ -617,7 +645,8 @@ impl MotionInputs {
 
     pub fn pan_velocity(&self, smoothness: Smoothness) -> DVec2 {
         if let Self::PanZoom { movement, .. } = self {
-            let n_elements = movement.len().min(smoothness.pan as usize + 1);
+            let smoothness = (smoothness.pan.as_secs_f32() * read_fps()) as usize;
+            let n_elements = movement.len().min(smoothness + 1);
             movement.iter().take(n_elements).sum::<Vec2>().as_dvec2() / n_elements as f64
         } else {
             DVec2::ZERO
@@ -642,7 +671,8 @@ impl MotionInputs {
 
     pub fn zoom_velocity(&self, smoothness: Smoothness) -> f64 {
         let zoom_inputs = self.zoom_inputs();
-        let n_elements = zoom_inputs.len().min(smoothness.zoom as usize + 1);
+        let smoothness = (smoothness.zoom.as_secs_f32() * read_fps()) as usize;
+        let n_elements = zoom_inputs.len().min(smoothness + 1);
         let velocity = zoom_inputs.iter().take(n_elements).sum::<f32>() as f64 / n_elements as f64;
         if !velocity.is_finite() {
             0.0
@@ -657,7 +687,8 @@ impl MotionInputs {
             MotionInputs::PanZoom { zoom_inputs, .. } => zoom_inputs,
             MotionInputs::Zoom { zoom_inputs } => zoom_inputs,
         };
-        let n_elements = zoom_inputs.len().min(smoothness.zoom as usize + 1);
+        let smoothness = (smoothness.zoom.as_secs_f32() * read_fps()) as usize;
+        let n_elements = zoom_inputs.len().min(smoothness + 1);
         let velocity = zoom_inputs
             .iter()
             .take(n_elements)
