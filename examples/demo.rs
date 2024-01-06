@@ -24,7 +24,6 @@ fn send_events(keyboard: Res<Input<KeyCode>>) {
     if keyboard.just_pressed(KeyCode::P) {
         // cam_events.send(ChangeProjection::To);
     }
-    sleep(Duration::from_millis(0));
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -86,12 +85,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             specular_map: specular_map.clone(),
         },
         EditorCam::new(
-            OrbitMode::Constrained(Vec3::Y),
-            // OrbitMode::Free,
+            // OrbitMode::Constrained(Vec3::Y),
+            OrbitMode::Free,
             Smoothness {
-                pan: Duration::from_millis(20),
+                pan: Duration::from_millis(10),
                 orbit: Duration::from_millis(40),
-                zoom: Duration::from_millis(100),
+                zoom: Duration::from_millis(40),
             },
             Sensitivity::same(1.0),
             Momentum {

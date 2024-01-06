@@ -182,7 +182,6 @@ impl EditorCam {
                 MotionInputs::Zoom { .. } => Velocity::None,
             },
         };
-        dbg!("done");
         self.motion = Motion::Inactive { velocity };
     }
 
