@@ -35,10 +35,10 @@ pub enum DollyZoomProjection {
 
 impl DollyZoom {
     fn update(mut cameras: Query<(&mut Self, &mut EditorCam, &mut Projection, &mut Transform)>) {
-        for (mut dolly, mut editor_cam, mut proj, mut transform) in &mut cameras {
+        for (mut dolly, mut editor_cam, mut current_projection, mut transform) in &mut cameras {
             let forward = transform.forward();
             match dolly.target_projection {
-                DollyZoomProjection::Perspective => match &mut *proj {
+                DollyZoomProjection::Perspective => match &mut *current_projection {
                     Projection::Perspective(perspective) => {
                         let dolly_movement =
                             Self::animated_offset(0.0, dolly.dist_to_target, dolly.animation_speed);
@@ -63,7 +63,7 @@ impl DollyZoom {
                         // });
                     }
                 },
-                DollyZoomProjection::Orthographic => match &mut *proj {
+                DollyZoomProjection::Orthographic => match &mut *current_projection {
                     Projection::Orthographic(_) => continue,
                     Projection::Perspective(perspective) => {
                         let dolly_movement = Self::animated_offset(
@@ -77,12 +77,13 @@ impl DollyZoom {
                         transform.translation += forward * dolly_movement;
 
                         if (dolly.dist_to_target - dolly.maximum_dolly_pull).abs() < 0.01 {
-                            *proj = Projection::Orthographic(OrthographicProjection {
-                                near: dolly.near,
-                                far: dolly.far,
-                                scale: editor_cam.latest_depth as f32, // compute this gooder?
-                                ..Default::default()
-                            });
+                            *current_projection =
+                                Projection::Orthographic(OrthographicProjection {
+                                    near: dolly.near,
+                                    far: dolly.far,
+                                    scale: editor_cam.latest_depth as f32, // compute this gooder?
+                                    ..Default::default()
+                                });
                             editor_cam.latest_depth += dolly.dist_to_target as f64;
                             transform.translation += forward * dolly.dist_to_target;
                             dolly.dist_to_target = 0.0;

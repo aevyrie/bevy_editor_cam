@@ -239,7 +239,7 @@ impl EditorCamInputEvent {
             let zoom_amount = match pointer {
                 // FIXME: account for different scroll units
                 // TODO: add pinch zoom support
-                PointerId::Mouse => mouse_wheel.read().map(|mw| mw.y).sum::<f32>() * 2.0,
+                PointerId::Mouse => mouse_wheel.read().map(|mw| mw.y).sum::<f32>(),
                 _ => 0.0,
             };
 

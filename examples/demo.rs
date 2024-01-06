@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{thread::sleep, time::Duration};
 
 use bevy::{
     core_pipeline::{bloom::BloomSettings, tonemapping::Tonemapping},
@@ -8,7 +8,7 @@ use bevy_editor_cam::{prelude::*, skybox::SkyboxCamConfig};
 
 fn main() {
     App::new()
-        .insert_resource(bevy::winit::WinitSettings::desktop_app())
+        // .insert_resource(bevy::winit::WinitSettings::desktop_app())
         .add_plugins((
             DefaultPlugins,
             bevy_mod_picking::DefaultPickingPlugins,
@@ -24,6 +24,7 @@ fn send_events(keyboard: Res<Input<KeyCode>>) {
     if keyboard.just_pressed(KeyCode::P) {
         // cam_events.send(ChangeProjection::To);
     }
+    sleep(Duration::from_millis(0));
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -89,8 +90,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             // OrbitMode::Free,
             Smoothness {
                 pan: Duration::from_millis(20),
-                orbit: Duration::from_millis(60),
-                zoom: Duration::from_millis(80),
+                orbit: Duration::from_millis(40),
+                zoom: Duration::from_millis(100),
             },
             Sensitivity::same(1.0),
             Momentum {

@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{diagnostic::FrameTimeDiagnosticsPlugin, prelude::*};
 use bevy_picking_core::PickSet;
 
 use crate::{
@@ -18,7 +18,6 @@ impl Plugin for EditorCamPlugin {
             .add_systems(
                 PreUpdate,
                 (
-                    crate::cam_component::update_fps,
                     crate::input::default_camera_inputs,
                     EditorCamInputEvent::receive_events,
                     EditorCamInputEvent::update_moves,
@@ -27,5 +26,11 @@ impl Plugin for EditorCamPlugin {
                     .chain()
                     .after(PickSet::Last),
             );
+    }
+
+    fn finish(&self, app: &mut App) {
+        if !app.is_plugin_added::<FrameTimeDiagnosticsPlugin>() {
+            app.add_plugins(FrameTimeDiagnosticsPlugin);
+        }
     }
 }
