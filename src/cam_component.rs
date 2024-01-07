@@ -214,20 +214,24 @@ impl EditorCam {
         mut gizmos: Gizmos,
         mut event: EventWriter<RequestRedraw>,
     ) {
-        for (mut camera_controller, camera, ref mut cam_transform, ref mut projection) in
+        for (mut controller, camera, ref mut cam_transform, ref mut projection) in
             cameras.iter_mut()
         {
-            camera_controller.update_camera(
-                camera,
-                cam_transform,
-                projection,
-                &mut gizmos,
-                &mut event,
-            )
+            controller.update_pos(camera, cam_transform, projection, &mut gizmos, &mut event);
+            controller.update_near_plane(projection);
         }
     }
 
-    pub fn update_camera(
+    pub fn update_near_plane(&mut self, projection: &mut Projection) {
+        let near = match projection {
+            Projection::Perspective(perspective) => &mut perspective.near,
+            Projection::Orthographic(orthographic) => &mut orthographic.near,
+        };
+
+        *near = (self.latest_depth as f32 * -0.05).clamp(1e-5, 0.1);
+    }
+
+    pub fn update_pos(
         &mut self,
         camera: &Camera,
         cam_transform: &mut Transform,
@@ -261,13 +265,12 @@ impl EditorCam {
 
         let screen_to_view_space_at_depth = |camera: &Camera, depth: f64| -> Option<DVec2> {
             let target_size = camera.logical_viewport_size()?.as_dvec2();
-            // This is a strangle looking, but key part of the otherwise normal looking
-            // screen-to-view transformation. What we are trying to do here is answer "if we
-            // move by one pixel in x and y, how much distance do we cover in the world at
-            // the specified depth?" Because the viewport position's origin is in the
-            // corner, we need to half of the target size, and subtract one pixel. This gets
-            // us a viewport position one pixel diagonal offset from the center of the
-            // screen.
+            // This is a strange looking, but key part of the otherwise normal looking
+            // screen-to-view transformation. What we are trying to do here is answer "if we move by
+            // one pixel in x and y, how much distance do we cover in the world at the specified
+            // depth?" Because the viewport position's origin is in the corner, we need to half of
+            // the target size, and subtract one pixel. This gets us a viewport position one pixel
+            // diagonal offset from the center of the screen.
             let mut viewport_position = target_size / 2.0 - 1.0;
             // Flip the Y co-ordinate origin from the top to the bottom.
             viewport_position.y = target_size.y - viewport_position.y;

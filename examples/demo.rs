@@ -38,7 +38,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         directional_light: DirectionalLight {
             illuminance: 5_000.0,
             shadows_enabled: true,
-            // color: Color::rgb(1.0, 0.7, 0.2),
             ..default()
         },
         transform: Transform::from_xyz(0.1, 1.0, 0.1).looking_at(Vec3::ZERO, Vec3::Y),
