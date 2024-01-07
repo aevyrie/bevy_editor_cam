@@ -34,7 +34,7 @@ pub fn default_camera_inputs(
                 editor_cam
                     .motion
                     .inputs()
-                    .map(|inputs| inputs.zoom_velocity_abs(editor_cam.smoothness))
+                    .map(|inputs| inputs.zoom_velocity_abs(editor_cam.smoothness.zoom.mul_f32(2.0)))
             })
             .unwrap_or(0.0);
         let should_zoom_end = is_in_zoom_mode && zoom_amount_abs <= zoom_stop;
@@ -237,9 +237,17 @@ impl EditorCamInputEvent {
                 .sum();
 
             let zoom_amount = match pointer {
-                // FIXME: account for different scroll units
                 // TODO: add pinch zoom support, probably in mod_picking
-                PointerId::Mouse => mouse_wheel.read().map(|mw| mw.y).sum::<f32>(),
+                PointerId::Mouse => mouse_wheel
+                    .read()
+                    .map(|mw| {
+                        let scroll_multiplier = match mw.unit {
+                            bevy::input::mouse::MouseScrollUnit::Line => 150.0,
+                            bevy::input::mouse::MouseScrollUnit::Pixel => 1.0,
+                        };
+                        mw.y * scroll_multiplier
+                    })
+                    .sum::<f32>(),
                 _ => 0.0,
             };
 

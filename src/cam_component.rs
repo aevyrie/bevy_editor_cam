@@ -324,7 +324,7 @@ impl EditorCam {
             .mul_vec3(orbit_dir.cross(DVec3::NEG_Z).normalize())
             .normalize();
 
-        let orbit_multiplier = 0.008;
+        let orbit_multiplier = 0.005;
         if orbit.is_finite() && orbit.length() != 0.0 {
             match self.orbit {
                 OrbitMode::Constrained(up) => {
@@ -636,11 +636,11 @@ impl<T: Copy + Default + Add<Output = T> + AddAssign<T> + Mul<f32, Output = T>> 
         let start = Instant::now();
         let interval = Duration::from_secs_f32(1.0 / 60.0);
         let mut queue = VecDeque::default();
-        for i in 0..Self::MAX_EVENTS {
-            queue.push_front(InputStreamEntry {
+        for i in 1..Self::MAX_EVENTS {
+            queue.push_back(InputStreamEntry {
                 time: start - interval.mul_f32(i as f32),
                 sample: T::default(),
-                fraction_remaining: 0.0,
+                fraction_remaining: 1.0,
                 smoothed_value: T::default(),
             })
         }
@@ -851,14 +851,14 @@ impl MotionInputs {
         }
     }
 
-    pub fn zoom_velocity_abs(&self, smoothness: Smoothness) -> f64 {
+    pub fn zoom_velocity_abs(&self, smoothness: Duration) -> f64 {
         let zoom_inputs = match self {
             MotionInputs::OrbitZoom { zoom_inputs, .. } => zoom_inputs,
             MotionInputs::PanZoom { zoom_inputs, .. } => zoom_inputs,
             MotionInputs::Zoom { zoom_inputs } => zoom_inputs,
         };
 
-        let velocity = zoom_inputs.approx_smoothed(smoothness.zoom, |v| {
+        let velocity = zoom_inputs.approx_smoothed(smoothness, |v| {
             *v = v.abs();
         }) as f64;
         if !velocity.is_finite() {

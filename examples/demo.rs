@@ -97,9 +97,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             OrbitMode::Constrained(Vec3::Y),
             // OrbitMode::Free,
             Smoothness {
-                pan: Duration::from_millis(12),
+                pan: Duration::from_millis(16),
                 orbit: Duration::from_millis(40),
-                zoom: Duration::from_millis(60),
+                zoom: Duration::from_millis(80),
             },
             Sensitivity::same(1.0),
             Momentum {
