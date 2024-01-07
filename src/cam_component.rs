@@ -40,6 +40,30 @@ pub struct EditorCam {
     pub latest_depth: f64,
 }
 
+impl Default for EditorCam {
+    fn default() -> Self {
+        EditorCam::new(
+            OrbitMode::Constrained(Vec3::Y),
+            Smoothness {
+                pan: Duration::from_millis(12),
+                orbit: Duration::from_millis(40),
+                zoom: Duration::from_millis(60),
+            },
+            Sensitivity::same(1.0),
+            Momentum {
+                smoothness: Smoothness {
+                    pan: Duration::from_millis(40),
+                    orbit: Duration::from_millis(40),
+                    zoom: Duration::from_millis(0),
+                },
+                pan: 150,
+                orbit: 100,
+            },
+            2.0,
+        )
+    }
+}
+
 impl EditorCam {
     pub fn new(
         orbit: OrbitMode,
@@ -173,11 +197,11 @@ impl EditorCam {
             } => match motion_inputs {
                 MotionInputs::OrbitZoom { .. } => Velocity::Orbit {
                     anchor,
-                    velocity: motion_inputs.approx_orbit_velocity(self.momentum.smoothness.orbit),
+                    velocity: motion_inputs.orbit_momentum(self.momentum.smoothness.orbit),
                 },
                 MotionInputs::PanZoom { .. } => Velocity::Pan {
                     anchor,
-                    velocity: motion_inputs.approx_pan_velocity(self.momentum.smoothness.pan),
+                    velocity: motion_inputs.pan_momentum(self.momentum.smoothness.pan),
                 },
                 MotionInputs::Zoom { .. } => Velocity::None,
             },
@@ -228,7 +252,7 @@ impl EditorCam {
                 anchor,
                 motion_inputs.smooth_orbit_velocity(),
                 motion_inputs.smooth_pan_velocity(),
-                motion_inputs.smooth_zoom_velocity(self.smoothness),
+                motion_inputs.smooth_zoom_velocity(),
             ),
         };
 
@@ -584,7 +608,7 @@ impl From<&MotionInputs> for MotionKind {
 /// 2. The sum of smoothed and unsmoothed inputs will be equal despite (1). This is useful because
 ///    you can smooth something like pointer motions, and the smoothed output will arrive at the
 ///    same destination as the unsmoothed input without drifting.
-#[derive(Debug, Clone, Reflect, Default)]
+#[derive(Debug, Clone, Reflect)]
 pub struct InputQueue<T>(VecDeque<InputStreamEntry<T>>);
 
 #[derive(Debug, Clone, Reflect)]
@@ -605,8 +629,27 @@ struct InputStreamEntry<T> {
     smoothed_value: T,
 }
 
+impl<T: Copy + Default + Add<Output = T> + AddAssign<T> + Mul<f32, Output = T>> Default
+    for InputQueue<T>
+{
+    fn default() -> Self {
+        let start = Instant::now();
+        let interval = Duration::from_secs_f32(1.0 / 60.0);
+        let mut queue = VecDeque::default();
+        for i in 0..Self::MAX_EVENTS {
+            queue.push_front(InputStreamEntry {
+                time: start - interval.mul_f32(i as f32),
+                sample: T::default(),
+                fraction_remaining: 0.0,
+                smoothed_value: T::default(),
+            })
+        }
+        Self(queue)
+    }
+}
+
 impl<T: Copy + Default + Add<Output = T> + AddAssign<T> + Mul<f32, Output = T>> InputQueue<T> {
-    const MAX_EVENTS: usize = 128;
+    const MAX_EVENTS: usize = 256;
 
     /// Add an input sample to the queue, and compute the smoothed value.
     ///
@@ -658,17 +701,38 @@ impl<T: Copy + Default + Add<Output = T> + AddAssign<T> + Mul<f32, Output = T>> 
     }
 
     pub fn latest_smoothed(&self) -> Option<T> {
-        self.0.front().map(|entry| entry.smoothed_value)
+        self.iter_smoothed().next().map(|(_, val)| val)
     }
 
-    pub fn unsmoothed_samples(&self) -> impl Iterator<Item = (Instant, T)> + '_ {
+    pub fn iter_smoothed(&self) -> impl Iterator<Item = (Instant, T)> + '_ {
+        self.0
+            .iter()
+            .map(|entry| (entry.time, entry.smoothed_value))
+    }
+
+    pub fn iter_unsmoothed(&self) -> impl Iterator<Item = (Instant, T)> + '_ {
         self.0.iter().map(|entry| (entry.time, entry.sample))
+    }
+
+    pub fn average_smoothed_value(&self, window: Duration) -> T {
+        let now = Instant::now();
+        let mut count = 0;
+        let sum = self
+            .iter_smoothed()
+            .filter(|(t, _)| now.duration_since(*t) < window)
+            .map(|(_, smoothed_value)| smoothed_value)
+            .reduce(|acc, v| {
+                count += 1;
+                acc + v
+            })
+            .unwrap_or_default();
+        sum * (1.0 / count as f32)
     }
 
     pub fn approx_smoothed(&self, smoothness: Duration, mut modifier: impl FnMut(&mut T)) -> T {
         let now = Instant::now();
         let n_elements = &mut 0;
-        self.unsmoothed_samples()
+        self.iter_unsmoothed()
             .filter(|(time, _)| now.duration_since(*time) < smoothness)
             .map(|(_, value)| {
                 *n_elements += 1;
@@ -712,19 +776,11 @@ impl MotionInputs {
 
     pub fn smooth_orbit_velocity(&self) -> DVec2 {
         if let Self::OrbitZoom { movement, .. } = self {
-            movement.latest_smoothed().unwrap_or(Vec2::ZERO).as_dvec2()
-        } else {
-            DVec2::ZERO
-        }
-    }
-
-    pub fn approx_orbit_velocity(&self, smoothness: Duration) -> DVec2 {
-        if let Self::OrbitZoom { movement, .. } = self {
-            let velocity = movement.approx_smoothed(smoothness, |_| {}).as_dvec2();
-            if !velocity.is_finite() {
-                DVec2::ZERO
+            let value = movement.latest_smoothed().unwrap_or(Vec2::ZERO).as_dvec2();
+            if value.is_finite() {
+                value
             } else {
-                velocity
+                DVec2::ZERO
             }
         } else {
             DVec2::ZERO
@@ -744,9 +800,9 @@ impl MotionInputs {
         }
     }
 
-    pub fn approx_pan_velocity(&self, smoothness: Duration) -> DVec2 {
-        if let Self::PanZoom { movement, .. } = self {
-            let velocity = movement.approx_smoothed(smoothness, |_| {}).as_dvec2();
+    pub fn orbit_momentum(&self, window: Duration) -> DVec2 {
+        if let Self::OrbitZoom { movement, .. } = self {
+            let velocity = movement.average_smoothed_value(window).as_dvec2();
             if !velocity.is_finite() {
                 DVec2::ZERO
             } else {
@@ -757,8 +813,21 @@ impl MotionInputs {
         }
     }
 
-    pub fn smooth_zoom_velocity(&self, smoothness: Smoothness) -> f64 {
-        let velocity = self.zoom_inputs().approx_smoothed(smoothness.zoom, |_| {}) as f64;
+    pub fn pan_momentum(&self, window: Duration) -> DVec2 {
+        if let Self::PanZoom { movement, .. } = self {
+            let velocity = movement.average_smoothed_value(window).as_dvec2();
+            if !velocity.is_finite() {
+                DVec2::ZERO
+            } else {
+                velocity
+            }
+        } else {
+            DVec2::ZERO
+        }
+    }
+
+    pub fn smooth_zoom_velocity(&self) -> f64 {
+        let velocity = self.zoom_inputs().latest_smoothed().unwrap_or(0.0) as f64;
         if !velocity.is_finite() {
             0.0
         } else {

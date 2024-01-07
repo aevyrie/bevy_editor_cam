@@ -1,18 +1,25 @@
-use std::{thread::sleep, time::Duration};
+use std::time::Duration;
 
 use bevy::{
-    core_pipeline::{bloom::BloomSettings, tonemapping::Tonemapping},
+    core_pipeline::{
+        bloom::BloomSettings,
+        experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin},
+        tonemapping::Tonemapping,
+    },
+    pbr::ScreenSpaceAmbientOcclusionSettings,
     prelude::*,
 };
 use bevy_editor_cam::{prelude::*, skybox::SkyboxCamConfig};
+use bevy_framepace::FramepacePlugin;
 
 fn main() {
     App::new()
-        // .insert_resource(bevy::winit::WinitSettings::desktop_app())
+        .insert_resource(bevy::winit::WinitSettings::desktop_app())
         .add_plugins((
             DefaultPlugins,
             bevy_mod_picking::DefaultPickingPlugins,
-            bevy_framepace::FramepacePlugin,
+            FramepacePlugin,
+            TemporalAntiAliasPlugin,
             EditorCamPlugin,
         ))
         .add_systems(Startup, setup)
@@ -80,24 +87,25 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         },
         BloomSettings::default(),
+        TemporalAntiAliasBundle::default(),
+        ScreenSpaceAmbientOcclusionSettings::default(),
         EnvironmentMapLight {
             diffuse_map: diffuse_map.clone(),
             specular_map: specular_map.clone(),
         },
         EditorCam::new(
-            // OrbitMode::Constrained(Vec3::Y),
-            OrbitMode::Free,
+            OrbitMode::Constrained(Vec3::Y),
+            // OrbitMode::Free,
             Smoothness {
-                pan: Duration::from_millis(10),
+                pan: Duration::from_millis(12),
                 orbit: Duration::from_millis(40),
-                zoom: Duration::from_millis(40),
+                zoom: Duration::from_millis(60),
             },
             Sensitivity::same(1.0),
             Momentum {
-                // These should all be larger than the base smoothness
                 smoothness: Smoothness {
-                    pan: Duration::from_millis(80),
-                    orbit: Duration::from_millis(100),
+                    pan: Duration::from_millis(40),
+                    orbit: Duration::from_millis(40),
                     zoom: Duration::from_millis(0),
                 },
                 pan: 150,

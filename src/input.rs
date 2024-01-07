@@ -238,7 +238,7 @@ impl EditorCamInputEvent {
 
             let zoom_amount = match pointer {
                 // FIXME: account for different scroll units
-                // TODO: add pinch zoom support
+                // TODO: add pinch zoom support, probably in mod_picking
                 PointerId::Mouse => mouse_wheel.read().map(|mw| mw.y).sum::<f32>(),
                 _ => 0.0,
             };
