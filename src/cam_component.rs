@@ -45,9 +45,9 @@ impl Default for EditorCam {
         EditorCam::new(
             OrbitMode::Constrained(Vec3::Y),
             Smoothness {
-                pan: Duration::from_millis(12),
+                pan: Duration::from_millis(16),
                 orbit: Duration::from_millis(40),
-                zoom: Duration::from_millis(60),
+                zoom: Duration::from_millis(80),
             },
             Sensitivity::same(1.0),
             Momentum {
