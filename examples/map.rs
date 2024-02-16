@@ -1,0 +1,165 @@
+use bevy::{
+    core_pipeline::{
+        bloom::BloomSettings,
+        experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasSettings},
+        tonemapping::Tonemapping,
+    },
+    pbr::{ScreenSpaceAmbientOcclusionBundle, ScreenSpaceAmbientOcclusionSettings},
+    prelude::*,
+    render::camera::TemporalJitter,
+};
+use bevy_editor_cam::{extensions::dolly_zoom::DollyZoomTrigger, prelude::*};
+use rand::Rng;
+
+fn main() {
+    App::new()
+        .add_plugins((
+            DefaultPlugins,
+            bevy_mod_picking::DefaultPickingPlugins,
+            DefaultEditorCamPlugins,
+        ))
+        .insert_resource(Msaa::Off)
+        .add_systems(Startup, (setup, setup_ui))
+        .add_systems(Update, toggle_projection)
+        .run()
+}
+
+fn setup(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut matls: ResMut<Assets<StandardMaterial>>,
+) {
+    spawn_buildings(&mut commands, &mut meshes, &mut matls, 20.0);
+
+    let diffuse_map = asset_server.load("environment_maps/diffuse_rgb9e5_zstd.ktx2");
+    let specular_map = asset_server.load("environment_maps/specular_rgb9e5_zstd.ktx2");
+
+    commands
+        .spawn((
+            Camera3dBundle {
+                transform: Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
+                tonemapping: Tonemapping::AcesFitted,
+                ..default()
+            },
+            BloomSettings::default(),
+            EnvironmentMapLight {
+                diffuse_map: diffuse_map.clone(),
+                specular_map: specular_map.clone(),
+            },
+            EditorCam {
+                orbit_constraint: OrbitConstraint::Fixed {
+                    up: Vec3::Y,
+                    can_pass_tdc: false,
+                },
+                last_anchor_depth: 2.0,
+                ..Default::default()
+            },
+            bevy_editor_cam::extensions::independent_skybox::IndependentSkybox::new(diffuse_map),
+        ))
+        .insert(ScreenSpaceAmbientOcclusionBundle::default())
+        .insert(TemporalAntiAliasBundle::default());
+}
+
+fn spawn_buildings(
+    commands: &mut Commands,
+    meshes: &mut Assets<Mesh>,
+    matls: &mut Assets<StandardMaterial>,
+    half_width: f32,
+) {
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(shape::Plane::from_size(half_width * 20.0).into()),
+        material: matls.add(Color::DARK_GRAY.into()),
+        transform: Transform::from_xyz(0.0, -5.0, 0.0),
+        ..Default::default()
+    });
+
+    let mut rng = rand::thread_rng();
+    let mesh = meshes.add(shape::Cube::default().into());
+    let material = [
+        matls.add(Color::GRAY.into()),
+        matls.add(Color::rgb(0.3, 0.6, 0.8).into()),
+        matls.add(Color::rgb(0.55, 0.4, 0.8).into()),
+        matls.add(Color::rgb(0.8, 0.45, 0.5).into()),
+    ];
+
+    let w = half_width as isize;
+    for x in -w..=w {
+        for z in -w..=w {
+            let x = x as f32 + rng.gen::<f32>() - 0.5;
+            let z = z as f32 + rng.gen::<f32>() - 0.5;
+            let y = rng.gen::<f32>() * rng.gen::<f32>() * rng.gen::<f32>() * rng.gen::<f32>();
+            let y_scale = 1.02f32.powf(100.0 * y);
+
+            commands.spawn(PbrBundle {
+                mesh: mesh.clone(),
+                material: material[rng.gen_range(0..material.len())].clone(),
+                transform: Transform::from_xyz(x, y_scale / 2.0 - 5.0, z).with_scale(Vec3::new(
+                    (rng.gen::<f32>() + 0.5) * 0.3,
+                    y_scale,
+                    (rng.gen::<f32>() + 0.5) * 0.3,
+                )),
+                ..Default::default()
+            });
+        }
+    }
+}
+
+fn toggle_projection(
+    mut commands: Commands,
+    keys: ResMut<Input<KeyCode>>,
+    mut dolly: EventWriter<DollyZoomTrigger>,
+    cam: Query<(Entity, &Projection), With<EditorCam>>,
+) {
+    let (camera, projection) = cam.single();
+    let target_projection = match projection {
+        Projection::Perspective(_) => Projection::Orthographic(OrthographicProjection::default()),
+        Projection::Orthographic(_) => Projection::Perspective(PerspectiveProjection::default()),
+    };
+    if keys.just_pressed(KeyCode::P) {
+        dolly.send(DollyZoomTrigger {
+            target_projection,
+            camera,
+        })
+    }
+
+    match projection {
+        Projection::Perspective(_) => {
+            commands
+                .entity(camera)
+                .insert(ScreenSpaceAmbientOcclusionSettings::default())
+                .insert(TemporalAntiAliasSettings::default())
+                .insert(TemporalJitter::default());
+            commands.insert_resource(Msaa::Off);
+        }
+        Projection::Orthographic(_) => {
+            commands
+                .entity(camera)
+                .remove::<ScreenSpaceAmbientOcclusionSettings>()
+                .remove::<TemporalAntiAliasSettings>()
+                .remove::<TemporalJitter>();
+            commands.insert_resource(Msaa::Sample4);
+        }
+    }
+}
+
+fn setup_ui(mut commands: Commands) {
+    let style = TextStyle {
+        font_size: 20.0,
+        ..default()
+    };
+    commands.spawn(
+        TextBundle::from_sections(vec![
+            TextSection::new("Left Mouse - Pan\n", style.clone()),
+            TextSection::new("Right Mouse - Orbit\n", style.clone()),
+            TextSection::new("Scroll - Zoom\n", style.clone()),
+            TextSection::new("P - Toggle projection\n", style.clone()),
+        ])
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
+            ..default()
+        }),
+    );
+}

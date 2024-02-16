@@ -1,0 +1,11 @@
+Model Information:
+* title:	Plane Engine
+* source:	https://sketchfab.com/3d-models/plane-engine-3a3e71ec7f6e4f24963f63cf6bd22358
+* author:	T-FLEX CAD ST (Free) (https://sketchfab.com/tflexcad)
+
+Model License:
+* license type:	CC-BY-NC-4.0 (http://creativecommons.org/licenses/by-nc/4.0/)
+* requirements:	Author must be credited. No commercial use.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Plane Engine" (https://sketchfab.com/3d-models/plane-engine-3a3e71ec7f6e4f24963f63cf6bd22358) by T-FLEX CAD ST (Free) (https://sketchfab.com/tflexcad) licensed under CC-BY-NC-4.0 (http://creativecommons.org/licenses/by-nc/4.0/)
