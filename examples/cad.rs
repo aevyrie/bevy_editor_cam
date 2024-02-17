@@ -107,6 +107,7 @@ fn setup_ui(mut commands: Commands) {
 #[derive(Component)]
 struct StartPos(f32);
 
+#[allow(clippy::type_complexity)]
 fn explode(
     mut commands: Commands,
     keys: Res<Input<KeyCode>>,
@@ -114,6 +115,7 @@ fn explode(
     mut explode_amount: Local<f32>,
     mut redraw: EventWriter<RequestRedraw>,
     mut parts: Query<(Entity, &mut Transform, &Aabb, Option<&StartPos>), With<Handle<Mesh>>>,
+    mut matls: ResMut<Assets<StandardMaterial>>,
 ) {
     let animation = Duration::from_millis(2000);
     if keys.just_pressed(KeyCode::E) {
@@ -142,5 +144,8 @@ fn explode(
         if t < 1.0 {
             redraw.send(RequestRedraw);
         }
+    }
+    for (_, matl) in matls.iter_mut() {
+        matl.perceptual_roughness = matl.perceptual_roughness.clamp(0.1, 1.0)
     }
 }
