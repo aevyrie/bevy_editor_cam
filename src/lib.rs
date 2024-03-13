@@ -95,34 +95,6 @@
 //! responsiveness. This is particularly useful when showing the screen to other people, where fast
 //! motions can be disorienting or even nauseating.
 //!
-//! ## Other notable features
-//!
-//! I've also implemented a few other features that are handy for a camera controller like this.
-//!
-//! #### Compatible with floating origins and other controllers
-//!
-//! This controller does all computations in view space. The result of this is that you can move the
-//! camera wherever you want, update its transform, and it will continue to behave normally, as long
-//! as the camera isn't being controlled by the user while you do this. This means you can control
-//! this camera with another camera controller, or use it in a floating origin system.
-//!
-//! #### Independent skybox
-//!
-//! When working in a CAD context, it is common to use orthographic projections to remove
-//! perspective distortion from the image. However, because an ortho projection has zero field of
-//! view, the view of the skybox is infinitesimally small, i.e. only a single pixel of the skybox is
-//! visible. To fix this, an [extension](extensions) is provided to attach a skybox to a camera that
-//! is independent from that camera's field of view.
-//!
-//! #### Pointer and Hit Test Agnostic
-//!
-//! Users of this library shouldn't be forced into using any particular hit testing method, like CPU
-//! raycasting. The controller uses [`bevy_picking_core`] to work with:
-//!
-//! - Arbitrary hit testing backends, including those supplied by users.
-//! - Any number of pointing inputs, including touch.
-//! - Viewports and multi-pass rendering.
-//!
 //! # Usage
 //!
 //! This plugin only requires three things to work. The `bevy_mod_picking` plugin for hit tests, the
@@ -172,6 +144,35 @@
 //! ));
 //! # }
 //! ```
+//!
+//! # Other notable features
+//!
+//! I've also implemented a few other features that are handy for a camera controller like this.
+//!
+//! ### Compatible with floating origins and other controllers
+//!
+//! This controller does all computations in view space. The result of this is that you can move the
+//! camera wherever you want, update its transform, and it will continue to behave normally, as long
+//! as the camera isn't being controlled by the user while you do this. This means you can control
+//! this camera with another camera controller, or use it in a floating origin system.
+//!
+//! ### Independent skybox
+//!
+//! When working in a CAD context, it is common to use orthographic projections to remove
+//! perspective distortion from the image. However, because an ortho projection has zero field of
+//! view, the view of the skybox is infinitesimally small, i.e. only a single pixel of the skybox is
+//! visible. To fix this, an [extension](extensions) is provided to attach a skybox to a camera that
+//! is independent from that camera's field of view.
+//!
+//! ### Pointer and Hit Test Agnostic
+//!
+//! Users of this library shouldn't be forced into using any particular hit testing method, like CPU
+//! raycasting. The controller uses [`bevy_picking_core`] to work with:
+//!
+//! - Arbitrary hit testing backends, including those written by users. See
+//!   [`bevy_picking_core::backend`] for more information.
+//! - Any number of pointing inputs, including touch.
+//! - Viewports and multi-pass rendering.
 
 #![warn(missing_docs)]
 
