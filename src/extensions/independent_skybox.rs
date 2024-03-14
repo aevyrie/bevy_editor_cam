@@ -39,6 +39,8 @@ impl Plugin for IndependentSkyboxPlugin {
 pub struct IndependentSkybox {
     /// The image to render as a skybox.
     pub skybox: Handle<Image>,
+    /// Used to set [`Skybox::brightness`].
+    pub brightness: f32,
     /// The [`Camera::order`] of the skybox camera, offset from the camera it is tracking. This
     /// should be lower than the order of the primary camera controller camera. the default value
     /// should be sufficient for most cases. You can override this if you have a more complex use
@@ -52,9 +54,10 @@ pub struct IndependentSkybox {
 
 impl IndependentSkybox {
     /// Create a new [`IndependentSkybox`] with default settings and the provided skybox image.
-    pub fn new(skybox: Handle<Image>) -> Self {
+    pub fn new(skybox: Handle<Image>, brightness: f32) -> Self {
         Self {
             skybox,
+            brightness,
             ..Default::default()
         }
     }
@@ -64,6 +67,7 @@ impl Default for IndependentSkybox {
     fn default() -> Self {
         Self {
             skybox: Default::default(),
+            brightness: 500.0,
             skybox_cam_order_offset: -1_000,
             fov: Default::default(),
             skybox_cam: Default::default(),
@@ -135,7 +139,7 @@ impl IndependentSkyboxCamera {
                     RenderLayers::none(),
                     Skybox {
                         image: editor_without_skybox.skybox.clone(),
-                        brightness: 1000.0,
+                        brightness: editor_without_skybox.brightness,
                     },
                     IndependentSkyboxCamera {
                         driven_by: editor_cam_entity,

@@ -56,7 +56,10 @@ fn setup(
                 last_anchor_depth: 2.0,
                 ..Default::default()
             },
-            bevy_editor_cam::extensions::independent_skybox::IndependentSkybox::new(diffuse_map),
+            bevy_editor_cam::extensions::independent_skybox::IndependentSkybox::new(
+                diffuse_map,
+                1000.0,
+            ),
         ))
         .insert(ScreenSpaceAmbientOcclusionBundle::default())
         .insert(TemporalAntiAliasBundle::default());

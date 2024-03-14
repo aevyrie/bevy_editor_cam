@@ -44,6 +44,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         EditorCam::default(),
         bevy_editor_cam::extensions::independent_skybox::IndependentSkybox::new(
             diffuse_map.clone(),
+            500.0,
         ),
         LeftCamera,
     ));
@@ -73,7 +74,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             specular_map: specular_map.clone(),
         },
         EditorCam::default(),
-        bevy_editor_cam::extensions::independent_skybox::IndependentSkybox::new(diffuse_map),
+        bevy_editor_cam::extensions::independent_skybox::IndependentSkybox::new(diffuse_map, 500.0),
         RightCamera,
     ));
 }
