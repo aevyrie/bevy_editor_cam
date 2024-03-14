@@ -8,7 +8,7 @@
 use bevy::{
     app::prelude::*,
     asset::Handle,
-    core_pipeline::{clear_color::ClearColorConfig, prelude::*, Skybox},
+    core_pipeline::{prelude::*, Skybox},
     ecs::prelude::*,
     reflect::Reflect,
     render::{prelude::*, view::RenderLayers},
@@ -100,10 +100,10 @@ impl IndependentSkyboxCamera {
     /// entity.
     pub fn spawn(
         mut commands: Commands,
-        mut editor_cams: Query<(Entity, &mut IndependentSkybox, &mut Camera3d, &mut Camera)>,
+        mut editor_cams: Query<(Entity, &mut IndependentSkybox, &mut Camera)>,
         skybox_cams: Query<&IndependentSkyboxCamera>,
     ) {
-        for (editor_cam_entity, mut editor_without_skybox, mut camera3d, mut camera) in
+        for (editor_cam_entity, mut editor_without_skybox, mut camera) in
             editor_cams.iter_mut().filter(|(_, config, ..)| {
                 config
                     .skybox_cam
@@ -111,7 +111,7 @@ impl IndependentSkyboxCamera {
                     .is_none()
             })
         {
-            camera3d.clear_color = ClearColorConfig::None;
+            camera.clear_color = ClearColorConfig::None;
             camera.hdr = true;
 
             let entity = commands
@@ -120,10 +120,7 @@ impl IndependentSkyboxCamera {
                         camera: Camera {
                             order: camera.order + editor_without_skybox.skybox_cam_order_offset,
                             hdr: true,
-                            ..Default::default()
-                        },
-                        camera_3d: Camera3d {
-                            clear_color: bevy::core_pipeline::clear_color::ClearColorConfig::None,
+                            clear_color: ClearColorConfig::None,
                             ..Default::default()
                         },
                         projection: Projection::Perspective(PerspectiveProjection {
@@ -136,7 +133,10 @@ impl IndependentSkyboxCamera {
                         ..Default::default()
                     },
                     RenderLayers::none(),
-                    Skybox(editor_without_skybox.skybox.clone()),
+                    Skybox {
+                        image: editor_without_skybox.skybox.clone(),
+                        brightness: 1000.0,
+                    },
                     IndependentSkyboxCamera {
                         driven_by: editor_cam_entity,
                     },

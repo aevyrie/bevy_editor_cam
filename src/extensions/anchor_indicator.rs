@@ -65,7 +65,12 @@ pub fn draw_anchor(
             let gizmo_color = || Color::rgb(1.0, 1.0, 1.0);
             let arm_length = 0.4;
 
-            gizmos.circle(anchor_world, cam_transform.forward(), scale, gizmo_color());
+            gizmos.circle(
+                anchor_world,
+                Direction3d::new_unchecked(cam_transform.forward().normalize()),
+                scale,
+                gizmo_color(),
+            );
             let offset = 1.5 * scale;
             gizmos.ray(
                 anchor_world + offset * cam_transform.left(),

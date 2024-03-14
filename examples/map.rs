@@ -44,6 +44,7 @@ fn setup(
             },
             BloomSettings::default(),
             EnvironmentMapLight {
+                intensity: 1000.0,
                 diffuse_map: diffuse_map.clone(),
                 specular_map: specular_map.clone(),
             },
@@ -68,19 +69,23 @@ fn spawn_buildings(
     half_width: f32,
 ) {
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(half_width * 20.0).into()),
-        material: matls.add(Color::DARK_GRAY.into()),
+        mesh: meshes.add(
+            Plane3d::new(Vec3::Y)
+                .mesh()
+                .size(half_width * 20.0, half_width * 20.0),
+        ),
+        material: matls.add(Color::DARK_GRAY),
         transform: Transform::from_xyz(0.0, -5.0, 0.0),
         ..Default::default()
     });
 
     let mut rng = rand::thread_rng();
-    let mesh = meshes.add(shape::Cube::default().into());
+    let mesh = meshes.add(Cuboid::default());
     let material = [
-        matls.add(Color::GRAY.into()),
-        matls.add(Color::rgb(0.3, 0.6, 0.8).into()),
-        matls.add(Color::rgb(0.55, 0.4, 0.8).into()),
-        matls.add(Color::rgb(0.8, 0.45, 0.5).into()),
+        matls.add(Color::GRAY),
+        matls.add(Color::rgb(0.3, 0.6, 0.8)),
+        matls.add(Color::rgb(0.55, 0.4, 0.8)),
+        matls.add(Color::rgb(0.8, 0.45, 0.5)),
     ];
 
     let w = half_width as isize;
@@ -107,7 +112,7 @@ fn spawn_buildings(
 
 fn toggle_projection(
     mut commands: Commands,
-    keys: ResMut<Input<KeyCode>>,
+    keys: ResMut<ButtonInput<KeyCode>>,
     mut dolly: EventWriter<DollyZoomTrigger>,
     cam: Query<(Entity, &Projection), With<EditorCam>>,
 ) {
@@ -116,11 +121,11 @@ fn toggle_projection(
         Projection::Perspective(_) => Projection::Orthographic(OrthographicProjection::default()),
         Projection::Orthographic(_) => Projection::Perspective(PerspectiveProjection::default()),
     };
-    if keys.just_pressed(KeyCode::P) {
+    if keys.just_pressed(KeyCode::KeyP) {
         dolly.send(DollyZoomTrigger {
             target_projection,
             camera,
-        })
+        });
     }
 
     match projection {

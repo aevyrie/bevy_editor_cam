@@ -2,8 +2,11 @@ use std::time::Duration;
 
 use bevy::{
     core_pipeline::{
-        bloom::BloomSettings, experimental::taa::TemporalAntiAliasPlugin, tonemapping::Tonemapping,
+        bloom::BloomSettings,
+        experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin},
+        tonemapping::Tonemapping,
     },
+    pbr::ScreenSpaceAmbientOcclusionBundle,
     prelude::*,
     render::primitives::Aabb,
     utils::Instant,
@@ -20,9 +23,9 @@ fn main() {
             TemporalAntiAliasPlugin,
         ))
         // The camera controller works with reactive rendering:
-        .insert_resource(bevy::winit::WinitSettings::desktop_app())
-        .insert_resource(Msaa::Sample4)
-        .insert_resource(ClearColor(Color::WHITE))
+        // .insert_resource(bevy::winit::WinitSettings::desktop_app())
+        .insert_resource(Msaa::Off)
+        .insert_resource(ClearColor(Color::NONE))
         .insert_resource(AmbientLight {
             brightness: 0.0,
             ..default()
@@ -42,33 +45,40 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..Default::default()
     });
 
-    commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
-            tonemapping: Tonemapping::AcesFitted,
-            ..default()
-        },
-        BloomSettings::default(),
-        EnvironmentMapLight {
-            diffuse_map: diffuse_map.clone(),
-            specular_map: specular_map.clone(),
-        },
-        EditorCam {
-            orbit_constraint: OrbitConstraint::Free,
-            last_anchor_depth: 2.0,
-            ..Default::default()
-        },
-        bevy_editor_cam::extensions::independent_skybox::IndependentSkybox::new(diffuse_map),
-    ));
+    commands
+        .spawn((
+            Camera3dBundle {
+                transform: Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
+                tonemapping: Tonemapping::AcesFitted,
+                ..default()
+            },
+            BloomSettings::default(),
+            EnvironmentMapLight {
+                intensity: 1000.0,
+                diffuse_map: diffuse_map.clone(),
+                specular_map: specular_map.clone(),
+            },
+            EditorCam {
+                orbit_constraint: OrbitConstraint::Fixed {
+                    up: Vec3::Y,
+                    can_pass_tdc: false,
+                },
+                last_anchor_depth: 2.0,
+                ..Default::default()
+            },
+            bevy_editor_cam::extensions::independent_skybox::IndependentSkybox::new(diffuse_map),
+        ))
+        .insert(ScreenSpaceAmbientOcclusionBundle::default())
+        .insert(TemporalAntiAliasBundle::default());
 }
 
 fn toggle_projection(
-    keys: Res<Input<KeyCode>>,
+    keys: Res<ButtonInput<KeyCode>>,
     mut dolly: EventWriter<DollyZoomTrigger>,
     cam: Query<Entity, With<EditorCam>>,
     mut toggled: Local<bool>,
 ) {
-    if keys.just_pressed(KeyCode::P) {
+    if keys.just_pressed(KeyCode::KeyP) {
         *toggled = !*toggled;
         let target_projection = if *toggled {
             Projection::Orthographic(OrthographicProjection::default())
@@ -78,7 +88,7 @@ fn toggle_projection(
         dolly.send(DollyZoomTrigger {
             target_projection,
             camera: cam.single(),
-        })
+        });
     }
 }
 
@@ -110,7 +120,7 @@ struct StartPos(f32);
 #[allow(clippy::type_complexity)]
 fn explode(
     mut commands: Commands,
-    keys: Res<Input<KeyCode>>,
+    keys: Res<ButtonInput<KeyCode>>,
     mut toggle: Local<Option<(bool, Instant, f32)>>,
     mut explode_amount: Local<f32>,
     mut redraw: EventWriter<RequestRedraw>,
@@ -118,7 +128,7 @@ fn explode(
     mut matls: ResMut<Assets<StandardMaterial>>,
 ) {
     let animation = Duration::from_millis(2000);
-    if keys.just_pressed(KeyCode::E) {
+    if keys.just_pressed(KeyCode::KeyE) {
         let new = if let Some((last, ..)) = *toggle {
             !last
         } else {

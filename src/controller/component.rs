@@ -167,7 +167,7 @@ impl EditorCam {
 
         self.anchor_view_space().map(|anchor_view_space| {
             let (_, r, t) = camera_transform.to_scale_rotation_translation();
-            r.as_f64() * anchor_view_space + t.as_dvec3()
+            r.as_dquat() * anchor_view_space + t.as_dvec3()
         })
     }
 
@@ -417,7 +417,7 @@ impl EditorCam {
             }
         };
 
-        cam_transform.translation += (cam_transform.rotation.as_f64()
+        cam_transform.translation += (cam_transform.rotation.as_dquat()
             * (pan_translation_view_space + zoom_translation_view_space))
             .as_vec3();
 
@@ -431,7 +431,7 @@ impl EditorCam {
         let orbit_dir = orbit.normalize().extend(0.0);
         let orbit_axis_world = cam_transform
             .rotation
-            .as_f64()
+            .as_dquat()
             .mul_vec3(orbit_dir.cross(DVec3::NEG_Z).normalize())
             .normalize();
 
@@ -439,7 +439,7 @@ impl EditorCam {
             // Following lines are f64 versions of Transform::rotate_around
             transform.translation =
                 (point + rotation * (transform.translation.as_dvec3() - point)).as_vec3();
-            transform.rotation = (rotation * transform.rotation.as_f64()).as_f32();
+            transform.rotation = (rotation * transform.rotation.as_dquat()).as_quat();
         };
 
         let orbit_multiplier = 0.005;
@@ -484,9 +484,9 @@ impl EditorCam {
                     let how_upright = cam_transform.up().angle_between(up).abs();
                     // Orient the camera so up always points up (roll).
                     if how_upright > epsilon && how_upright < FRAC_PI_2 - epsilon {
-                        cam_transform.look_to(cam_transform.forward(), up);
+                        cam_transform.look_to(cam_transform.forward().into(), up);
                     } else if how_upright > FRAC_PI_2 + epsilon && how_upright < PI - epsilon {
-                        cam_transform.look_to(cam_transform.forward(), -up);
+                        cam_transform.look_to(cam_transform.forward().into(), -up);
                     }
                 }
                 OrbitConstraint::Free => {

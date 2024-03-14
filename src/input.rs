@@ -67,7 +67,7 @@ pub fn default_camera_inputs(
     pointer_map: Res<CameraPointerMap>,
     mut controller: EventWriter<EditorCamInputEvent>,
     mut mouse_wheel: EventReader<MouseWheel>,
-    mouse_input: Res<Input<MouseButton>>,
+    mouse_input: Res<ButtonInput<MouseButton>>,
     cameras: Query<(Entity, &Camera, &EditorCam)>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
 ) {
