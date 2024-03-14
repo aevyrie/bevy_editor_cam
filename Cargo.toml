@@ -7,6 +7,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["controller, camera, bevy, CAD"]
 repository = "https://github.com/aevyrie/bevy_editor_cam"
 documentation = "https://docs.rs/crate/bevy_editor_cam/latest"
+exclude = ["assets/"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
