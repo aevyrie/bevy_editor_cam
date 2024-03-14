@@ -3,8 +3,10 @@ name = "bevy_editor_cam"
 version = "0.1.0"
 edition = "2021"
 description = "A camera controller for editors and CAD."
+license = "MIT OR Apache-2.0"
+keywords = ["controller, camera, bevy, CAD"]
 repository = "https://github.com/aevyrie/bevy_editor_cam"
-keywords = ["editor, camera, bevy"]
+documentation = "https://docs.rs/crate/bevy_editor_cam/latest"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -22,5 +24,6 @@ bevy = { version = "0.12", features = ["jpeg"] }
 bevy_mod_picking = { version = "0.17", default-features = false, features = [
     "backend_raycast",
 ] }
+
 big_space = "0.4"
 rand = "0.8"
