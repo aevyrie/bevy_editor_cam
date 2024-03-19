@@ -1,6 +1,7 @@
 //! Camera controller implementation.
 
-use bevy::{app::prelude::*, ecs::prelude::*};
+use bevy_app::prelude::*;
+use bevy_ecs::prelude::*;
 
 pub mod component;
 pub mod inputs;
@@ -15,7 +16,7 @@ pub mod smoothing;
 pub struct MinimalEditorCamPlugin;
 
 impl Plugin for MinimalEditorCamPlugin {
-    fn build(&self, app: &mut bevy::prelude::App) {
+    fn build(&self, app: &mut App) {
         app.add_systems(
             PreUpdate,
             (

@@ -5,21 +5,15 @@ use std::{
     time::Duration,
 };
 
-use bevy::{
-    ecs::{
-        component::Component,
-        event::EventWriter,
-        system::{Query, Res},
-    },
-    log::error,
-    math::{DMat4, DQuat, DVec2, DVec3, Vec2, Vec3},
-    reflect::Reflect,
-    render::camera::{Camera, Projection},
-    time::Time,
-    transform::components::{GlobalTransform, Transform},
-    utils::Instant,
-    window::RequestRedraw,
-};
+use bevy_ecs::prelude::*;
+use bevy_log::prelude::*;
+use bevy_math::{prelude::*, DMat4, DQuat, DVec2, DVec3};
+use bevy_reflect::prelude::*;
+use bevy_render::prelude::*;
+use bevy_time::prelude::*;
+use bevy_transform::prelude::*;
+use bevy_utils::Instant;
+use bevy_window::RequestRedraw;
 
 use super::{
     inputs::MotionInputs,

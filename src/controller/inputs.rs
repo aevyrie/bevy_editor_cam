@@ -2,10 +2,8 @@
 
 use std::time::Duration;
 
-use bevy::{
-    math::{DVec2, Vec2},
-    reflect::Reflect,
-};
+use bevy_math::{prelude::*, DVec2};
+use bevy_reflect::prelude::*;
 
 use super::smoothing::InputQueue;
 

@@ -3,7 +3,14 @@
 //! making it easier to use and understand.
 
 use crate::prelude::*;
-use bevy::prelude::*;
+
+use bevy_app::prelude::*;
+use bevy_ecs::prelude::*;
+use bevy_gizmos::prelude::*;
+use bevy_math::prelude::*;
+use bevy_reflect::prelude::*;
+use bevy_render::prelude::*;
+use bevy_transform::prelude::*;
 
 /// See the [module](self) docs.
 pub struct AnchorIndicatorPlugin;
@@ -12,7 +19,7 @@ impl Plugin for AnchorIndicatorPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             PostUpdate,
-            draw_anchor.after(bevy::transform::systems::propagate_transforms),
+            draw_anchor.after(bevy_transform::systems::propagate_transforms),
         )
         .register_type::<AnchorIndicator>();
     }

@@ -1,13 +1,19 @@
 //! Provides a default input plugin for the camera. See [`DefaultInputPlugin`].
 
-use bevy::{
-    input::mouse::MouseWheel,
-    math::{DVec2, DVec3},
+use bevy_app::prelude::*;
+use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::prelude::*;
+use bevy_input::{
+    mouse::{MouseScrollUnit, MouseWheel},
     prelude::*,
-    render::camera::CameraProjection,
-    utils::hashbrown::HashMap,
-    window::PrimaryWindow,
 };
+use bevy_math::{prelude::*, DVec2, DVec3};
+use bevy_reflect::prelude::*;
+use bevy_render::{camera::CameraProjection, prelude::*};
+use bevy_transform::prelude::*;
+use bevy_utils::hashbrown::HashMap;
+use bevy_window::PrimaryWindow;
+
 use bevy_picking_core::pointer::{
     InputMove, PointerId, PointerInteraction, PointerLocation, PointerMap,
 };
@@ -287,8 +293,8 @@ impl EditorCamInputEvent {
                     .read()
                     .map(|mw| {
                         let scroll_multiplier = match mw.unit {
-                            bevy::input::mouse::MouseScrollUnit::Line => 150.0,
-                            bevy::input::mouse::MouseScrollUnit::Pixel => 1.0,
+                            MouseScrollUnit::Line => 150.0,
+                            MouseScrollUnit::Pixel => 1.0,
                         };
                         mw.y * scroll_multiplier
                     })

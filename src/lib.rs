@@ -188,18 +188,25 @@ pub mod prelude {
     };
 }
 
-use bevy::prelude::*;
+use bevy_app::{prelude::*, PluginGroupBuilder};
 
 /// Adds [`bevy_editor_cam`](crate) functionality with all extensions and the default input plugin.
 pub struct DefaultEditorCamPlugins;
 
 impl PluginGroup for DefaultEditorCamPlugins {
-    fn build(self) -> bevy::app::PluginGroupBuilder {
-        bevy::app::PluginGroupBuilder::start::<Self>()
+    #[allow(clippy::let_and_return)] // Needed for conditional compilation
+    fn build(self) -> PluginGroupBuilder {
+        let group = PluginGroupBuilder::start::<Self>()
             .add(input::DefaultInputPlugin)
             .add(controller::MinimalEditorCamPlugin)
-            .add(extensions::anchor_indicator::AnchorIndicatorPlugin)
-            .add(extensions::dolly_zoom::DollyZoomPlugin)
-            .add(extensions::independent_skybox::IndependentSkyboxPlugin)
+            .add(extensions::dolly_zoom::DollyZoomPlugin);
+
+        #[cfg(feature = "extension_anchor_indicator")]
+        let group = group.add(extensions::anchor_indicator::AnchorIndicatorPlugin);
+
+        #[cfg(feature = "extension_independent_skybox")]
+        let group = group.add(extensions::independent_skybox::IndependentSkyboxPlugin);
+
+        group
     }
 }

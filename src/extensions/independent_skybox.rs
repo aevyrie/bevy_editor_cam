@@ -5,15 +5,13 @@
 //!
 //! To use it, add a [`IndependentSkybox`] component to a camera.
 
-use bevy::{
-    app::prelude::*,
-    asset::Handle,
-    core_pipeline::{prelude::*, Skybox},
-    ecs::prelude::*,
-    reflect::Reflect,
-    render::{prelude::*, view::RenderLayers},
-    transform::prelude::*,
-};
+use bevy_app::prelude::*;
+use bevy_asset::Handle;
+use bevy_core_pipeline::{prelude::*, Skybox};
+use bevy_ecs::prelude::*;
+use bevy_reflect::prelude::*;
+use bevy_render::{prelude::*, view::RenderLayers};
+use bevy_transform::prelude::*;
 
 /// See the [module](self) docs.
 pub struct IndependentSkyboxPlugin;
