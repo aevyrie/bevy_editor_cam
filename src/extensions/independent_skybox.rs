@@ -5,15 +5,13 @@
 //!
 //! To use it, add a [`IndependentSkybox`] component to a camera.
 
-use bevy::{
-    app::prelude::*,
-    asset::Handle,
-    core_pipeline::{clear_color::ClearColorConfig, prelude::*, Skybox},
-    ecs::prelude::*,
-    reflect::Reflect,
-    render::{prelude::*, view::RenderLayers},
-    transform::prelude::*,
-};
+use bevy_app::prelude::*;
+use bevy_asset::Handle;
+use bevy_core_pipeline::{prelude::*, Skybox};
+use bevy_ecs::prelude::*;
+use bevy_reflect::prelude::*;
+use bevy_render::{prelude::*, view::RenderLayers};
+use bevy_transform::prelude::*;
 
 /// See the [module](self) docs.
 pub struct IndependentSkyboxPlugin;
@@ -39,6 +37,8 @@ impl Plugin for IndependentSkyboxPlugin {
 pub struct IndependentSkybox {
     /// The image to render as a skybox.
     pub skybox: Handle<Image>,
+    /// Used to set [`Skybox::brightness`].
+    pub brightness: f32,
     /// The [`Camera::order`] of the skybox camera, offset from the camera it is tracking. This
     /// should be lower than the order of the primary camera controller camera. the default value
     /// should be sufficient for most cases. You can override this if you have a more complex use
@@ -52,9 +52,10 @@ pub struct IndependentSkybox {
 
 impl IndependentSkybox {
     /// Create a new [`IndependentSkybox`] with default settings and the provided skybox image.
-    pub fn new(skybox: Handle<Image>) -> Self {
+    pub fn new(skybox: Handle<Image>, brightness: f32) -> Self {
         Self {
             skybox,
+            brightness,
             ..Default::default()
         }
     }
@@ -64,6 +65,7 @@ impl Default for IndependentSkybox {
     fn default() -> Self {
         Self {
             skybox: Default::default(),
+            brightness: 500.0,
             skybox_cam_order_offset: -1_000,
             fov: Default::default(),
             skybox_cam: Default::default(),
@@ -100,10 +102,10 @@ impl IndependentSkyboxCamera {
     /// entity.
     pub fn spawn(
         mut commands: Commands,
-        mut editor_cams: Query<(Entity, &mut IndependentSkybox, &mut Camera3d, &mut Camera)>,
+        mut editor_cams: Query<(Entity, &mut IndependentSkybox, &mut Camera)>,
         skybox_cams: Query<&IndependentSkyboxCamera>,
     ) {
-        for (editor_cam_entity, mut editor_without_skybox, mut camera3d, mut camera) in
+        for (editor_cam_entity, mut editor_without_skybox, mut camera) in
             editor_cams.iter_mut().filter(|(_, config, ..)| {
                 config
                     .skybox_cam
@@ -111,7 +113,7 @@ impl IndependentSkyboxCamera {
                     .is_none()
             })
         {
-            camera3d.clear_color = ClearColorConfig::None;
+            camera.clear_color = ClearColorConfig::None;
             camera.hdr = true;
 
             let entity = commands
@@ -120,10 +122,7 @@ impl IndependentSkyboxCamera {
                         camera: Camera {
                             order: camera.order + editor_without_skybox.skybox_cam_order_offset,
                             hdr: true,
-                            ..Default::default()
-                        },
-                        camera_3d: Camera3d {
-                            clear_color: bevy::core_pipeline::clear_color::ClearColorConfig::None,
+                            clear_color: ClearColorConfig::None,
                             ..Default::default()
                         },
                         projection: Projection::Perspective(PerspectiveProjection {
@@ -136,7 +135,10 @@ impl IndependentSkyboxCamera {
                         ..Default::default()
                     },
                     RenderLayers::none(),
-                    Skybox(editor_without_skybox.skybox.clone()),
+                    Skybox {
+                        image: editor_without_skybox.skybox.clone(),
+                        brightness: editor_without_skybox.brightness,
+                    },
                     IndependentSkyboxCamera {
                         driven_by: editor_cam_entity,
                     },

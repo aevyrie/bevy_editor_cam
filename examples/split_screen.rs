@@ -1,9 +1,7 @@
 //! Renders two cameras to the same window to accomplish "split screen".
 
 use bevy::{
-    core_pipeline::{clear_color::ClearColorConfig, tonemapping::Tonemapping},
-    prelude::*,
-    render::camera::Viewport,
+    core_pipeline::tonemapping::Tonemapping, prelude::*, render::camera::Viewport,
     window::WindowResized,
 };
 use bevy_editor_cam::prelude::*;
@@ -33,23 +31,20 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             transform: Transform::from_xyz(0.0, 2.0, -1.0).looking_at(Vec3::ZERO, Vec3::Y),
             camera: Camera {
                 hdr: true,
-
-                ..default()
-            },
-            camera_3d: Camera3d {
                 clear_color: ClearColorConfig::None,
-
                 ..default()
             },
             ..default()
         },
         EnvironmentMapLight {
+            intensity: 1000.0,
             diffuse_map: diffuse_map.clone(),
             specular_map: specular_map.clone(),
         },
         EditorCam::default(),
         bevy_editor_cam::extensions::independent_skybox::IndependentSkybox::new(
             diffuse_map.clone(),
+            500.0,
         ),
         LeftCamera,
     ));
@@ -62,9 +57,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 // Renders the right camera after the left camera, which has a default priority of 0
                 order: 10,
                 hdr: true,
-                ..default()
-            },
-            camera_3d: Camera3d {
                 // don't clear on the second camera because the first camera already cleared the window
                 clear_color: ClearColorConfig::None,
                 ..default()
@@ -77,11 +69,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         },
         EnvironmentMapLight {
+            intensity: 1000.0,
             diffuse_map: diffuse_map.clone(),
             specular_map: specular_map.clone(),
         },
         EditorCam::default(),
-        bevy_editor_cam::extensions::independent_skybox::IndependentSkybox::new(diffuse_map),
+        bevy_editor_cam::extensions::independent_skybox::IndependentSkybox::new(diffuse_map, 500.0),
         RightCamera,
     ));
 }

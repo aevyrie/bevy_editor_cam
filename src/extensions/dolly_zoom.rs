@@ -5,17 +5,14 @@
 
 use std::{f32::EPSILON, time::Duration};
 
-use bevy::{
-    app::{Plugin, PostUpdate, PreUpdate},
-    ecs::prelude::*,
-    math::cubic_splines::CubicSegment,
-    prelude::OrthographicProjection,
-    reflect::Reflect,
-    render::camera::{Camera, PerspectiveProjection, Projection, ScalingMode},
-    transform::components::Transform,
-    utils::{HashMap, Instant},
-    window::RequestRedraw,
-};
+use bevy_app::prelude::*;
+use bevy_ecs::prelude::*;
+use bevy_math::prelude::*;
+use bevy_reflect::prelude::*;
+use bevy_render::{camera::ScalingMode, prelude::*};
+use bevy_transform::prelude::*;
+use bevy_utils::{HashMap, Instant};
+use bevy_window::RequestRedraw;
 
 use crate::prelude::{motion::CurrentMotion, EditorCam, EnabledMotion};
 
@@ -23,7 +20,7 @@ use crate::prelude::{motion::CurrentMotion, EditorCam, EnabledMotion};
 pub struct DollyZoomPlugin;
 
 impl Plugin for DollyZoomPlugin {
-    fn build(&self, app: &mut bevy::prelude::App) {
+    fn build(&self, app: &mut App) {
         app.init_resource::<DollyZoom>()
             .add_event::<DollyZoomTrigger>()
             .add_systems(

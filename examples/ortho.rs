@@ -26,6 +26,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         },
         EnvironmentMapLight {
+            intensity: 1000.0,
             diffuse_map: diffuse_map.clone(),
             specular_map: specular_map.clone(),
         },
@@ -47,7 +48,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // correct to what the camera would see, it is not visually helpful nor appealing. It is
         // common for CAD software to render a skybox with a field of view that is decoupled from
         // the camera field of view.
-        bevy_editor_cam::extensions::independent_skybox::IndependentSkybox::new(diffuse_map),
+        bevy_editor_cam::extensions::independent_skybox::IndependentSkybox::new(diffuse_map, 500.0),
     ));
 
     spawn_helmets(27, &asset_server, &mut commands);

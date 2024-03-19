@@ -3,7 +3,14 @@
 //! making it easier to use and understand.
 
 use crate::prelude::*;
-use bevy::prelude::*;
+
+use bevy_app::prelude::*;
+use bevy_ecs::prelude::*;
+use bevy_gizmos::prelude::*;
+use bevy_math::prelude::*;
+use bevy_reflect::prelude::*;
+use bevy_render::prelude::*;
+use bevy_transform::prelude::*;
 
 /// See the [module](self) docs.
 pub struct AnchorIndicatorPlugin;
@@ -12,7 +19,7 @@ impl Plugin for AnchorIndicatorPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             PostUpdate,
-            draw_anchor.after(bevy::transform::systems::propagate_transforms),
+            draw_anchor.after(bevy_transform::systems::propagate_transforms),
         )
         .register_type::<AnchorIndicator>();
     }
@@ -65,7 +72,12 @@ pub fn draw_anchor(
             let gizmo_color = || Color::rgb(1.0, 1.0, 1.0);
             let arm_length = 0.4;
 
-            gizmos.circle(anchor_world, cam_transform.forward(), scale, gizmo_color());
+            gizmos.circle(
+                anchor_world,
+                Direction3d::new_unchecked(cam_transform.forward().normalize()),
+                scale,
+                gizmo_color(),
+            );
             let offset = 1.5 * scale;
             gizmos.ray(
                 anchor_world + offset * cam_transform.left(),

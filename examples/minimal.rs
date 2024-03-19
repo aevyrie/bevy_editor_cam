@@ -20,6 +20,7 @@ fn setup_camera(mut commands: Commands, asset_server: Res<AssetServer>) {
         EditorCam::default(), // Step 2: add camera controller component to any cameras
         EnvironmentMapLight {
             // Unrelated to camera controller, needed for lighting:
+            intensity: 1000.0,
             diffuse_map: asset_server.load("environment_maps/diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/specular_rgb9e5_zstd.ktx2"),
         },
