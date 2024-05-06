@@ -1,6 +1,9 @@
 use bevy::prelude::*;
 use bevy_editor_cam::{controller::component::EditorCam, DefaultEditorCamPlugins};
-use big_space::{FloatingOrigin, GridCell};
+use big_space::{
+    reference_frame::RootReferenceFrame, world_query::GridTransformReadOnly, FloatingOrigin,
+    GridCell, IgnoreFloatingOrigin,
+};
 
 fn main() {
     App::new()
@@ -13,6 +16,7 @@ fn main() {
         ))
         .insert_resource(ClearColor(Color::BLACK))
         .add_systems(Startup, (setup, ui_setup))
+        .add_systems(PreUpdate, ui_text_system)
         .run()
 }
 
@@ -73,9 +77,6 @@ fn setup(
 #[derive(Component, Reflect)]
 pub struct BigSpaceDebugText;
 
-#[derive(Component, Reflect)]
-pub struct FunFactText;
-
 fn ui_setup(mut commands: Commands) {
     commands.spawn((
         TextBundle::from_section(
@@ -94,25 +95,37 @@ fn ui_setup(mut commands: Commands) {
             ..default()
         }),
         BigSpaceDebugText,
+        IgnoreFloatingOrigin,
     ));
+}
 
-    commands.spawn((
-        TextBundle::from_section(
-            "",
-            TextStyle {
-                font_size: 52.0,
-                color: Color::WHITE,
-                ..default()
-            },
-        )
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            bottom: Val::Px(10.0),
-            right: Val::Px(10.0),
-            left: Val::Px(10.0),
-            ..default()
-        })
-        .with_text_justify(JustifyText::Center),
-        FunFactText,
-    ));
+#[allow(clippy::type_complexity)]
+fn ui_text_system(
+    mut debug_text: Query<(&mut Text, &GlobalTransform), With<BigSpaceDebugText>>,
+    origin: Query<GridTransformReadOnly<i128>, With<FloatingOrigin>>,
+    reference_frame: Res<RootReferenceFrame<i128>>,
+) {
+    let origin = origin.single();
+    let translation = origin.transform.translation;
+
+    let grid_text = format!(
+        "GridCell: {}x, {}y, {}z",
+        origin.cell.x, origin.cell.y, origin.cell.z
+    );
+
+    let translation_text = format!(
+        "Transform: {:>8.2}x, {:>8.2}y, {:>8.2}z",
+        translation.x, translation.y, translation.z
+    );
+
+    let real_position = reference_frame.grid_position_double(origin.cell, origin.transform);
+    let real_position_text = format!(
+        "Combined: {}x, {}y, {}z",
+        real_position.x, real_position.y, real_position.z
+    );
+
+    let mut debug_text = debug_text.single_mut();
+
+    debug_text.0.sections[0].value =
+        format!("{grid_text}\n{translation_text}\n{real_position_text}");
 }

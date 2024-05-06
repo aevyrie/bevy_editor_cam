@@ -59,10 +59,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 specular_map: specular_map.clone(),
             },
             EditorCam {
-                orbit_constraint: OrbitConstraint::Fixed {
-                    up: Vec3::Y,
-                    can_pass_tdc: false,
-                },
+                orbit_constraint: OrbitConstraint::Free,
                 last_anchor_depth: 2.0,
                 ..Default::default()
             },
@@ -100,21 +97,28 @@ fn setup_ui(mut commands: Commands) {
         font_size: 20.0,
         ..default()
     };
-    commands.spawn(
-        TextBundle::from_sections(vec![
-            TextSection::new("Left Mouse - Pan\n", style.clone()),
-            TextSection::new("Right Mouse - Orbit\n", style.clone()),
-            TextSection::new("Scroll - Zoom\n", style.clone()),
-            TextSection::new("P - Toggle projection\n", style.clone()),
-            TextSection::new("E - Toggle explode\n", style.clone()),
-        ])
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+    commands
+        .spawn((NodeBundle {
+            style: Style {
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
+                padding: UiRect::all(Val::Px(20.)),
+                ..default()
+            },
             ..default()
-        }),
-    );
+        },))
+        .with_children(|parent| {
+            parent.spawn(
+                TextBundle::from_sections(vec![
+                    TextSection::new("Left Mouse - Pan\n", style.clone()),
+                    TextSection::new("Right Mouse - Orbit\n", style.clone()),
+                    TextSection::new("Scroll - Zoom\n", style.clone()),
+                    TextSection::new("P - Toggle projection\n", style.clone()),
+                    TextSection::new("E - Toggle explode\n", style.clone()),
+                ])
+                .with_style(Style { ..default() }),
+            );
+        });
 }
 
 #[derive(Component)]
