@@ -82,7 +82,7 @@ fn ui_setup(mut commands: Commands) {
         TextBundle::from_section(
             "",
             TextStyle {
-                font_size: 28.0,
+                font_size: 18.0,
                 color: Color::WHITE,
                 ..default()
             },
@@ -114,18 +114,23 @@ fn ui_text_system(
     );
 
     let translation_text = format!(
-        "Transform: {:>8.2}x, {:>8.2}y, {:>8.2}z",
+        "Transform: {}x, {}y, {}z",
         translation.x, translation.y, translation.z
     );
 
     let real_position = reference_frame.grid_position_double(origin.cell, origin.transform);
-    let real_position_text = format!(
-        "Combined: {}x, {}y, {}z",
+    let real_position_f64_text = format!(
+        "Combined (f64): {}x, {}y, {}z",
         real_position.x, real_position.y, real_position.z
+    );
+    let real_position_f32_text = format!(
+        "Combined (f32): {}x, {}y, {}z",
+        real_position.x as f32, real_position.y as f32, real_position.z as f32
     );
 
     let mut debug_text = debug_text.single_mut();
 
-    debug_text.0.sections[0].value =
-        format!("{grid_text}\n{translation_text}\n{real_position_text}");
+    debug_text.0.sections[0].value = format!(
+        "{grid_text}\n{translation_text}\n\n{real_position_f64_text}\n{real_position_f32_text}"
+    );
 }
