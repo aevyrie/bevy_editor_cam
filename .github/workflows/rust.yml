@@ -5,17 +5,8 @@ on:
     branches:
       - main
 jobs:
-  setup:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Update Packages
-        run: sudo apt-get update -yq
-      - name: Install dependencies
-        run: sudo apt-get install -yq --no-install-recommends libudev-dev libasound2-dev libxcb-composite0-dev
-
   format:
     runs-on: ubuntu-latest
-    needs: [setup]
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
@@ -25,7 +16,6 @@ jobs:
 
   check:
     runs-on: ubuntu-latest
-    needs: [setup]
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
@@ -34,7 +24,6 @@ jobs:
 
   check-no-defaults:
     runs-on: ubuntu-latest
-    needs: [setup]
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
@@ -43,7 +32,6 @@ jobs:
 
   clippy:
     runs-on: ubuntu-latest
-    needs: [setup]
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
@@ -53,20 +41,28 @@ jobs:
 
   doc:
     runs-on: ubuntu-latest
-    needs: [setup]
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2.7.0
-      - run: cargo doc --workspace --all-features
+      - run: cargo doc --no-deps --workspace --all-features
         env:
           RUSTDOCFLAGS: -D warnings
     
   test:
     runs-on: ubuntu-latest
-    needs: [setup]
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2.7.0
-      - run: cargo test --workspace --all-features --all-targets
+      - run: sudo apt-get install -yq --no-install-recommends libudev-dev libasound2-dev libxcb-composite0-dev
+      - run: cargo test --workspace --all-targets --all-features
+
+  test-doc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2.7.0
+      - run: sudo apt-get install -yq --no-install-recommends libudev-dev libasound2-dev libxcb-composite0-dev
+      - run: cargo test --workspace --doc
