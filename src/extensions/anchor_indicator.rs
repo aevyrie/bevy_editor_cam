@@ -12,7 +12,7 @@ impl Plugin for AnchorIndicatorPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             PostUpdate,
-            draw_anchor.after(bevy::transform::systems::propagate_transforms),
+            draw_anchor.after(bevy::transform::TransformSystem::TransformPropagate),
         )
         .register_type::<AnchorIndicator>();
     }
