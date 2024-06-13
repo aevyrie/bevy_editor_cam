@@ -1,4 +1,5 @@
-//!
+//! Demonstrates a pseudo ortho camera - a camera that uses a very narrow perspective projection.
+//! This might be useful if certain features are not supported in ortho.
 
 use bevy::prelude::*;
 use bevy_editor_cam::prelude::*;
