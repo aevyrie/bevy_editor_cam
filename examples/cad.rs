@@ -49,10 +49,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..Default::default()
     });
 
+    let cam_trans = Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y);
+
     let camera = commands
         .spawn((
             Camera3dBundle {
-                transform: Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
+                transform: cam_trans,
                 tonemapping: Tonemapping::AcesFitted,
                 ..default()
             },
@@ -64,7 +66,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             EditorCam {
                 orbit_constraint: OrbitConstraint::Free,
-                last_anchor_depth: 2.0,
+                last_anchor_depth: cam_trans.translation.length() as f64,
                 ..Default::default()
             },
             Skybox {
