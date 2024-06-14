@@ -42,6 +42,7 @@ bevy = { version = "0.13", default-features = false, features = [
     "bevy_text",
     "bevy_ui",
     "bevy_winit",
+    "default_font",
     "jpeg",
     "ktx2",
     "tonemapping_luts",

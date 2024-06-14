@@ -12,7 +12,10 @@ use bevy::{
     utils::Instant,
     window::RequestRedraw,
 };
-use bevy_editor_cam::{extensions::dolly_zoom::DollyZoomTrigger, prelude::*};
+use bevy_editor_cam::{
+    extensions::{dolly_zoom::DollyZoomTrigger, look_to::LookToTrigger},
+    prelude::*,
+};
 
 fn main() {
     App::new()
@@ -30,8 +33,8 @@ fn main() {
             brightness: 0.0,
             ..default()
         })
-        .add_systems(Startup, (setup, setup_ui))
-        .add_systems(Update, (toggle_projection, explode))
+        .add_systems(Startup, setup)
+        .add_systems(Update, (toggle_projection, explode, switch_direction))
         .run()
 }
 
@@ -45,7 +48,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..Default::default()
     });
 
-    commands
+    let camera = commands
         .spawn((
             Camera3dBundle {
                 transform: Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
@@ -69,7 +72,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ),
         ))
         .insert(ScreenSpaceAmbientOcclusionBundle::default())
-        .insert(TemporalAntiAliasBundle::default());
+        .insert(TemporalAntiAliasBundle::default())
+        .id();
+
+    setup_ui(commands, camera);
 }
 
 fn toggle_projection(
@@ -92,21 +98,73 @@ fn toggle_projection(
     }
 }
 
-fn setup_ui(mut commands: Commands) {
+fn switch_direction(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut dolly: EventWriter<LookToTrigger>,
+    cam: Query<Entity, With<EditorCam>>,
+) {
+    if keys.just_pressed(KeyCode::Digit1) {
+        dolly.send(LookToTrigger {
+            target_facing_direction: Direction3d::X,
+            target_up_direction: Direction3d::Y,
+            camera: cam.single(),
+        });
+    }
+    if keys.just_pressed(KeyCode::Digit2) {
+        dolly.send(LookToTrigger {
+            target_facing_direction: Direction3d::Z,
+            target_up_direction: Direction3d::Y,
+            camera: cam.single(),
+        });
+    }
+    if keys.just_pressed(KeyCode::Digit3) {
+        dolly.send(LookToTrigger {
+            target_facing_direction: Direction3d::NEG_X,
+            target_up_direction: Direction3d::Y,
+            camera: cam.single(),
+        });
+    }
+    if keys.just_pressed(KeyCode::Digit4) {
+        dolly.send(LookToTrigger {
+            target_facing_direction: Direction3d::NEG_Z,
+            target_up_direction: Direction3d::Y,
+            camera: cam.single(),
+        });
+    }
+    if keys.just_pressed(KeyCode::Digit5) {
+        dolly.send(LookToTrigger {
+            target_facing_direction: Direction3d::Y,
+            target_up_direction: Direction3d::NEG_X,
+            camera: cam.single(),
+        });
+    }
+    if keys.just_pressed(KeyCode::Digit6) {
+        dolly.send(LookToTrigger {
+            target_facing_direction: Direction3d::NEG_Y,
+            target_up_direction: Direction3d::X,
+            camera: cam.single(),
+        });
+    }
+}
+
+fn setup_ui(mut commands: Commands, camera: Entity) {
     let style = TextStyle {
         font_size: 20.0,
         ..default()
     };
     commands
-        .spawn((NodeBundle {
-            style: Style {
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
-                padding: UiRect::all(Val::Px(20.)),
+        .spawn((
+            TargetCamera(camera),
+            NodeBundle {
+                style: Style {
+                    width: Val::Percent(100.),
+                    height: Val::Percent(100.),
+                    padding: UiRect::all(Val::Px(20.)),
+                    ..default()
+                },
                 ..default()
             },
-            ..default()
-        },))
+        ))
         .with_children(|parent| {
             parent.spawn(
                 TextBundle::from_sections(vec![
@@ -115,6 +173,7 @@ fn setup_ui(mut commands: Commands) {
                     TextSection::new("Scroll - Zoom\n", style.clone()),
                     TextSection::new("P - Toggle projection\n", style.clone()),
                     TextSection::new("E - Toggle explode\n", style.clone()),
+                    TextSection::new("1-6 - Switch direction\n", style.clone()),
                 ])
                 .with_style(Style { ..default() }),
             );
