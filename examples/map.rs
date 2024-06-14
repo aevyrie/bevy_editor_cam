@@ -21,7 +21,7 @@ fn main() {
         .insert_resource(Msaa::Off)
         .add_systems(Startup, (setup, setup_ui))
         .add_systems(Update, toggle_projection)
-        .run()
+        .run();
 }
 
 fn setup(

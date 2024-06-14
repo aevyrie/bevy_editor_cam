@@ -9,7 +9,7 @@ fn main() {
             DefaultEditorCamPlugins,
         ))
         .add_systems(Startup, (setup, setup_ui))
-        .run()
+        .run();
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
