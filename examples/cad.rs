@@ -12,7 +12,6 @@ use bevy::{
     utils::Instant,
     window::RequestRedraw,
 };
-use bevy_core_pipeline::Skybox;
 use bevy_editor_cam::{
     extensions::{dolly_zoom::DollyZoomTrigger, look_to::LookToTrigger},
     prelude::*,
