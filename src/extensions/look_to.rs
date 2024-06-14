@@ -34,9 +34,9 @@ impl Plugin for LookToPlugin {
 #[derive(Debug, Event)]
 pub struct LookToTrigger {
     /// The new direction to face.
-    pub target_facing_direction: Direction3d,
+    pub target_facing_direction: Dir3,
     /// The camera's "up" direction when finished moving.
-    pub target_up_direction: Direction3d,
+    pub target_up_direction: Dir3,
     /// The camera to update.
     pub camera: Entity,
 }
@@ -49,7 +49,7 @@ impl LookToTrigger {
     /// the facing direction is parallel to the fixed up direction, the up direction will be
     /// automatically selected by choosing the axis that results in the least amount of rotation.
     pub fn auto_snap_up_direction(
-        facing: Direction3d,
+        facing: Dir3,
         cam_entity: Entity,
         cam_transform: &Transform,
         cam_editor: &EditorCam,
@@ -85,7 +85,7 @@ impl LookToTrigger {
 
         LookToTrigger {
             target_facing_direction: facing,
-            target_up_direction: Direction3d::new_unchecked(up.normalize()),
+            target_up_direction: Dir3::new_unchecked(up.normalize()),
             camera: cam_entity,
         }
     }
@@ -132,10 +132,10 @@ impl LookToTrigger {
 
 struct LookToEntry {
     start: Instant,
-    initial_facing_direction: Direction3d,
-    initial_up_direction: Direction3d,
-    target_facing_direction: Direction3d,
-    target_up_direction: Direction3d,
+    initial_facing_direction: Dir3,
+    initial_up_direction: Dir3,
+    target_facing_direction: Dir3,
+    target_up_direction: Dir3,
     complete: bool,
 }
 

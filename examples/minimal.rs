@@ -11,7 +11,7 @@ fn main() {
             DefaultEditorCamPlugins,                 // Step 1: Add camera controller plugin
         ))
         .add_systems(Startup, (setup_camera, setup_scene))
-        .run()
+        .run();
 }
 
 fn setup_camera(mut commands: Commands, asset_server: Res<AssetServer>) {

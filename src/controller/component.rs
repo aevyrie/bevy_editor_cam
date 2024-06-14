@@ -480,9 +480,9 @@ impl EditorCam {
                     let how_upright = cam_transform.up().angle_between(up).abs();
                     // Orient the camera so up always points up (roll).
                     if how_upright > epsilon && how_upright < FRAC_PI_2 - epsilon {
-                        cam_transform.look_to(cam_transform.forward().into(), up);
+                        cam_transform.look_to(cam_transform.forward(), up);
                     } else if how_upright > FRAC_PI_2 + epsilon && how_upright < PI - epsilon {
-                        cam_transform.look_to(cam_transform.forward().into(), -up);
+                        cam_transform.look_to(cam_transform.forward(), -up);
                     }
                 }
                 OrbitConstraint::Free => {
