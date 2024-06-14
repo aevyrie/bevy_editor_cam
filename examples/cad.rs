@@ -9,7 +9,10 @@ use bevy::{
     utils::Instant,
     window::RequestRedraw,
 };
-use bevy_editor_cam::{extensions::dolly_zoom::DollyZoomTrigger, prelude::*};
+use bevy_editor_cam::{
+    extensions::{dolly_zoom::DollyZoomTrigger, look_to::LookToTrigger},
+    prelude::*,
+};
 
 fn main() {
     App::new()
@@ -28,7 +31,7 @@ fn main() {
             ..default()
         })
         .add_systems(Startup, (setup, setup_ui))
-        .add_systems(Update, (toggle_projection, explode))
+        .add_systems(Update, (toggle_projection, explode, switch_direction))
         .run()
 }
 
@@ -79,6 +82,55 @@ fn toggle_projection(
             target_projection,
             camera: cam.single(),
         })
+    }
+}
+
+fn switch_direction(
+    keys: Res<Input<KeyCode>>,
+    mut dolly: EventWriter<LookToTrigger>,
+    cam: Query<Entity, With<EditorCam>>,
+) {
+    if keys.just_pressed(KeyCode::Key1) {
+        dolly.send(LookToTrigger {
+            target_facing_direction: Vec3::X,
+            target_up_direction: Vec3::Y,
+            camera: cam.single(),
+        });
+    }
+    if keys.just_pressed(KeyCode::Key2) {
+        dolly.send(LookToTrigger {
+            target_facing_direction: Vec3::Z,
+            target_up_direction: Vec3::Y,
+            camera: cam.single(),
+        });
+    }
+    if keys.just_pressed(KeyCode::Key3) {
+        dolly.send(LookToTrigger {
+            target_facing_direction: Vec3::NEG_X,
+            target_up_direction: Vec3::Y,
+            camera: cam.single(),
+        });
+    }
+    if keys.just_pressed(KeyCode::Key4) {
+        dolly.send(LookToTrigger {
+            target_facing_direction: Vec3::NEG_Z,
+            target_up_direction: Vec3::Y,
+            camera: cam.single(),
+        });
+    }
+    if keys.just_pressed(KeyCode::Key5) {
+        dolly.send(LookToTrigger {
+            target_facing_direction: Vec3::Y,
+            target_up_direction: Vec3::NEG_X,
+            camera: cam.single(),
+        });
+    }
+    if keys.just_pressed(KeyCode::Key6) {
+        dolly.send(LookToTrigger {
+            target_facing_direction: Vec3::NEG_Y,
+            target_up_direction: Vec3::X,
+            camera: cam.single(),
+        });
     }
 }
 

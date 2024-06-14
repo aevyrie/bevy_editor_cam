@@ -201,5 +201,6 @@ impl PluginGroup for DefaultEditorCamPlugins {
             .add(extensions::anchor_indicator::AnchorIndicatorPlugin)
             .add(extensions::dolly_zoom::DollyZoomPlugin)
             .add(extensions::independent_skybox::IndependentSkyboxPlugin)
+            .add(extensions::look_to::LookToPlugin)
     }
 }
