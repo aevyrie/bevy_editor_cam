@@ -3,7 +3,7 @@
 //! because it ensures that the object the user is focusing on does not change size even as the
 //! projection changes.
 
-use std::{f32::EPSILON, time::Duration};
+use std::time::Duration;
 
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
@@ -66,7 +66,7 @@ impl DollyZoomTrigger {
                     }) = event.target_projection
                     {
                         // If the target and current fov are the same, there is nothing to do.
-                        if (target_fov - perspective.fov).abs() <= EPSILON {
+                        if (target_fov - perspective.fov).abs() <= f32::EPSILON {
                             continue;
                         }
                     }
