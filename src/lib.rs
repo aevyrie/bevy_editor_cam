@@ -199,7 +199,8 @@ impl PluginGroup for DefaultEditorCamPlugins {
         let group = PluginGroupBuilder::start::<Self>()
             .add(input::DefaultInputPlugin)
             .add(controller::MinimalEditorCamPlugin)
-            .add(extensions::dolly_zoom::DollyZoomPlugin);
+            .add(extensions::dolly_zoom::DollyZoomPlugin)
+            .add(extensions::look_to::LookToPlugin);
 
         #[cfg(feature = "extension_anchor_indicator")]
         let group = group.add(extensions::anchor_indicator::AnchorIndicatorPlugin);
