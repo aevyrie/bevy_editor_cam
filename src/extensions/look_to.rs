@@ -30,7 +30,8 @@ impl Plugin for LookToPlugin {
     }
 }
 
-/// Triggers a rotation for the specified camera.
+/// Send this event to rotate the camera about its anchor until it is looking in the given direction
+/// with the given up direction. Animation speed is configured with the [`LookTo`] resource.
 #[derive(Debug, Event)]
 pub struct LookToTrigger {
     /// The new direction to face.
@@ -94,6 +95,9 @@ struct LookToEntry {
 pub struct LookTo {
     /// The duration of the "look to" transition animation.
     pub animation_duration: Duration,
+    /// The cubic curve used to animate the camera during a "look to".
+    #[reflect(ignore)]
+    pub animation_curve: CubicSegment<Vec2>,
     #[reflect(ignore)]
     map: HashMap<Entity, LookToEntry>,
 }
@@ -102,6 +106,7 @@ impl Default for LookTo {
     fn default() -> Self {
         Self {
             animation_duration: Duration::from_millis(400),
+            animation_curve: CubicSegment::new_bezier((0.42, 0.0), (0.58, 1.0)),
             map: Default::default(),
         }
     }
@@ -114,6 +119,8 @@ impl LookTo {
         mut redraw: EventWriter<RequestRedraw>,
     ) {
         let animation_duration = state.animation_duration;
+        let animation_curve = state.animation_curve.clone();
+
         for (
             camera,
             LookToEntry {
@@ -132,7 +139,7 @@ impl LookTo {
             };
             let progress_t =
                 (start.elapsed().as_secs_f32() / animation_duration.as_secs_f32()).clamp(0.0, 1.0);
-            let progress = CubicSegment::new_bezier((0.25, 0.1), (0.25, 1.0)).ease(progress_t);
+            let progress = animation_curve.ease(progress_t);
 
             let rotate_around = |transform: &mut Transform, point: DVec3, rotation: DQuat| {
                 // Following lines are f64 versions of Transform::rotate_around
