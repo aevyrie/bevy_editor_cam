@@ -183,7 +183,7 @@ impl IndependentSkyboxCamera {
                 continue;
             };
 
-            skybox_camera.viewport = camera.viewport.clone();
+            skybox_camera.viewport.clone_from(&camera.viewport);
 
             if let Projection::Perspective(editor_perspective) = editor_projection {
                 *skybox_projection = Projection::Perspective(PerspectiveProjection {
