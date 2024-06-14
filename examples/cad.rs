@@ -101,46 +101,46 @@ fn toggle_projection(
 
 fn switch_direction(
     keys: Res<ButtonInput<KeyCode>>,
-    mut dolly: EventWriter<LookToTrigger>,
+    mut look_to: EventWriter<LookToTrigger>,
     cam: Query<Entity, With<EditorCam>>,
 ) {
     if keys.just_pressed(KeyCode::Digit1) {
-        dolly.send(LookToTrigger {
+        look_to.send(LookToTrigger {
             target_facing_direction: Direction3d::X,
             target_up_direction: Direction3d::Y,
             camera: cam.single(),
         });
     }
     if keys.just_pressed(KeyCode::Digit2) {
-        dolly.send(LookToTrigger {
+        look_to.send(LookToTrigger {
             target_facing_direction: Direction3d::Z,
             target_up_direction: Direction3d::Y,
             camera: cam.single(),
         });
     }
     if keys.just_pressed(KeyCode::Digit3) {
-        dolly.send(LookToTrigger {
+        look_to.send(LookToTrigger {
             target_facing_direction: Direction3d::NEG_X,
             target_up_direction: Direction3d::Y,
             camera: cam.single(),
         });
     }
     if keys.just_pressed(KeyCode::Digit4) {
-        dolly.send(LookToTrigger {
+        look_to.send(LookToTrigger {
             target_facing_direction: Direction3d::NEG_Z,
             target_up_direction: Direction3d::Y,
             camera: cam.single(),
         });
     }
     if keys.just_pressed(KeyCode::Digit5) {
-        dolly.send(LookToTrigger {
+        look_to.send(LookToTrigger {
             target_facing_direction: Direction3d::Y,
             target_up_direction: Direction3d::NEG_X,
             camera: cam.single(),
         });
     }
     if keys.just_pressed(KeyCode::Digit6) {
-        dolly.send(LookToTrigger {
+        look_to.send(LookToTrigger {
             target_facing_direction: Direction3d::NEG_Y,
             target_up_direction: Direction3d::X,
             camera: cam.single(),
