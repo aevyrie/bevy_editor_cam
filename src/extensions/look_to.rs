@@ -1,7 +1,7 @@
 //! A `bevy_editor_cam` extension that adds the ability to smoothly rotate the camera about its
 //! anchor point until it is looking in the specified direction.
 
-use std::time::Duration;
+use std::{f32::consts::PI, time::Duration};
 
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
@@ -39,6 +39,56 @@ pub struct LookToTrigger {
     pub target_up_direction: Direction3d,
     /// The camera to update.
     pub camera: Entity,
+}
+
+impl LookToTrigger {
+    /// Constructs a [`LookToTrigger`] with the up direction automatically selected.
+    ///
+    /// If the camera is set to [`OrbitConstraint::Fixed`], the fixed up direction will be used, as
+    /// long as it is not parallel to the facing direction. If set to [`OrbitConstraint::Free`] or
+    /// the facing direction is parallel to the fixed up direction, the up direction will be
+    /// automatically selected by choosing the axis that results in the least amount of rotation.
+    pub fn auto_snap_up_direction(
+        facing: Direction3d,
+        cam_entity: Entity,
+        cam_transform: &Transform,
+        cam_editor: &EditorCam,
+    ) -> Self {
+        const EPSILON: f32 = 0.01;
+        let constraint = match cam_editor.orbit_constraint {
+            OrbitConstraint::Fixed { up, .. } => Some(up),
+            OrbitConstraint::Free => None,
+        }
+        .filter(|up| {
+            let angle = facing.angle_between(*up).abs();
+            angle > EPSILON && angle < PI - EPSILON
+        });
+
+        let up = constraint.unwrap_or_else(|| {
+            let current = cam_transform.rotation;
+            let options = [
+                Vec3::X,
+                Vec3::NEG_X,
+                Vec3::Y,
+                Vec3::NEG_Y,
+                Vec3::Z,
+                Vec3::NEG_Z,
+            ];
+            *options
+                .iter()
+                .map(|d| (d, Transform::default().looking_to(*facing, *d).rotation))
+                .map(|(d, rot)| (d, rot.angle_between(current).abs()))
+                .reduce(|acc, this| if this.1 < acc.1 { this } else { acc })
+                .map(|nearest| nearest.0)
+                .unwrap_or(&Vec3::Y)
+        });
+
+        LookToTrigger {
+            target_facing_direction: facing,
+            target_up_direction: Direction3d::new_unchecked(up.normalize()),
+            camera: cam_entity,
+        }
+    }
 }
 
 impl LookToTrigger {
