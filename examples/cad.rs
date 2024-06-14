@@ -12,6 +12,7 @@ use bevy::{
     utils::Instant,
     window::RequestRedraw,
 };
+use bevy_core_pipeline::Skybox;
 use bevy_editor_cam::{
     extensions::{dolly_zoom::DollyZoomTrigger, look_to::LookToTrigger},
     prelude::*,
@@ -66,10 +67,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 last_anchor_depth: 2.0,
                 ..Default::default()
             },
-            bevy_editor_cam::extensions::independent_skybox::IndependentSkybox::new(
-                diffuse_map,
-                500.0,
-            ),
+            Skybox {
+                image: diffuse_map,
+                brightness: 500.0,
+            },
         ))
         .insert(ScreenSpaceAmbientOcclusionBundle::default())
         .insert(TemporalAntiAliasBundle::default())
