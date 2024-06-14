@@ -1,7 +1,7 @@
 //! A `bevy_editor_cam` extension that adds the ability to smoothly rotate the camera about its
 //! anchor point until it is looking in the specified direction.
 
-use std::time::Duration;
+use std::{f32::consts::PI, time::Duration};
 
 use bevy::{
     math::{DQuat, DVec3},
@@ -38,6 +38,56 @@ pub struct LookToTrigger {
     pub target_up_direction: Vec3,
     /// The camera to update.
     pub camera: Entity,
+}
+
+impl LookToTrigger {
+    /// Constructs a [`LookToTrigger`] with the up direction automatically selected.
+    ///
+    /// If the camera is set to [`OrbitConstraint::Fixed`], the fixed up direction will be used, as
+    /// long as it is not parallel to the facing direction. If set to [`OrbitConstraint::Free`] or
+    /// the facing direction is parallel to the fixed up direction, the up direction will be
+    /// automatically selected by choosing the axis that results in the least amount of rotation.
+    pub fn auto_snap_up_direction(
+        facing: Vec3,
+        cam_entity: Entity,
+        cam_transform: &Transform,
+        cam_editor: &EditorCam,
+    ) -> Self {
+        const EPSILON: f32 = 0.01;
+        let constraint = match cam_editor.orbit_constraint {
+            OrbitConstraint::Fixed { up, .. } => Some(up),
+            OrbitConstraint::Free => None,
+        }
+        .filter(|up| {
+            let angle = facing.angle_between(*up).abs();
+            angle > EPSILON && angle < PI - EPSILON
+        });
+
+        let up = constraint.unwrap_or_else(|| {
+            let current = cam_transform.rotation;
+            let options = [
+                Vec3::X,
+                Vec3::NEG_X,
+                Vec3::Y,
+                Vec3::NEG_Y,
+                Vec3::Z,
+                Vec3::NEG_Z,
+            ];
+            *options
+                .iter()
+                .map(|d| (d, Transform::default().looking_to(facing, *d).rotation))
+                .map(|(d, rot)| (d, rot.angle_between(current).abs()))
+                .reduce(|acc, this| if this.1 < acc.1 { this } else { acc })
+                .map(|nearest| nearest.0)
+                .unwrap_or(&Vec3::Y)
+        });
+
+        LookToTrigger {
+            target_facing_direction: facing,
+            target_up_direction: up.normalize(),
+            camera: cam_entity,
+        }
+    }
 }
 
 impl LookToTrigger {
@@ -137,13 +187,21 @@ impl LookTo {
                 // Following lines are f64 versions of Transform::rotate_around
                 transform.translation =
                     (point + rotation * (transform.translation.as_dvec3() - point)).as_vec3();
-                transform.rotation = (rotation * transform.rotation.as_f64()).as_f32();
+                transform.rotation = (rotation * transform.rotation.as_f64())
+                    .as_f32()
+                    .normalize();
             };
 
-            let anchor_world = controller.anchor_view_space().map(|anchor_view_space| {
+            let anchor_view_space = controller.anchor_view_space().unwrap_or(DVec3::new(
+                0.0,
+                0.0,
+                controller.last_anchor_depth(),
+            ));
+
+            let anchor_world = {
                 let (r, t) = (transform.rotation, transform.translation);
                 r.as_f64() * anchor_view_space + t.as_dvec3()
-            });
+            };
 
             let rot_init = Transform::default()
                 .looking_to(*initial_facing_direction, *initial_up_direction)
@@ -152,17 +210,11 @@ impl LookTo {
                 .looking_to(*target_facing_direction, *target_up_direction)
                 .rotation;
 
-            let rot_next = rot_init.slerp(rot_target, progress).normalize();
-            let rot_last = transform.rotation.normalize();
-            let rot_delta = (rot_next * rot_last.inverse()).normalize();
+            let rot_next = rot_init.slerp(rot_target, progress);
+            let rot_last = transform.rotation;
+            let rot_delta = rot_next * rot_last.inverse();
 
-            rotate_around(
-                &mut transform,
-                anchor_world.unwrap_or_default(),
-                rot_delta.as_f64(),
-            );
-
-            transform.rotation = transform.rotation.normalize();
+            rotate_around(&mut transform, anchor_world, rot_delta.as_f64());
 
             if progress_t >= 1.0 {
                 *complete = true;

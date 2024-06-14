@@ -2,8 +2,11 @@ use std::time::Duration;
 
 use bevy::{
     core_pipeline::{
-        bloom::BloomSettings, experimental::taa::TemporalAntiAliasPlugin, tonemapping::Tonemapping,
+        bloom::BloomSettings,
+        experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin},
+        tonemapping::Tonemapping,
     },
+    pbr::ScreenSpaceAmbientOcclusionBundle,
     prelude::*,
     render::primitives::Aabb,
     utils::Instant,
@@ -23,15 +26,23 @@ fn main() {
             TemporalAntiAliasPlugin,
         ))
         // The camera controller works with reactive rendering:
-        .insert_resource(bevy::winit::WinitSettings::desktop_app())
-        .insert_resource(Msaa::Sample4)
-        .insert_resource(ClearColor(Color::WHITE))
+        // .insert_resource(bevy::winit::WinitSettings::desktop_app())
+        .insert_resource(Msaa::Off)
+        .insert_resource(ClearColor(Color::rgb(0.15, 0.15, 0.15)))
         .insert_resource(AmbientLight {
             brightness: 0.0,
             ..default()
         })
         .add_systems(Startup, (setup, setup_ui))
-        .add_systems(Update, (toggle_projection, explode, switch_direction))
+        .add_systems(
+            Update,
+            (
+                toggle_projection,
+                toggle_constraint,
+                explode,
+                switch_direction,
+            ),
+        )
         .run()
 }
 
@@ -45,24 +56,28 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..Default::default()
     });
 
-    commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
-            tonemapping: Tonemapping::AcesFitted,
-            ..default()
-        },
-        BloomSettings::default(),
-        EnvironmentMapLight {
-            diffuse_map: diffuse_map.clone(),
-            specular_map: specular_map.clone(),
-        },
-        EditorCam {
-            orbit_constraint: OrbitConstraint::Free,
-            last_anchor_depth: 2.0,
-            ..Default::default()
-        },
-        bevy_editor_cam::extensions::independent_skybox::IndependentSkybox::new(diffuse_map),
-    ));
+    let cam_trans = Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y);
+
+    commands
+        .spawn((
+            Camera3dBundle {
+                transform: cam_trans,
+                tonemapping: Tonemapping::AcesFitted,
+                ..default()
+            },
+            BloomSettings::default(),
+            EnvironmentMapLight {
+                diffuse_map: diffuse_map.clone(),
+                specular_map: specular_map.clone(),
+            },
+            EditorCam {
+                orbit_constraint: OrbitConstraint::Free,
+                last_anchor_depth: cam_trans.translation.length() as f64,
+                ..Default::default()
+            },
+        ))
+        .insert(ScreenSpaceAmbientOcclusionBundle::default())
+        .insert(TemporalAntiAliasBundle::default());
 }
 
 fn toggle_projection(
@@ -85,52 +100,85 @@ fn toggle_projection(
     }
 }
 
+fn toggle_constraint(
+    keys: Res<Input<KeyCode>>,
+    mut cam: Query<(Entity, &Transform, &mut EditorCam)>,
+    mut look_to: EventWriter<LookToTrigger>,
+) {
+    if keys.just_pressed(KeyCode::C) {
+        let (entity, transform, mut editor) = cam.single_mut();
+        match editor.orbit_constraint {
+            OrbitConstraint::Fixed { .. } => editor.orbit_constraint = OrbitConstraint::Free,
+            OrbitConstraint::Free => {
+                editor.orbit_constraint = OrbitConstraint::Fixed {
+                    up: Vec3::Y,
+                    can_pass_tdc: false,
+                };
+
+                look_to.send(LookToTrigger::auto_snap_up_direction(
+                    transform.forward(),
+                    entity,
+                    transform,
+                    editor.as_ref(),
+                ));
+            }
+        };
+    }
+}
+
 fn switch_direction(
     keys: Res<Input<KeyCode>>,
-    mut dolly: EventWriter<LookToTrigger>,
-    cam: Query<Entity, With<EditorCam>>,
+    mut look_to: EventWriter<LookToTrigger>,
+    cam: Query<(Entity, &Transform, &EditorCam)>,
 ) {
+    let (camera, transform, editor) = cam.single();
     if keys.just_pressed(KeyCode::Key1) {
-        dolly.send(LookToTrigger {
-            target_facing_direction: Vec3::X,
-            target_up_direction: Vec3::Y,
-            camera: cam.single(),
-        });
+        look_to.send(LookToTrigger::auto_snap_up_direction(
+            Vec3::X,
+            camera,
+            transform,
+            editor,
+        ));
     }
     if keys.just_pressed(KeyCode::Key2) {
-        dolly.send(LookToTrigger {
-            target_facing_direction: Vec3::Z,
-            target_up_direction: Vec3::Y,
-            camera: cam.single(),
-        });
+        look_to.send(LookToTrigger::auto_snap_up_direction(
+            Vec3::Z,
+            camera,
+            transform,
+            editor,
+        ));
     }
     if keys.just_pressed(KeyCode::Key3) {
-        dolly.send(LookToTrigger {
-            target_facing_direction: Vec3::NEG_X,
-            target_up_direction: Vec3::Y,
-            camera: cam.single(),
-        });
+        look_to.send(LookToTrigger::auto_snap_up_direction(
+            Vec3::NEG_X,
+            camera,
+            transform,
+            editor,
+        ));
     }
     if keys.just_pressed(KeyCode::Key4) {
-        dolly.send(LookToTrigger {
-            target_facing_direction: Vec3::NEG_Z,
-            target_up_direction: Vec3::Y,
-            camera: cam.single(),
-        });
+        look_to.send(LookToTrigger::auto_snap_up_direction(
+            Vec3::NEG_Z,
+            camera,
+            transform,
+            editor,
+        ));
     }
     if keys.just_pressed(KeyCode::Key5) {
-        dolly.send(LookToTrigger {
-            target_facing_direction: Vec3::Y,
-            target_up_direction: Vec3::NEG_X,
-            camera: cam.single(),
-        });
+        look_to.send(LookToTrigger::auto_snap_up_direction(
+            Vec3::Y,
+            camera,
+            transform,
+            editor,
+        ));
     }
     if keys.just_pressed(KeyCode::Key6) {
-        dolly.send(LookToTrigger {
-            target_facing_direction: Vec3::NEG_Y,
-            target_up_direction: Vec3::X,
-            camera: cam.single(),
-        });
+        look_to.send(LookToTrigger::auto_snap_up_direction(
+            Vec3::NEG_Y,
+            camera,
+            transform,
+            editor,
+        ));
     }
 }
 
@@ -139,21 +187,30 @@ fn setup_ui(mut commands: Commands) {
         font_size: 20.0,
         ..default()
     };
-    commands.spawn(
-        TextBundle::from_sections(vec![
-            TextSection::new("Left Mouse - Pan\n", style.clone()),
-            TextSection::new("Right Mouse - Orbit\n", style.clone()),
-            TextSection::new("Scroll - Zoom\n", style.clone()),
-            TextSection::new("P - Toggle projection\n", style.clone()),
-            TextSection::new("E - Toggle explode\n", style.clone()),
-        ])
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+    commands
+        .spawn((NodeBundle {
+            style: Style {
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
+                padding: UiRect::all(Val::Px(20.)),
+                ..default()
+            },
             ..default()
-        }),
-    );
+        },))
+        .with_children(|parent| {
+            parent.spawn(
+                TextBundle::from_sections(vec![
+                    TextSection::new("Left Mouse - Pan\n", style.clone()),
+                    TextSection::new("Right Mouse - Orbit\n", style.clone()),
+                    TextSection::new("Scroll - Zoom\n", style.clone()),
+                    TextSection::new("P - Toggle projection\n", style.clone()),
+                    TextSection::new("C - Toggle orbit constraint\n", style.clone()),
+                    TextSection::new("E - Toggle explode\n", style.clone()),
+                    TextSection::new("1-6 - Switch direction\n", style.clone()),
+                ])
+                .with_style(Style { ..default() }),
+            );
+        });
 }
 
 #[derive(Component)]
