@@ -138,13 +138,21 @@ impl LookTo {
                 // Following lines are f64 versions of Transform::rotate_around
                 transform.translation =
                     (point + rotation * (transform.translation.as_dvec3() - point)).as_vec3();
-                transform.rotation = (rotation * transform.rotation.as_dquat()).as_quat();
+                transform.rotation = (rotation * transform.rotation.as_dquat())
+                    .as_quat()
+                    .normalize();
             };
 
-            let anchor_world = controller.anchor_view_space().map(|anchor_view_space| {
+            let anchor_view_space = controller.anchor_view_space().unwrap_or(DVec3::new(
+                0.0,
+                0.0,
+                controller.last_anchor_depth(),
+            ));
+
+            let anchor_world = {
                 let (r, t) = (transform.rotation, transform.translation);
                 r.as_dquat() * anchor_view_space + t.as_dvec3()
-            });
+            };
 
             let rot_init = Transform::default()
                 .looking_to(**initial_facing_direction, **initial_up_direction)
@@ -153,17 +161,11 @@ impl LookTo {
                 .looking_to(**target_facing_direction, **target_up_direction)
                 .rotation;
 
-            let rot_next = rot_init.slerp(rot_target, progress).normalize();
-            let rot_last = transform.rotation.normalize();
-            let rot_delta = (rot_next * rot_last.inverse()).normalize();
+            let rot_next = rot_init.slerp(rot_target, progress);
+            let rot_last = transform.rotation;
+            let rot_delta = rot_next * rot_last.inverse();
 
-            rotate_around(
-                &mut transform,
-                anchor_world.unwrap_or_default(),
-                rot_delta.as_dquat(),
-            );
-
-            transform.rotation = transform.rotation.normalize();
+            rotate_around(&mut transform, anchor_world, rot_delta.as_dquat());
 
             if progress_t >= 1.0 {
                 *complete = true;
