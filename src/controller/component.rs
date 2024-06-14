@@ -433,7 +433,9 @@ impl EditorCam {
             // Following lines are f64 versions of Transform::rotate_around
             transform.translation =
                 (point + rotation * (transform.translation.as_dvec3() - point)).as_vec3();
-            transform.rotation = (rotation * transform.rotation.as_dquat()).as_quat();
+            transform.rotation = (rotation * transform.rotation.as_dquat())
+                .as_quat()
+                .normalize();
         };
 
         let orbit_multiplier = 0.005;
