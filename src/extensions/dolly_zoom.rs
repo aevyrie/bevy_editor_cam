@@ -6,7 +6,7 @@
 use std::{f32::EPSILON, time::Duration};
 
 use bevy::{
-    app::{Plugin, PostUpdate, PreUpdate},
+    app::{Last, Plugin, PreUpdate},
     ecs::prelude::*,
     math::cubic_splines::CubicSegment,
     prelude::OrthographicProjection,
@@ -31,7 +31,7 @@ impl Plugin for DollyZoomPlugin {
                 DollyZoom::update
                     .before(crate::controller::component::EditorCam::update_camera_positions),
             )
-            .add_systems(PostUpdate, DollyZoomTrigger::receive) // In PostUpdate so we don't miss users sending this in Update. DollyZoom::update will catch the changes next frame.
+            .add_systems(Last, DollyZoomTrigger::receive) // In Last so we don't miss users sending this in Update. DollyZoom::update will catch the changes next frame. We don't put this in PostUpdate because that is where transform propagation and camera systems live.
             .register_type::<DollyZoom>();
     }
 }

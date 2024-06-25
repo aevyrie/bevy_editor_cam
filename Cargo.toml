@@ -1,6 +1,6 @@
 [package]
 name = "bevy_editor_cam"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2021"
 description = "A camera controller for editors and CAD."
 license = "MIT OR Apache-2.0"
