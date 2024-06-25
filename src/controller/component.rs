@@ -64,6 +64,9 @@ pub struct EditorCam {
     pub perspective: PerspectiveSettings,
     /// Settings used when the camera has an orthographic [`Projection`].
     pub orthographic: OrthographicSettings,
+    /// How close can the camera get to object before zooming through it. None
+    /// disables zooming through objects.
+    pub minimum_distance: Option<f64>,
     /// Managed by the camera controller, though you may want to change this when spawning or
     /// manually moving the camera.
     ///
@@ -89,6 +92,7 @@ impl Default for EditorCam {
             orthographic: Default::default(),
             enabled_motion: Default::default(),
             current_motion: Default::default(),
+            minimum_distance: Default::default(),
             last_anchor_depth: -2.0,
         }
     }
@@ -220,6 +224,20 @@ impl EditorCam {
             return;
         }
         let anchor = self.maybe_update_anchor(anchor);
+
+        // Extend the anchor if a minimum distance for zooming is set
+        let anchor = if let Some(minimum_distance) = self.minimum_distance {
+            if anchor.length() > minimum_distance {
+                anchor
+            } else if let Some(norm_anchor) = anchor.try_normalize() {
+                norm_anchor * minimum_distance
+            } else {
+                anchor
+            }
+        } else {
+            anchor
+        };
+
         // Inherit current camera velocity
         let zoom_inputs = match self.current_motion {
             CurrentMotion::Stationary | CurrentMotion::Momentum { .. } => InputQueue::default(),
