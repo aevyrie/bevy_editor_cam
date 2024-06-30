@@ -1,23 +1,29 @@
-use bevy::prelude::*;
+use bevy::{color::palettes, prelude::*};
 use bevy_editor_cam::{controller::component::EditorCam, DefaultEditorCamPlugins};
+use bevy_mod_picking::DefaultPickingPlugins;
 use big_space::{
-    reference_frame::RootReferenceFrame, world_query::GridTransformReadOnly, FloatingOrigin,
-    GridCell, IgnoreFloatingOrigin,
+    commands::BigSpaceCommands,
+    reference_frame::{local_origin::ReferenceFrames, ReferenceFrame},
+    world_query::GridTransformReadOnly,
+    FloatingOrigin,
 };
 
 fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins.build().disable::<TransformPlugin>(),
-            bevy_mod_picking::DefaultPickingPlugins,
-            DefaultEditorCamPlugins,
-            big_space::FloatingOriginPlugin::<i128>::default(),
+            big_space::BigSpacePlugin::<i128>::default(),
             big_space::debug::FloatingOriginDebugPlugin::<i128>::default(),
         ))
+        .add_plugins((DefaultEditorCamPlugins, DefaultPickingPlugins))
         .insert_resource(ClearColor(Color::BLACK))
+        .insert_resource(AmbientLight {
+            color: Color::WHITE,
+            brightness: 20.0,
+        })
         .add_systems(Startup, (setup, ui_setup))
         .add_systems(PreUpdate, ui_text_system)
-        .run()
+        .run();
 }
 
 fn setup(
@@ -25,57 +31,60 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // camera
-    commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(0.0, 0.0, 8.0)
-                .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
-            projection: Projection::Perspective(PerspectiveProjection {
-                near: 1e-18,
+    commands.spawn_big_space(ReferenceFrame::<i128>::default(), |root| {
+        root.spawn_spatial((
+            Camera3dBundle {
+                transform: Transform::from_xyz(0.0, 0.0, 8.0)
+                    .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
+                projection: Projection::Perspective(PerspectiveProjection {
+                    near: 1e-18,
+                    ..default()
+                }),
                 ..default()
-            }),
+            },
+            FloatingOrigin, // Important: marks the floating origin entity for rendering.
+            EditorCam::default(),
+        ));
+
+        let mesh_handle = meshes.add(Sphere::new(0.5).mesh().ico(32).unwrap());
+        let matl_handle = materials.add(StandardMaterial {
+            base_color: Color::Srgba(palettes::basic::BLUE),
+            perceptual_roughness: 0.8,
+            reflectance: 1.0,
             ..default()
-        },
-        GridCell::<i128>::default(),
-        FloatingOrigin,
-        EditorCam::default(),
-    ));
+        });
 
-    let mesh_handle = meshes.add(Sphere::new(0.5).mesh().ico(32).unwrap());
-    let matl_handle = materials.add(StandardMaterial {
-        base_color: Color::BLUE,
-        perceptual_roughness: 0.8,
-        reflectance: 1.0,
-        ..default()
-    });
+        let mut translation = Vec3::ZERO;
+        for i in -16..=27 {
+            let j = 10_f32.powf(i as f32);
+            let k = 10_f32.powf((i - 1) as f32);
+            translation.x += j / 2.0 + k;
+            translation.y = j / 2.0;
 
-    let mut translation = Vec3::ZERO;
-    for i in -16..=27 {
-        let j = 10_f32.powf(i as f32);
-        translation.x += j;
-        commands.spawn((
-            PbrBundle {
+            root.spawn_spatial(PbrBundle {
                 mesh: mesh_handle.clone(),
                 material: matl_handle.clone(),
                 transform: Transform::from_scale(Vec3::splat(j)).with_translation(translation),
                 ..default()
-            },
-            GridCell::<i128>::default(),
-        ));
-    }
+            });
+        }
 
-    // light
-    commands.spawn((DirectionalLightBundle {
-        directional_light: DirectionalLight {
-            illuminance: 100_000.0,
+        // light
+        root.spawn_spatial(DirectionalLightBundle {
+            directional_light: DirectionalLight {
+                illuminance: 10_000.0,
+                ..default()
+            },
             ..default()
-        },
-        ..default()
-    },));
+        });
+    });
 }
 
 #[derive(Component, Reflect)]
 pub struct BigSpaceDebugText;
+
+#[derive(Component, Reflect)]
+pub struct FunFactText;
 
 fn ui_setup(mut commands: Commands) {
     commands.spawn((
@@ -95,22 +104,44 @@ fn ui_setup(mut commands: Commands) {
             ..default()
         }),
         BigSpaceDebugText,
-        IgnoreFloatingOrigin,
+    ));
+
+    commands.spawn((
+        TextBundle::from_section(
+            "",
+            TextStyle {
+                font_size: 52.0,
+                color: Color::WHITE,
+                ..default()
+            },
+        )
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(10.0),
+            right: Val::Px(10.0),
+            left: Val::Px(10.0),
+            ..default()
+        })
+        .with_text_justify(JustifyText::Center),
+        FunFactText,
     ));
 }
 
 #[allow(clippy::type_complexity)]
 fn ui_text_system(
-    mut debug_text: Query<(&mut Text, &GlobalTransform), With<BigSpaceDebugText>>,
-    origin: Query<GridTransformReadOnly<i128>, With<FloatingOrigin>>,
-    reference_frame: Res<RootReferenceFrame<i128>>,
+    mut debug_text: Query<
+        (&mut Text, &GlobalTransform),
+        (With<BigSpaceDebugText>, Without<FunFactText>),
+    >,
+    ref_frames: ReferenceFrames<i128>,
+    origin: Query<(Entity, GridTransformReadOnly<i128>), With<FloatingOrigin>>,
 ) {
-    let origin = origin.single();
-    let translation = origin.transform.translation;
+    let (origin_entity, origin_pos) = origin.single();
+    let translation = origin_pos.transform.translation;
 
     let grid_text = format!(
         "GridCell: {}x, {}y, {}z",
-        origin.cell.x, origin.cell.y, origin.cell.z
+        origin_pos.cell.x, origin_pos.cell.y, origin_pos.cell.z
     );
 
     let translation_text = format!(
@@ -118,7 +149,11 @@ fn ui_text_system(
         translation.x, translation.y, translation.z
     );
 
-    let real_position = reference_frame.grid_position_double(origin.cell, origin.transform);
+    let Some(ref_frame) = ref_frames.parent_frame(origin_entity) else {
+        return;
+    };
+
+    let real_position = ref_frame.grid_position_double(origin_pos.cell, origin_pos.transform);
     let real_position_f64_text = format!(
         "Combined (f64): {}x, {}y, {}z",
         real_position.x, real_position.y, real_position.z

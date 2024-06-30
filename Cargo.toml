@@ -51,9 +51,9 @@ bevy = { version = "0.14.0-rc", default-features = false, features = [
     "x11",
     "zstd",
 ] }
-bevy_mod_picking = { version = "0.20.0-rc.0", default-features = false, features = [
+bevy_mod_picking = { version = "0.20.0-rc.1", default-features = false, features = [
     "backend_raycast",
 ] }
 
-big_space = "0.6"
+big_space = "0.7.0-rc.0"
 rand = "0.8"

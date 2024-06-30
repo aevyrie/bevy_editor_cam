@@ -8,6 +8,7 @@ use bevy::{
     prelude::*,
     render::camera::TemporalJitter,
 };
+use bevy_color::palettes;
 use bevy_editor_cam::{extensions::dolly_zoom::DollyZoomTrigger, prelude::*};
 use rand::Rng;
 
@@ -72,12 +73,11 @@ fn spawn_buildings(
     half_width: f32,
 ) {
     commands.spawn(PbrBundle {
-        mesh: meshes.add(
-            Plane3d::new(Vec3::Y)
-                .mesh()
-                .size(half_width * 20.0, half_width * 20.0),
-        ),
-        material: matls.add(Color::DARK_GRAY),
+        mesh: meshes.add(Plane3d::new(Vec3::Y, Vec2::splat(half_width * 20.0))),
+        material: matls.add(StandardMaterial {
+            base_color: Color::Srgba(palettes::css::DARK_GRAY),
+            ..Default::default()
+        }),
         transform: Transform::from_xyz(0.0, -5.0, 0.0),
         ..Default::default()
     });
@@ -85,10 +85,10 @@ fn spawn_buildings(
     let mut rng = rand::thread_rng();
     let mesh = meshes.add(Cuboid::default());
     let material = [
-        matls.add(Color::GRAY),
-        matls.add(Color::rgb(0.3, 0.6, 0.8)),
-        matls.add(Color::rgb(0.55, 0.4, 0.8)),
-        matls.add(Color::rgb(0.8, 0.45, 0.5)),
+        matls.add(Color::Srgba(palettes::css::GRAY)),
+        matls.add(Color::srgb(0.3, 0.6, 0.8)),
+        matls.add(Color::srgb(0.55, 0.4, 0.8)),
+        matls.add(Color::srgb(0.8, 0.45, 0.5)),
     ];
 
     let w = half_width as isize;
