@@ -15,28 +15,28 @@ extension_anchor_indicator = ["bevy_gizmos"]
 extension_independent_skybox = ["bevy_asset", "bevy_core_pipeline"]
 
 [dependencies]
-bevy_app = "0.14.0-rc.2"
-bevy_color = "0.14.0-rc.2"
-bevy_derive = "0.14.0-rc.2"
-bevy_ecs = "0.14.0-rc.2"
-bevy_input = "0.14.0-rc.2"
-bevy_log = "0.14.0-rc.2"
-bevy_math = "0.14.0-rc.2"
-bevy_reflect = "0.14.0-rc.2"
-bevy_render = "0.14.0-rc.2"
-bevy_time = "0.14.0-rc.2"
-bevy_transform = "0.14.0-rc.2"
-bevy_utils = "0.14.0-rc.2"
-bevy_window = "0.14.0-rc.2"
+bevy_app = "0.14.0-rc"
+bevy_color = "0.14.0-rc"
+bevy_derive = "0.14.0-rc"
+bevy_ecs = "0.14.0-rc"
+bevy_input = "0.14.0-rc"
+bevy_log = "0.14.0-rc"
+bevy_math = "0.14.0-rc"
+bevy_reflect = "0.14.0-rc"
+bevy_render = "0.14.0-rc"
+bevy_time = "0.14.0-rc"
+bevy_transform = "0.14.0-rc"
+bevy_utils = "0.14.0-rc"
+bevy_window = "0.14.0-rc"
 # Optional
-bevy_asset = { version = "0.14.0-rc.2", optional = true }
-bevy_core_pipeline = { version = "0.14.0-rc.2", optional = true }
-bevy_gizmos = { version = "0.14.0-rc.2", optional = true }
+bevy_asset = { version = "0.14.0-rc", optional = true }
+bevy_core_pipeline = { version = "0.14.0-rc", optional = true }
+bevy_gizmos = { version = "0.14.0-rc", optional = true }
 # 3rd party
 bevy_picking_core = "0.20.0-rc.0"
 
 [dev-dependencies]
-bevy = { version = "0.14.0-rc.2", default-features = false, features = [
+bevy = { version = "0.14.0-rc", default-features = false, features = [
     "bevy_gizmos",
     "bevy_gltf",
     "bevy_scene",
