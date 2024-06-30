@@ -347,54 +347,45 @@ impl EditorCam {
         // If there is no motion, we will have already early-exited.
         redraw.send(RequestRedraw);
 
-        let screen_to_view_space_at_depth = |camera: &Camera, depth: f64| -> Option<DVec2> {
-            let target_size = camera.logical_viewport_size()?.as_dvec2();
-            // This is a strange looking, but key part of the otherwise normal looking
-            // screen-to-view transformation. What we are trying to do here is answer "if we move by
-            // one pixel in x and y, how much distance do we cover in the world at the specified
-            // depth?" Because the viewport position's origin is in the corner, we need to halve the
-            // target size, and subtract one pixel. This gets us a viewport position one pixel
-            // diagonal offset from the center of the screen.
-            let mut viewport_position = target_size / 2.0 - 1.0;
-            // Flip the y-coordinate origin from the top to the bottom.
-            viewport_position.y = target_size.y - viewport_position.y;
-            let ndc = viewport_position * 2. / target_size - DVec2::ONE;
-            let ndc_to_view = match &projection {
-                Projection::Perspective(p) => DMat4::perspective_infinite_reverse_rh(
-                    p.fov as f64,
-                    p.aspect_ratio as f64,
-                    p.near as f64,
-                ),
-                Projection::Orthographic(o) => DMat4::orthographic_rh(
-                    o.area.min.x as f64,
-                    o.area.max.x as f64,
-                    o.area.min.y as f64,
-                    o.area.max.y as f64,
-                    o.far as f64,
-                    o.near as f64,
-                ),
-            }
-            .inverse(); // f64 version replaced .get_projection_matrix().as_dmat4().inverse();
-            match &projection {
-                Projection::Perspective(_) => {
-                    let view_near_plane = ndc_to_view.project_point3(ndc.extend(1.));
-                    // Using EPSILON because an ndc with Z = 0 returns NaNs.
-                    let view_far_plane = ndc_to_view.project_point3(ndc.extend(f64::EPSILON));
-                    let direction = view_far_plane - view_near_plane;
-                    let depth_normalized_direction = direction / direction.z;
-                    let view_pos = depth_normalized_direction * depth;
-                    debug_assert_eq!(view_pos.z, depth);
-                    Some(view_pos.truncate())
-                }
-                Projection::Orthographic(_) => {
-                    Some(ndc_to_view.project_point3(ndc.extend(0.)).truncate())
-                }
-            }
-        };
+        let screen_to_view_space_at_depth =
+            |perspective: &PerspectiveProjection, depth: f64| -> Option<DVec2> {
+                let target_size = camera.logical_viewport_size()?.as_dvec2();
+                // This is a strange looking, but key part of the otherwise normal looking
+                // screen-to-view transformation. What we are trying to do here is answer "if we move by
+                // one pixel in x and y, how much distance do we cover in the world at the specified
+                // depth?" Because the viewport position's origin is in the corner, we need to halve the
+                // target size, and subtract one pixel. This gets us a viewport position one pixel
+                // diagonal offset from the center of the screen.
+                let mut viewport_position = target_size / 2.0 - 1.0;
+                // Flip the y-coordinate origin from the top to the bottom.
+                viewport_position.y = target_size.y - viewport_position.y;
+                let ndc = viewport_position * 2. / target_size - DVec2::ONE;
+                let ndc_to_view = DMat4::perspective_infinite_reverse_rh(
+                    perspective.fov as f64,
+                    perspective.aspect_ratio as f64,
+                    perspective.near as f64,
+                )
+                .inverse(); // f64 version replaced .get_projection_matrix().as_dmat4().inverse();
 
-        let Some(view_offset) = screen_to_view_space_at_depth(camera, anchor.z) else {
-            error!("Malformed camera");
-            return;
+                let view_near_plane = ndc_to_view.project_point3(ndc.extend(1.));
+                // Using EPSILON because an ndc with Z = 0 returns NaNs.
+                let view_far_plane = ndc_to_view.project_point3(ndc.extend(f64::EPSILON));
+                let direction = view_far_plane - view_near_plane;
+                let depth_normalized_direction = direction / direction.z;
+                let view_pos = depth_normalized_direction * depth;
+                debug_assert_eq!(view_pos.z, depth);
+                Some(view_pos.truncate())
+            };
+
+        let view_offset = match projection {
+            Projection::Perspective(perspective) => {
+                let Some(offset) = screen_to_view_space_at_depth(perspective, anchor.z) else {
+                    error!("Malformed camera");
+                    return;
+                };
+                offset
+            }
+            Projection::Orthographic(ortho) => DVec2::new(-ortho.scale as f64, ortho.scale as f64),
         };
 
         let pan_translation_view_space = (pan * view_offset).extend(0.0);
@@ -480,9 +471,9 @@ impl EditorCam {
                     let how_upright = cam_transform.up().angle_between(up).abs();
                     // Orient the camera so up always points up (roll).
                     if how_upright > epsilon && how_upright < FRAC_PI_2 - epsilon {
-                        cam_transform.look_to(cam_transform.forward().into(), up);
+                        cam_transform.look_to(cam_transform.forward(), up);
                     } else if how_upright > FRAC_PI_2 + epsilon && how_upright < PI - epsilon {
-                        cam_transform.look_to(cam_transform.forward().into(), -up);
+                        cam_transform.look_to(cam_transform.forward(), -up);
                     }
                 }
                 OrbitConstraint::Free => {

@@ -326,7 +326,7 @@ fn screen_to_view_space(
     // Flip the Y co-ordinate origin from the top to the bottom.
     viewport_position.y = target_size.y - viewport_position.y;
     let ndc = viewport_position * 2. / target_size - DVec2::ONE;
-    let ndc_to_view = proj.get_projection_matrix().as_dmat4().inverse();
+    let ndc_to_view = proj.get_clip_from_view().as_dmat4().inverse();
     let view_near_plane = ndc_to_view.project_point3(ndc.extend(1.));
     match &proj {
         Projection::Perspective(_) => {
