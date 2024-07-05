@@ -1,6 +1,6 @@
 [package]
 name = "bevy_editor_cam"
-version = "0.2.3"
+version = "0.2.4"
 edition = "2021"
 description = "A camera controller for editors and CAD."
 license = "MIT OR Apache-2.0"
@@ -32,7 +32,7 @@ bevy_asset = { version = "0.13", optional = true }
 bevy_core_pipeline = { version = "0.13", optional = true }
 bevy_gizmos = { version = "0.13", optional = true }
 # 3rd party
-bevy_picking_core = "0.18"
+bevy_picking_core = ">=0.18, <=0.19"
 
 [dev-dependencies]
 bevy = { version = "0.13", default-features = false, features = [
@@ -50,7 +50,7 @@ bevy = { version = "0.13", default-features = false, features = [
     "x11",
     "zstd",
 ] }
-bevy_mod_picking = { version = "0.18", default-features = false, features = [
+bevy_mod_picking = { version = ">=0.18, <=0.19", default-features = false, features = [
     "backend_raycast",
 ] }
 
