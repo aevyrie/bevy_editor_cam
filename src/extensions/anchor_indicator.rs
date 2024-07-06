@@ -5,6 +5,7 @@
 use crate::prelude::*;
 
 use bevy_app::prelude::*;
+use bevy_color::Color;
 use bevy_ecs::prelude::*;
 use bevy_gizmos::prelude::*;
 use bevy_math::prelude::*;
@@ -64,7 +65,7 @@ pub fn draw_anchor(
         let p2 = cam
             .world_to_viewport(
                 cam_transform,
-                anchor_world.as_vec3() + cam_transform.right(),
+                anchor_world.as_vec3() + cam_transform.right().as_vec3(),
             )
             .unwrap_or_default();
 
@@ -75,12 +76,12 @@ pub fn draw_anchor(
         let anchor_world = anchor_world.as_vec3() + shift;
 
         if editor_cam.current_motion.is_orbiting() {
-            let gizmo_color = || Color::rgb(1.0, 1.0, 1.0);
+            let gizmo_color = || Color::WHITE;
             let arm_length = 0.4;
 
             gizmos.circle(
                 anchor_world,
-                Direction3d::new_unchecked(cam_transform.forward().normalize()),
+                Dir3::new_unchecked(cam_transform.forward().normalize()),
                 scale,
                 gizmo_color(),
             );

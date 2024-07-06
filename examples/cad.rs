@@ -28,7 +28,7 @@ fn main() {
         // The camera controller works with reactive rendering:
         // .insert_resource(bevy::winit::WinitSettings::desktop_app())
         .insert_resource(Msaa::Off)
-        .insert_resource(ClearColor(Color::rgb(0.15, 0.15, 0.15)))
+        .insert_resource(ClearColor(Color::srgb(0.15, 0.15, 0.15)))
         .insert_resource(AmbientLight {
             brightness: 0.0,
             ..default()
@@ -45,7 +45,7 @@ fn main() {
             )
                 .chain(),
         )
-        .run()
+        .run();
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -162,7 +162,7 @@ fn switch_direction(
     let (camera, transform, editor) = cam.single();
     if keys.just_pressed(KeyCode::Digit1) {
         look_to.send(LookToTrigger::auto_snap_up_direction(
-            Direction3d::X,
+            Dir3::X,
             camera,
             transform,
             editor,
@@ -170,7 +170,7 @@ fn switch_direction(
     }
     if keys.just_pressed(KeyCode::Digit2) {
         look_to.send(LookToTrigger::auto_snap_up_direction(
-            Direction3d::Z,
+            Dir3::Z,
             camera,
             transform,
             editor,
@@ -178,7 +178,7 @@ fn switch_direction(
     }
     if keys.just_pressed(KeyCode::Digit3) {
         look_to.send(LookToTrigger::auto_snap_up_direction(
-            Direction3d::NEG_X,
+            Dir3::NEG_X,
             camera,
             transform,
             editor,
@@ -186,7 +186,7 @@ fn switch_direction(
     }
     if keys.just_pressed(KeyCode::Digit4) {
         look_to.send(LookToTrigger::auto_snap_up_direction(
-            Direction3d::NEG_Z,
+            Dir3::NEG_Z,
             camera,
             transform,
             editor,
@@ -194,7 +194,7 @@ fn switch_direction(
     }
     if keys.just_pressed(KeyCode::Digit5) {
         look_to.send(LookToTrigger::auto_snap_up_direction(
-            Direction3d::Y,
+            Dir3::Y,
             camera,
             transform,
             editor,
@@ -202,7 +202,7 @@ fn switch_direction(
     }
     if keys.just_pressed(KeyCode::Digit6) {
         look_to.send(LookToTrigger::auto_snap_up_direction(
-            Direction3d::NEG_Y,
+            Dir3::NEG_Y,
             camera,
             transform,
             editor,
