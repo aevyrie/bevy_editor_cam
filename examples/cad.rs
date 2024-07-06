@@ -8,7 +8,7 @@ use bevy::{
     },
     pbr::ScreenSpaceAmbientOcclusionBundle,
     prelude::*,
-    render::primitives::Aabb,
+    render::{camera::TemporalJitter, primitives::Aabb},
     utils::Instant,
     window::RequestRedraw,
 };
@@ -38,10 +38,12 @@ fn main() {
             Update,
             (
                 toggle_projection,
+                projection_specific_render_config,
                 toggle_constraint,
                 explode,
                 switch_direction,
-            ),
+            )
+                .chain(),
         )
         .run();
 }
@@ -77,11 +79,33 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..Default::default()
             },
         ))
-        .insert(ScreenSpaceAmbientOcclusionBundle::default())
-        .insert(TemporalAntiAliasBundle::default())
         .id();
 
     setup_ui(commands, camera);
+}
+
+fn projection_specific_render_config(
+    mut commands: Commands,
+    cam: Query<(Entity, &Projection), With<EditorCam>>,
+    mut msaa: ResMut<Msaa>,
+) {
+    let (entity, proj) = cam.single();
+    match proj {
+        Projection::Perspective(_) => {
+            *msaa = Msaa::Off;
+            commands
+                .entity(entity)
+                .insert(TemporalAntiAliasBundle::default())
+                .insert(ScreenSpaceAmbientOcclusionBundle::default());
+        }
+        Projection::Orthographic(_) => {
+            *msaa = Msaa::Sample4;
+            commands
+                .entity(entity)
+                .remove::<TemporalJitter>()
+                .remove::<ScreenSpaceAmbientOcclusionBundle>();
+        }
+    }
 }
 
 fn toggle_projection(

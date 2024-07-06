@@ -143,6 +143,9 @@ struct ZoomEntry {
 pub struct DollyZoom {
     /// THe duration of the dolly zoom transition animation.
     pub animation_duration: Duration,
+    /// The cubic curve used to animate the camera during a dolly zoom.
+    #[reflect(ignore)]
+    pub animation_curve: CubicSegment<Vec2>,
     #[reflect(ignore)]
     map: HashMap<Entity, ZoomEntry>,
 }
@@ -151,6 +154,7 @@ impl Default for DollyZoom {
     fn default() -> Self {
         Self {
             animation_duration: Duration::from_millis(200),
+            animation_curve: CubicSegment::new_bezier((0.25, 0.1), (0.25, 1.0)),
             map: Default::default(),
         }
     }
@@ -163,6 +167,7 @@ impl DollyZoom {
         mut redraw: EventWriter<RequestRedraw>,
     ) {
         let animation_duration = state.animation_duration;
+        let animation_curve = state.animation_curve.clone();
         for (
             camera,
             ZoomEntry {
@@ -197,7 +202,7 @@ impl DollyZoom {
                 Projection::Orthographic(_) => ZERO_FOV,
             };
             let progress = start.elapsed().as_secs_f32() / animation_duration.as_secs_f32();
-            let progress = CubicSegment::new_bezier((0.25, 0.1), (0.25, 1.0)).ease(progress);
+            let progress = animation_curve.ease(progress);
             let next_fov = (1.0 - progress as f64) * fov_start + progress as f64 * fov_end;
 
             let last_dist = *triangle_base / (last_fov / 2.0).tan();

@@ -70,9 +70,17 @@ impl<T: Copy + Default + Add<Output = T> + AddAssign<T> + Mul<f32, Output = T>> 
         let start = Instant::now();
         let interval = Duration::from_secs_f32(1.0 / 60.0);
         let mut queue = VecDeque::default();
-        for i in 1..Self::MAX_EVENTS {
+        for time in
+            // See: https://github.com/aevyrie/bevy_editor_cam/issues/13 There is no guarantee that
+            // `start` is large enough to subtract from, so we ignore any subtractions that fail, to
+            // avoid a panic. If this fails, it will manifest as a slight stutter, most noticeable
+            // during zooming. However, this *should* only happen at the very startup of the app,
+            // and even then, is unlikely.
+            (1..Self::MAX_EVENTS)
+                .filter_map(|i| start.checked_sub(interval.mul_f32(i as f32)))
+        {
             queue.push_back(InputStreamEntry {
-                time: start - interval.mul_f32(i as f32),
+                time,
                 sample: T::default(),
                 fraction_remaining: 1.0,
                 smoothed_value: T::default(),
