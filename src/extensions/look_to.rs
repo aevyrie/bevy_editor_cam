@@ -169,7 +169,7 @@ impl LookTo {
         mut redraw: EventWriter<RequestRedraw>,
     ) {
         let animation_duration = state.animation_duration;
-        let animation_curve = state.animation_curve.clone();
+        let animation_curve = state.animation_curve;
         for (
             camera,
             LookToEntry {

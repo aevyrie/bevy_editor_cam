@@ -65,7 +65,7 @@ pub fn draw_anchor(
         let p2 = cam
             .world_to_viewport(
                 cam_transform,
-                anchor_world.as_vec3() + cam_transform.right(),
+                anchor_world.as_vec3() + cam_transform.right().as_vec3(),
             )
             .unwrap_or_default();
 
