@@ -156,7 +156,7 @@ impl Default for LookTo {
     fn default() -> Self {
         Self {
             animation_duration: Duration::from_millis(400),
-            animation_curve: CubicSegment::new_bezier((0.42, 0.0), (0.58, 1.0)),
+            animation_curve: CubicSegment::new_bezier((0.25, 0.1), (0.25, 1.0)),
             map: Default::default(),
         }
     }
@@ -170,7 +170,6 @@ impl LookTo {
     ) {
         let animation_duration = state.animation_duration;
         let animation_curve = state.animation_curve.clone();
-
         for (
             camera,
             LookToEntry {
