@@ -8,11 +8,10 @@ use bevy::{
     },
     pbr::ScreenSpaceAmbientOcclusionBundle,
     prelude::*,
-    render::primitives::Aabb,
+    render::{camera::TemporalJitter, primitives::Aabb},
     utils::Instant,
     window::RequestRedraw,
 };
-use bevy_core_pipeline::Skybox;
 use bevy_editor_cam::{
     extensions::{dolly_zoom::DollyZoomTrigger, look_to::LookToTrigger},
     prelude::*,
@@ -29,13 +28,23 @@ fn main() {
         // The camera controller works with reactive rendering:
         // .insert_resource(bevy::winit::WinitSettings::desktop_app())
         .insert_resource(Msaa::Off)
-        .insert_resource(ClearColor(Color::NONE))
+        .insert_resource(ClearColor(Color::rgb(0.15, 0.15, 0.15)))
         .insert_resource(AmbientLight {
             brightness: 0.0,
             ..default()
         })
         .add_systems(Startup, setup)
-        .add_systems(Update, (toggle_projection, explode, switch_direction))
+        .add_systems(
+            Update,
+            (
+                toggle_projection,
+                projection_specific_render_config,
+                toggle_constraint,
+                explode,
+                switch_direction,
+            )
+                .chain(),
+        )
         .run()
 }
 
@@ -49,10 +58,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..Default::default()
     });
 
+    let cam_trans = Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y);
+
     let camera = commands
         .spawn((
             Camera3dBundle {
-                transform: Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
+                transform: cam_trans,
                 tonemapping: Tonemapping::AcesFitted,
                 ..default()
             },
@@ -64,19 +75,37 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             EditorCam {
                 orbit_constraint: OrbitConstraint::Free,
-                last_anchor_depth: 2.0,
+                last_anchor_depth: cam_trans.translation.length() as f64,
                 ..Default::default()
             },
-            Skybox {
-                image: diffuse_map,
-                brightness: 500.0,
-            },
         ))
-        .insert(ScreenSpaceAmbientOcclusionBundle::default())
-        .insert(TemporalAntiAliasBundle::default())
         .id();
 
     setup_ui(commands, camera);
+}
+
+fn projection_specific_render_config(
+    mut commands: Commands,
+    cam: Query<(Entity, &Projection), With<EditorCam>>,
+    mut msaa: ResMut<Msaa>,
+) {
+    let (entity, proj) = cam.single();
+    match proj {
+        Projection::Perspective(_) => {
+            *msaa = Msaa::Off;
+            commands
+                .entity(entity)
+                .insert(TemporalAntiAliasBundle::default())
+                .insert(ScreenSpaceAmbientOcclusionBundle::default());
+        }
+        Projection::Orthographic(_) => {
+            *msaa = Msaa::Sample4;
+            commands
+                .entity(entity)
+                .remove::<TemporalJitter>()
+                .remove::<ScreenSpaceAmbientOcclusionBundle>();
+        }
+    }
 }
 
 fn toggle_projection(
@@ -99,52 +128,85 @@ fn toggle_projection(
     }
 }
 
+fn toggle_constraint(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut cam: Query<(Entity, &Transform, &mut EditorCam)>,
+    mut look_to: EventWriter<LookToTrigger>,
+) {
+    if keys.just_pressed(KeyCode::KeyC) {
+        let (entity, transform, mut editor) = cam.single_mut();
+        match editor.orbit_constraint {
+            OrbitConstraint::Fixed { .. } => editor.orbit_constraint = OrbitConstraint::Free,
+            OrbitConstraint::Free => {
+                editor.orbit_constraint = OrbitConstraint::Fixed {
+                    up: Vec3::Y,
+                    can_pass_tdc: false,
+                };
+
+                look_to.send(LookToTrigger::auto_snap_up_direction(
+                    transform.forward(),
+                    entity,
+                    transform,
+                    editor.as_ref(),
+                ));
+            }
+        };
+    }
+}
+
 fn switch_direction(
     keys: Res<ButtonInput<KeyCode>>,
     mut look_to: EventWriter<LookToTrigger>,
-    cam: Query<Entity, With<EditorCam>>,
+    cam: Query<(Entity, &Transform, &EditorCam)>,
 ) {
+    let (camera, transform, editor) = cam.single();
     if keys.just_pressed(KeyCode::Digit1) {
-        look_to.send(LookToTrigger {
-            target_facing_direction: Direction3d::X,
-            target_up_direction: Direction3d::Y,
-            camera: cam.single(),
-        });
+        look_to.send(LookToTrigger::auto_snap_up_direction(
+            Direction3d::X,
+            camera,
+            transform,
+            editor,
+        ));
     }
     if keys.just_pressed(KeyCode::Digit2) {
-        look_to.send(LookToTrigger {
-            target_facing_direction: Direction3d::Z,
-            target_up_direction: Direction3d::Y,
-            camera: cam.single(),
-        });
+        look_to.send(LookToTrigger::auto_snap_up_direction(
+            Direction3d::Z,
+            camera,
+            transform,
+            editor,
+        ));
     }
     if keys.just_pressed(KeyCode::Digit3) {
-        look_to.send(LookToTrigger {
-            target_facing_direction: Direction3d::NEG_X,
-            target_up_direction: Direction3d::Y,
-            camera: cam.single(),
-        });
+        look_to.send(LookToTrigger::auto_snap_up_direction(
+            Direction3d::NEG_X,
+            camera,
+            transform,
+            editor,
+        ));
     }
     if keys.just_pressed(KeyCode::Digit4) {
-        look_to.send(LookToTrigger {
-            target_facing_direction: Direction3d::NEG_Z,
-            target_up_direction: Direction3d::Y,
-            camera: cam.single(),
-        });
+        look_to.send(LookToTrigger::auto_snap_up_direction(
+            Direction3d::NEG_Z,
+            camera,
+            transform,
+            editor,
+        ));
     }
     if keys.just_pressed(KeyCode::Digit5) {
-        look_to.send(LookToTrigger {
-            target_facing_direction: Direction3d::Y,
-            target_up_direction: Direction3d::NEG_X,
-            camera: cam.single(),
-        });
+        look_to.send(LookToTrigger::auto_snap_up_direction(
+            Direction3d::Y,
+            camera,
+            transform,
+            editor,
+        ));
     }
     if keys.just_pressed(KeyCode::Digit6) {
-        look_to.send(LookToTrigger {
-            target_facing_direction: Direction3d::NEG_Y,
-            target_up_direction: Direction3d::X,
-            camera: cam.single(),
-        });
+        look_to.send(LookToTrigger::auto_snap_up_direction(
+            Direction3d::NEG_Y,
+            camera,
+            transform,
+            editor,
+        ));
     }
 }
 
@@ -173,6 +235,7 @@ fn setup_ui(mut commands: Commands, camera: Entity) {
                     TextSection::new("Right Mouse - Orbit\n", style.clone()),
                     TextSection::new("Scroll - Zoom\n", style.clone()),
                     TextSection::new("P - Toggle projection\n", style.clone()),
+                    TextSection::new("C - Toggle orbit constraint\n", style.clone()),
                     TextSection::new("E - Toggle explode\n", style.clone()),
                     TextSection::new("1-6 - Switch direction\n", style.clone()),
                 ])

@@ -19,7 +19,9 @@ impl Plugin for AnchorIndicatorPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             PostUpdate,
-            draw_anchor.after(bevy_transform::TransformSystem::TransformPropagate),
+            draw_anchor
+                .after(bevy_transform::TransformSystem::TransformPropagate)
+                .after(bevy_render::camera::CameraUpdateSystem),
         )
         .register_type::<AnchorIndicator>();
     }
@@ -43,26 +45,30 @@ impl Default for AnchorIndicator {
 pub fn draw_anchor(
     cameras: Query<(
         &EditorCam,
-        &Projection,
         &GlobalTransform,
+        &Camera,
         Option<&AnchorIndicator>,
     )>,
     mut gizmos: Gizmos,
 ) {
-    for (editor_cam, projection, cam_transform, _) in cameras
+    for (editor_cam, cam_transform, cam, _) in cameras
         .iter()
         .filter(|(.., anchor_indicator)| anchor_indicator.map(|a| a.enabled).unwrap_or(true))
     {
         let Some(anchor_world) = editor_cam.anchor_world_space(cam_transform) else {
             continue;
         };
-        // Draw gizmos
-        let scale = match projection {
-            Projection::Perspective(perspective) => {
-                editor_cam.last_anchor_depth.abs() as f32 * perspective.fov
-            }
-            Projection::Orthographic(ortho) => ortho.scale * 750.0,
-        } * 0.01;
+        let p1 = cam
+            .world_to_viewport(cam_transform, anchor_world.as_vec3())
+            .unwrap_or_default();
+        let p2 = cam
+            .world_to_viewport(
+                cam_transform,
+                anchor_world.as_vec3() + cam_transform.right(),
+            )
+            .unwrap_or_default();
+
+        let scale = 8.0 / (p2 - p1).length();
 
         // Shift the indicator toward the camera to prevent it clipping objects near parallel
         let shift = (cam_transform.translation() - anchor_world.as_vec3()).normalize() * scale;
