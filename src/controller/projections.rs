@@ -34,7 +34,7 @@ pub struct PerspectiveSettings {
 impl Default for PerspectiveSettings {
     fn default() -> Self {
         Self {
-            near_clip_limits: f32::MIN..0.1,
+            near_clip_limits: 1e-9..0.1,
             near_clip_multiplier: 0.05,
         }
     }
