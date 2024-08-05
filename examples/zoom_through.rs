@@ -11,7 +11,7 @@ fn main() {
             DefaultEditorCamPlugins,
         ))
         .add_systems(Startup, (setup_camera, setup_scene))
-        .run()
+        .run();
 }
 
 fn setup_camera(mut commands: Commands) {
@@ -33,7 +33,7 @@ fn setup_scene(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let material = materials.add(Color::rgba(0.1, 0.1, 0.9, 0.5));
+    let material = materials.add(Color::srgba(0.1, 0.1, 0.9, 0.5));
     let mesh = meshes.add(Cuboid::from_size(Vec3::new(3.0, 3.0, 0.25)));
 
     for i in 1..5 {
