@@ -12,7 +12,7 @@
 //! plugin, I've boiled the manifesto down into two sentences:
 //!
 //! > A camera controller needs to be responsive, robust, and satisfying to use. When there is
-//! conflict between these needs, they should be prioritized in that order.
+//! > conflict between these needs, they should be prioritized in that order.
 //!
 //! Now that you've absorbed my wisdom, feel free to skip ahead to the [Usage](crate#usage) section.
 //!
