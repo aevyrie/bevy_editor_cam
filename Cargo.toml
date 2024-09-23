@@ -15,28 +15,28 @@ extension_anchor_indicator = ["bevy_gizmos"]
 extension_independent_skybox = ["bevy_asset", "bevy_core_pipeline"]
 
 [dependencies]
-bevy_app = "0.14"
-bevy_color = "0.14"
-bevy_derive = "0.14"
-bevy_ecs = "0.14"
-bevy_input = "0.14"
-bevy_log = "0.14"
-bevy_math = "0.14"
-bevy_reflect = "0.14"
-bevy_render = "0.14"
-bevy_time = "0.14"
-bevy_transform = "0.14"
-bevy_utils = "0.14"
-bevy_window = "0.14"
+bevy_app = "0.15.0-dev"
+bevy_color = "0.15.0-dev"
+bevy_derive = "0.15.0-dev"
+bevy_ecs = "0.15.0-dev"
+bevy_input = "0.15.0-dev"
+bevy_log = "0.15.0-dev"
+bevy_math = "0.15.0-dev"
+bevy_reflect = "0.15.0-dev"
+bevy_render = "0.15.0-dev"
+bevy_time = "0.15.0-dev"
+bevy_transform = "0.15.0-dev"
+bevy_utils = "0.15.0-dev"
+bevy_window = "0.15.0-dev"
 # Optional
-bevy_asset = { version = "0.14", optional = true }
-bevy_core_pipeline = { version = "0.14", optional = true }
-bevy_gizmos = { version = "0.14", optional = true }
+bevy_asset = { version = "0.15.0-dev", optional = true }
+bevy_core_pipeline = { version = "0.15.0-dev", optional = true }
+bevy_gizmos = { version = "0.15.0-dev", optional = true }
 # 3rd party
 bevy_picking_core = "0.20.0"
 
 [dev-dependencies]
-bevy = { git = "https://github.com/bevyengine/bevy.git", rev = "9386bd0", default-features = false, features = [
+bevy = { version = "0.15.0-dev", default-features = false, features = [
     "bevy_gizmos",
     "bevy_gltf",
     "bevy_scene",
@@ -52,31 +52,34 @@ bevy = { git = "https://github.com/bevyengine/bevy.git", rev = "9386bd0", defaul
     "zstd",
 ] }
 bevy_mod_picking = { version = "0.20.0", default-features = false, features = [
-    "backend_raycast",
+    # "backend_raycast",
 ] }
 # big_space = "0.7.0"
 rand = "0.8"
 
 [patch.crates-io]
-bevy_app = { git = "https://github.com/bevyengine/bevy.git", rev = "9386bd0" }
-bevy_color = { git = "https://github.com/bevyengine/bevy.git", rev = "9386bd0" }
-bevy_derive = { git = "https://github.com/bevyengine/bevy.git", rev = "9386bd0" }
-bevy_ecs = { git = "https://github.com/bevyengine/bevy.git", rev = "9386bd0" }
-bevy_input = { git = "https://github.com/bevyengine/bevy.git", rev = "9386bd0" }
-bevy_log = { git = "https://github.com/bevyengine/bevy.git", rev = "9386bd0" }
-bevy_math = { git = "https://github.com/bevyengine/bevy.git", rev = "9386bd0" }
-bevy_reflect = { git = "https://github.com/bevyengine/bevy.git", rev = "9386bd0" }
-bevy_render = { git = "https://github.com/bevyengine/bevy.git", rev = "9386bd0" }
-bevy_time = { git = "https://github.com/bevyengine/bevy.git", rev = "9386bd0" }
-bevy_transform = { git = "https://github.com/bevyengine/bevy.git", rev = "9386bd0" }
-bevy_utils = { git = "https://github.com/bevyengine/bevy.git", rev = "9386bd0" }
-bevy_window = { git = "https://github.com/bevyengine/bevy.git", rev = "9386bd0" }
+bevy_app = { path = "../bevy/crates/bevy_app" }
+bevy_color = { path = "../bevy/crates/bevy_color" }
+bevy_derive = { path = "../bevy/crates/bevy_derive" }
+bevy_ecs = { path = "../bevy/crates/bevy_ecs" }
+bevy_input = { path = "../bevy/crates/bevy_input" }
+bevy_log = { path = "../bevy/crates/bevy_log" }
+bevy_math = { path = "../bevy/crates/bevy_math" }
+bevy_reflect = { path = "../bevy/crates/bevy_reflect" }
+bevy_render = { path = "../bevy/crates/bevy_render" }
+bevy_time = { path = "../bevy/crates/bevy_time" }
+bevy_transform = { path = "../bevy/crates/bevy_transform" }
+bevy_utils = { path = "../bevy/crates/bevy_utils" }
+bevy_window = { path = "../bevy/crates/bevy_window" }
 # Optional
-bevy_asset = { git = "https://github.com/bevyengine/bevy.git", rev = "9386bd0" }
-bevy_core_pipeline = { git = "https://github.com/bevyengine/bevy.git", rev = "9386bd0" }
-bevy_gizmos = { git = "https://github.com/bevyengine/bevy.git", rev = "9386bd0" }
+bevy_asset = { path = "../bevy/crates/bevy_asset" }
+bevy_core_pipeline = { path = "../bevy/crates/bevy_core_pipeline" }
+bevy_gizmos = { path = "../bevy/crates/bevy_gizmos" }
 # Dev
-bevy = { git = "https://github.com/bevyengine/bevy.git", rev = "9386bd0" }
+bevy = { path = "../bevy" }
 # Upstream update needed
-bevy_picking_core = { path = "../bevy_mod_picking" }
+bevy_picking_core = { path = "../bevy_mod_picking/crates/bevy_picking_core" }
 bevy_mod_picking = { path = "../bevy_mod_picking" }
+# transitive dependencies
+bevy_hierarchy = { path = "../bevy/crates/bevy_hierarchy" }
+bevy_core = { path = "../bevy/crates/bevy_core" }
