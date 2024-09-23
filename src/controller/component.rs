@@ -72,6 +72,9 @@ pub struct EditorCam {
     /// This will be overwritten with the latest depth if a hit is found, to ensure the anchor point
     /// doesn't change suddenly if the user moves the pointer away from an object.
     pub last_anchor_depth: f64,
+    /// When the anchor distance is greater than this, the camera will no longer be able to zoom
+    /// out.
+    pub zoom_out_max: Option<f64>,
     /// Current camera motion. Managed by the camera controller, but exposed publicly to allow for
     /// overriding motion.
     pub current_motion: CurrentMotion,
@@ -90,6 +93,7 @@ impl Default for EditorCam {
             enabled_motion: Default::default(),
             current_motion: Default::default(),
             last_anchor_depth: -2.0,
+            zoom_out_max: None,
         }
     }
 }
@@ -393,8 +397,8 @@ impl EditorCam {
         let zoom_unscaled = (zoom.abs() / 60.0).powf(1.3);
         // Varies from 0 to 1 over x = [0..inf]
         let scaled_zoom = (1.0 - 1.0 / (zoom_unscaled + 1.0)) * zoom.signum();
-        let zoom_translation_view_space = match projection {
-            Projection::Perspective(_) => anchor.normalize() * scaled_zoom * anchor.z * -0.15,
+        let mut zoom_translation_view_space = match projection {
+            Projection::Perspective(_) => anchor.normalize() * scaled_zoom * dbg!(anchor.z) * -0.15,
             Projection::Orthographic(ref mut ortho) => {
                 ortho.scale *= 1.0 - scaled_zoom as f32 * 0.15;
                 // We don't move the camera in z, as this is managed by another ortho system.
@@ -402,9 +406,18 @@ impl EditorCam {
             }
         };
 
+        // if let Some(limit) = self.zoom_out_max {
+        //     if -anchor.length() + zoom_translation_view_space.length() > limit {
+        //         zoom_translation_view_space = zoom_translation_view_space.normalize()
+        //             * zoom_translation_view_space
+        //                 .length()
+        //                 .min(-anchor.length() - limit)
+        //     }
+        // }
+
         cam_transform.translation += (cam_transform.rotation.as_dquat()
-            * (pan_translation_view_space + zoom_translation_view_space))
-            .as_vec3();
+            * (pan_translation_view_space + dbg!(zoom_translation_view_space)))
+        .as_vec3();
 
         *anchor -= pan_translation_view_space + zoom_translation_view_space;
 

@@ -76,6 +76,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             EditorCam {
                 orbit_constraint: OrbitConstraint::Free,
                 last_anchor_depth: cam_trans.translation.length() as f64,
+                zoom_out_max: Some(20.0),
                 ..Default::default()
             },
         ))
