@@ -40,6 +40,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             intensity: 1000.0,
             diffuse_map: diffuse_map.clone(),
             specular_map: specular_map.clone(),
+            ..Default::default()
         },
         EditorCam::default(),
         bevy_editor_cam::extensions::independent_skybox::IndependentSkybox::new(
@@ -62,8 +63,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default()
             },
             projection: Projection::Orthographic(OrthographicProjection {
-                scale: 0.01,
-                ..default()
+                ..OrthographicProjection::default_3d()
             }),
             tonemapping: Tonemapping::AcesFitted,
             ..default()
@@ -72,6 +72,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             intensity: 1000.0,
             diffuse_map: diffuse_map.clone(),
             specular_map: specular_map.clone(),
+            ..Default::default()
         },
         EditorCam::default(),
         bevy_editor_cam::extensions::independent_skybox::IndependentSkybox::new(diffuse_map, 500.0),

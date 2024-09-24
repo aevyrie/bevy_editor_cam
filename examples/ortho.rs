@@ -20,8 +20,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Camera3dBundle {
             transform: Transform::from_xyz(10.0, 10.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
             projection: Projection::Orthographic(OrthographicProjection {
-                scale: 0.01,
-                ..default()
+                ..OrthographicProjection::default_3d()
             }),
             ..default()
         },
@@ -29,6 +28,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             intensity: 1000.0,
             diffuse_map: diffuse_map.clone(),
             specular_map: specular_map.clone(),
+            ..Default::default()
         },
         // This component makes the camera controllable with this plugin.
         //

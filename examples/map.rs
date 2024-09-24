@@ -1,14 +1,11 @@
 use bevy::{
-    core_pipeline::{
-        bloom::BloomSettings,
-        experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasSettings},
-        tonemapping::Tonemapping,
-    },
-    pbr::{ScreenSpaceAmbientOcclusionBundle, ScreenSpaceAmbientOcclusionSettings},
+    core_pipeline::{experimental::taa::TemporalAntiAliasBundle, tonemapping::Tonemapping},
+    pbr::{ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionBundle},
     prelude::*,
     render::camera::TemporalJitter,
 };
 use bevy_color::palettes;
+use bevy_core_pipeline::{bloom::Bloom, experimental::taa::TemporalAntiAliasing};
 use bevy_editor_cam::{extensions::dolly_zoom::DollyZoomTrigger, prelude::*};
 use rand::Rng;
 
@@ -19,7 +16,6 @@ fn main() {
             bevy_mod_picking::DefaultPickingPlugins,
             DefaultEditorCamPlugins,
         ))
-        .insert_resource(Msaa::Off)
         .add_systems(Startup, (setup, setup_ui))
         .add_systems(Update, toggle_projection)
         .run();
@@ -41,13 +37,15 @@ fn setup(
             Camera3dBundle {
                 transform: Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
                 tonemapping: Tonemapping::AcesFitted,
+                msaa: Msaa::Off,
                 ..default()
             },
-            BloomSettings::default(),
+            Bloom::default(),
             EnvironmentMapLight {
                 intensity: 1000.0,
                 diffuse_map: diffuse_map.clone(),
                 specular_map: specular_map.clone(),
+                ..Default::default()
             },
             EditorCam {
                 orbit_constraint: OrbitConstraint::Fixed {
@@ -121,7 +119,9 @@ fn toggle_projection(
 ) {
     let (camera, projection) = cam.single();
     let target_projection = match projection {
-        Projection::Perspective(_) => Projection::Orthographic(OrthographicProjection::default()),
+        Projection::Perspective(_) => {
+            Projection::Orthographic(OrthographicProjection::default_3d())
+        }
         Projection::Orthographic(_) => Projection::Perspective(PerspectiveProjection::default()),
     };
     if keys.just_pressed(KeyCode::KeyP) {
@@ -135,18 +135,18 @@ fn toggle_projection(
         Projection::Perspective(_) => {
             commands
                 .entity(camera)
-                .insert(ScreenSpaceAmbientOcclusionSettings::default())
-                .insert(TemporalAntiAliasSettings::default())
-                .insert(TemporalJitter::default());
-            commands.insert_resource(Msaa::Off);
+                .insert(ScreenSpaceAmbientOcclusion::default())
+                .insert(TemporalAntiAliasing::default())
+                .insert(TemporalJitter::default())
+                .insert(Msaa::Off);
         }
         Projection::Orthographic(_) => {
             commands
                 .entity(camera)
-                .remove::<ScreenSpaceAmbientOcclusionSettings>()
-                .remove::<TemporalAntiAliasSettings>()
-                .remove::<TemporalJitter>();
-            commands.insert_resource(Msaa::Sample4);
+                .remove::<ScreenSpaceAmbientOcclusion>()
+                .remove::<TemporalAntiAliasing>()
+                .remove::<TemporalJitter>()
+                .insert(Msaa::Sample4);
         }
     }
 }

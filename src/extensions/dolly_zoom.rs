@@ -81,7 +81,8 @@ impl DollyZoomTrigger {
                         continue;
                     }
 
-                    let base = ortho.scale as f64 / ortho_tri_base_to_scale_factor(camera, ortho);
+                    let base = (ortho.area.width() * ortho.area.height()) as f64
+                        / ortho_tri_base_to_scale_factor(camera, ortho);
                     let new_anchor_dist = base / (ZERO_FOV / 2.0).tan();
                     let forward_dist = controller.last_anchor_depth.abs() - new_anchor_dist;
                     let next_translation = transform.forward().as_dvec3() * forward_dist;
@@ -222,8 +223,8 @@ impl DollyZoom {
                 *projection = proj_end.clone();
                 if let Projection::Orthographic(ortho) = &mut *projection {
                     let multiplier = ortho_tri_base_to_scale_factor(camera, ortho);
-
-                    ortho.scale = (*triangle_base * multiplier) as f32;
+                    let normalized_projection = ortho.scaling_mode / multiplier as f32;
+                    ortho.scaling_mode = normalized_projection * *triangle_base as f32;
                 }
                 controller.enabled_motion = initial_enabled.clone();
                 *complete = true;

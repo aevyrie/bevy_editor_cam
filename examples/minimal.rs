@@ -23,6 +23,7 @@ fn setup_camera(mut commands: Commands, asset_server: Res<AssetServer>) {
             intensity: 1000.0,
             diffuse_map: asset_server.load("environment_maps/diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/specular_rgb9e5_zstd.ktx2"),
+            ..Default::default()
         },
     ));
 }

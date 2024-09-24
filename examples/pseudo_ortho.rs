@@ -36,6 +36,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             intensity: 1000.0,
             diffuse_map: diffuse_map.clone(),
             specular_map: specular_map.clone(),
+            ..Default::default()
         },
         // This component makes the camera controllable with this plugin:
         EditorCam::default(),
