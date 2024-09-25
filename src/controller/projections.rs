@@ -90,7 +90,9 @@ pub fn update_orthographic(mut cameras: Query<(&mut EditorCam, &mut Projection, 
         };
 
         let anchor_dist = editor_cam.last_anchor_depth().abs() as f32;
-        let target_dist = (editor_cam.orthographic.scale_to_near_clip * orthographic.scale).clamp(
+        let target_dist = (editor_cam.orthographic.scale_to_near_clip
+            * (orthographic.area.width() * orthographic.area.height()))
+        .clamp(
             editor_cam.orthographic.near_clip_limits.start,
             editor_cam.orthographic.near_clip_limits.end,
         );

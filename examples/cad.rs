@@ -2,7 +2,6 @@ use std::time::Duration;
 
 use bevy::{
     core_pipeline::{
-        bloom::BloomSettings,
         experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin},
         tonemapping::Tonemapping,
     },
@@ -12,6 +11,7 @@ use bevy::{
     utils::Instant,
     window::RequestRedraw,
 };
+use bevy_core_pipeline::bloom::Bloom;
 use bevy_editor_cam::{
     extensions::{dolly_zoom::DollyZoomTrigger, look_to::LookToTrigger},
     prelude::*,
@@ -27,7 +27,6 @@ fn main() {
         ))
         // The camera controller works with reactive rendering:
         // .insert_resource(bevy::winit::WinitSettings::desktop_app())
-        .insert_resource(Msaa::Off)
         .insert_resource(ClearColor(Color::srgb(0.15, 0.15, 0.15)))
         .insert_resource(AmbientLight {
             brightness: 0.0,
@@ -65,13 +64,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             Camera3dBundle {
                 transform: cam_trans,
                 tonemapping: Tonemapping::AcesFitted,
+                msaa: Msaa::Off,
                 ..default()
             },
-            BloomSettings::default(),
+            Bloom::default(),
             EnvironmentMapLight {
                 intensity: 1000.0,
                 diffuse_map: diffuse_map.clone(),
                 specular_map: specular_map.clone(),
+                ..Default::default()
             },
             EditorCam {
                 orbit_constraint: OrbitConstraint::Free,
@@ -87,23 +88,22 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn projection_specific_render_config(
     mut commands: Commands,
     cam: Query<(Entity, &Projection), With<EditorCam>>,
-    mut msaa: ResMut<Msaa>,
 ) {
     let (entity, proj) = cam.single();
     match proj {
         Projection::Perspective(_) => {
-            *msaa = Msaa::Off;
             commands
                 .entity(entity)
                 .insert(TemporalAntiAliasBundle::default())
-                .insert(ScreenSpaceAmbientOcclusionBundle::default());
+                .insert(ScreenSpaceAmbientOcclusionBundle::default())
+                .insert(Msaa::Off);
         }
         Projection::Orthographic(_) => {
-            *msaa = Msaa::Sample4;
             commands
                 .entity(entity)
                 .remove::<TemporalJitter>()
-                .remove::<ScreenSpaceAmbientOcclusionBundle>();
+                .remove::<ScreenSpaceAmbientOcclusionBundle>()
+                .insert(Msaa::Sample4);
         }
     }
 }
@@ -117,7 +117,7 @@ fn toggle_projection(
     if keys.just_pressed(KeyCode::KeyP) {
         *toggled = !*toggled;
         let target_projection = if *toggled {
-            Projection::Orthographic(OrthographicProjection::default())
+            Projection::Orthographic(OrthographicProjection::default_3d())
         } else {
             Projection::Perspective(PerspectiveProjection::default())
         };

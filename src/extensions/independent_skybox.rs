@@ -138,6 +138,7 @@ impl IndependentSkyboxCamera {
                     Skybox {
                         image: editor_without_skybox.skybox.clone(),
                         brightness: editor_without_skybox.brightness,
+                        ..Default::default()
                     },
                     IndependentSkyboxCamera {
                         driven_by: editor_cam_entity,

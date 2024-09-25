@@ -385,7 +385,10 @@ impl EditorCam {
                 };
                 offset
             }
-            Projection::Orthographic(ortho) => DVec2::new(-ortho.scale as f64, ortho.scale as f64),
+            Projection::Orthographic(ortho) => DVec2::new(
+                -ortho.area.width() as f64 / 2.0,
+                ortho.area.height() as f64 / 2.0,
+            ),
         };
 
         let pan_translation_view_space = (pan * view_offset).extend(0.0);
@@ -396,7 +399,7 @@ impl EditorCam {
         let zoom_translation_view_space = match projection {
             Projection::Perspective(_) => anchor.normalize() * scaled_zoom * anchor.z * -0.15,
             Projection::Orthographic(ref mut ortho) => {
-                ortho.scale *= 1.0 - scaled_zoom as f32 * 0.15;
+                ortho.scaling_mode *= 1.0 - scaled_zoom as f32 * 0.15;
                 // We don't move the camera in z, as this is managed by another ortho system.
                 anchor.normalize() * scaled_zoom * anchor.z.abs() * 0.15 * DVec3::new(1.0, 1.0, 0.0)
             }

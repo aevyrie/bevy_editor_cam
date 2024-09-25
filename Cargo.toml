@@ -15,28 +15,28 @@ extension_anchor_indicator = ["bevy_gizmos"]
 extension_independent_skybox = ["bevy_asset", "bevy_core_pipeline"]
 
 [dependencies]
-bevy_app = "0.14.0"
-bevy_color = "0.14.0"
-bevy_derive = "0.14.0"
-bevy_ecs = "0.14.0"
-bevy_input = "0.14.0"
-bevy_log = "0.14.0"
-bevy_math = "0.14.0"
-bevy_reflect = "0.14.0"
-bevy_render = "0.14.0"
-bevy_time = "0.14.0"
-bevy_transform = "0.14.0"
-bevy_utils = "0.14.0"
-bevy_window = "0.14.0"
+bevy_app = "0.15.0-dev"
+bevy_color = "0.15.0-dev"
+bevy_derive = "0.15.0-dev"
+bevy_ecs = "0.15.0-dev"
+bevy_input = "0.15.0-dev"
+bevy_log = "0.15.0-dev"
+bevy_math = "0.15.0-dev"
+bevy_reflect = "0.15.0-dev"
+bevy_render = "0.15.0-dev"
+bevy_time = "0.15.0-dev"
+bevy_transform = "0.15.0-dev"
+bevy_utils = "0.15.0-dev"
+bevy_window = "0.15.0-dev"
 # Optional
-bevy_asset = { version = "0.14.0", optional = true }
-bevy_core_pipeline = { version = "0.14.0", optional = true }
-bevy_gizmos = { version = "0.14.0", optional = true }
+bevy_asset = { version = "0.15.0-dev", optional = true }
+bevy_core_pipeline = { version = "0.15.0-dev", optional = true }
+bevy_gizmos = { version = "0.15.0-dev", optional = true }
 # 3rd party
 bevy_picking_core = "0.20.0"
 
 [dev-dependencies]
-bevy = { version = "0.14.0", default-features = false, features = [
+bevy = { version = "0.15.0-dev", default-features = false, features = [
     "bevy_gizmos",
     "bevy_gltf",
     "bevy_scene",
@@ -52,8 +52,35 @@ bevy = { version = "0.14.0", default-features = false, features = [
     "zstd",
 ] }
 bevy_mod_picking = { version = "0.20.0", default-features = false, features = [
-    "backend_raycast",
+    # "backend_raycast",
 ] }
-
-big_space = "0.7.0"
+# big_space = "0.7.0"
 rand = "0.8"
+
+[patch.crates-io]
+bevy_app = { git = "https://github.com/bevyengine/bevy.git", rev = "9386bd0114c44c9f00a2e9c41db1225aaa78d159" }
+bevy_color = { git = "https://github.com/bevyengine/bevy.git", rev = "9386bd0114c44c9f00a2e9c41db1225aaa78d159" }
+bevy_derive = { git = "https://github.com/bevyengine/bevy.git", rev = "9386bd0114c44c9f00a2e9c41db1225aaa78d159" }
+bevy_ecs = { git = "https://github.com/bevyengine/bevy.git", rev = "9386bd0114c44c9f00a2e9c41db1225aaa78d159" }
+bevy_input = { git = "https://github.com/bevyengine/bevy.git", rev = "9386bd0114c44c9f00a2e9c41db1225aaa78d159" }
+bevy_log = { git = "https://github.com/bevyengine/bevy.git", rev = "9386bd0114c44c9f00a2e9c41db1225aaa78d159" }
+bevy_math = { git = "https://github.com/bevyengine/bevy.git", rev = "9386bd0114c44c9f00a2e9c41db1225aaa78d159" }
+bevy_reflect = { git = "https://github.com/bevyengine/bevy.git", rev = "9386bd0114c44c9f00a2e9c41db1225aaa78d159" }
+bevy_render = { git = "https://github.com/bevyengine/bevy.git", rev = "9386bd0114c44c9f00a2e9c41db1225aaa78d159" }
+bevy_time = { git = "https://github.com/bevyengine/bevy.git", rev = "9386bd0114c44c9f00a2e9c41db1225aaa78d159" }
+bevy_transform = { git = "https://github.com/bevyengine/bevy.git", rev = "9386bd0114c44c9f00a2e9c41db1225aaa78d159" }
+bevy_utils = { git = "https://github.com/bevyengine/bevy.git", rev = "9386bd0114c44c9f00a2e9c41db1225aaa78d159" }
+bevy_window = { git = "https://github.com/bevyengine/bevy.git", rev = "9386bd0114c44c9f00a2e9c41db1225aaa78d159" }
+# Optional
+bevy_asset = { git = "https://github.com/bevyengine/bevy.git", rev = "9386bd0114c44c9f00a2e9c41db1225aaa78d159" }
+bevy_core_pipeline = { git = "https://github.com/bevyengine/bevy.git", rev = "9386bd0114c44c9f00a2e9c41db1225aaa78d159" }
+bevy_gizmos = { git = "https://github.com/bevyengine/bevy.git", rev = "9386bd0114c44c9f00a2e9c41db1225aaa78d159" }
+# Dev
+bevy = { git = "https://github.com/bevyengine/bevy.git", rev = "9386bd0114c44c9f00a2e9c41db1225aaa78d159" }
+# Upstream update needed
+bevy_picking_core = { git = "https://github.com/vrixyz/bevy_mod_picking.git", branch = "bevy_main" }
+bevy_mod_picking = { git = "https://github.com/vrixyz/bevy_mod_picking.git", branch = "bevy_main" }
+# transitive dependencies
+bevy_hierarchy = { git = "https://github.com/bevyengine/bevy.git", rev = "9386bd0114c44c9f00a2e9c41db1225aaa78d159" }
+bevy_core = { git = "https://github.com/bevyengine/bevy.git", rev = "9386bd0114c44c9f00a2e9c41db1225aaa78d159" }
+bevy_eventlistener = { git = "https://github.com/vrixyz/bevy_eventlistener.git", branch = "bevy_main" }
