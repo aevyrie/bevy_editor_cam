@@ -21,6 +21,7 @@ use super::{
     motion::CurrentMotion,
     projections::{OrthographicSettings, PerspectiveSettings},
     smoothing::{InputQueue, Smoothing},
+    zoom::ZoomLimits,
 };
 
 /// Tracks all state of a camera's controller, including its inputs, motion, and settings.
@@ -50,6 +51,9 @@ pub struct EditorCam {
     pub enabled_motion: EnabledMotion,
     /// The type of camera orbit to use.
     pub orbit_constraint: OrbitConstraint,
+    /// How close can the camera get to object before zooming through it. None
+    /// disables zooming through objects.
+    pub zoom_limits: ZoomLimits,
     /// Input smoothing of camera motion.
     pub smoothing: Smoothing,
     /// Input sensitivity of the camera.
@@ -64,9 +68,6 @@ pub struct EditorCam {
     pub perspective: PerspectiveSettings,
     /// Settings used when the camera has an orthographic [`Projection`].
     pub orthographic: OrthographicSettings,
-    /// How close can the camera get to object before zooming through it. None
-    /// disables zooming through objects.
-    pub minimum_distance: Option<f64>,
     /// Managed by the camera controller, though you may want to change this when spawning or
     /// manually moving the camera.
     ///
@@ -84,6 +85,7 @@ impl Default for EditorCam {
     fn default() -> Self {
         EditorCam {
             orbit_constraint: Default::default(),
+            zoom_limits: Default::default(),
             smoothing: Default::default(),
             sensitivity: Default::default(),
             momentum: Default::default(),
@@ -92,7 +94,6 @@ impl Default for EditorCam {
             orthographic: Default::default(),
             enabled_motion: Default::default(),
             current_motion: Default::default(),
-            minimum_distance: Default::default(),
             last_anchor_depth: -2.0,
         }
     }
@@ -224,19 +225,6 @@ impl EditorCam {
             return;
         }
         let anchor = self.maybe_update_anchor(anchor);
-
-        // Extend the anchor if a minimum distance for zooming is set
-        let anchor = if let Some(minimum_distance) = self.minimum_distance {
-            if anchor.length() > minimum_distance {
-                anchor
-            } else if let Some(norm_anchor) = anchor.try_normalize() {
-                norm_anchor * minimum_distance
-            } else {
-                anchor
-            }
-        } else {
-            anchor
-        };
 
         // Inherit current camera velocity
         let zoom_inputs = match self.current_motion {
@@ -411,12 +399,50 @@ impl EditorCam {
         let zoom_unscaled = (zoom.abs() / 60.0).powf(1.3);
         // Varies from 0 to 1 over x = [0..inf]
         let scaled_zoom = (1.0 - 1.0 / (zoom_unscaled + 1.0)) * zoom.signum();
+
+        let size_at_anchor =
+            super::zoom::length_per_pixel_at_view_space_pos(camera, anchor.as_vec3())
+                .unwrap_or(0.0);
+
+        // Clamp zoom to the magnification limits
+        let clamped_scaled_zoom = if size_at_anchor <= self.zoom_limits.min_size_per_pixel {
+            scaled_zoom.min(0.0)
+        } else if size_at_anchor >= self.zoom_limits.max_size_per_pixel {
+            scaled_zoom.max(0.0)
+        } else {
+            scaled_zoom
+        };
+
+        // Constants are hand tuned to feel equivalent between perspective and ortho. Might be a
+        // better way to do this correctly, if it matters.
         let zoom_translation_view_space = match projection {
-            Projection::Perspective(_) => anchor.normalize() * scaled_zoom * anchor.z * -0.15,
+            Projection::Perspective(_) => {
+                let zoom_scale = if self.zoom_limits.zoom_through_objects {
+                    // Need to ignore the clamped value because we can keep translating when in
+                    // perspective and if zoom_through_objects is true.
+                    scaled_zoom * size_at_anchor.max(self.zoom_limits.min_size_per_pixel) as f64
+                } else {
+                    clamped_scaled_zoom * size_at_anchor as f64
+                };
+                let translation = anchor.normalize() * zoom_scale * 100.0;
+
+                // If we can zoom through objects, then scoot the anchor point forward when we hit
+                // the limit, so we never reach it.
+                if self.zoom_limits.zoom_through_objects
+                    && size_at_anchor < self.zoom_limits.min_size_per_pixel
+                {
+                    *anchor += translation;
+                }
+                translation
+            }
             Projection::Orthographic(ref mut ortho) => {
-                ortho.scale *= 1.0 - scaled_zoom as f32 * 0.15;
+                ortho.scale *= 1.0 - clamped_scaled_zoom as f32 * 0.15;
                 // We don't move the camera in z, as this is managed by another ortho system.
-                anchor.normalize() * scaled_zoom * anchor.z.abs() * 0.15 * DVec3::new(1.0, 1.0, 0.0)
+                anchor.normalize()
+                    * clamped_scaled_zoom
+                    * anchor.z.abs()
+                    * 0.15
+                    * DVec3::new(1.0, 1.0, 0.0)
             }
         };
 
@@ -506,6 +532,19 @@ impl EditorCam {
         // anchor.z = dbg!(anchor.z).min(0.0);
 
         self.last_anchor_depth = anchor.z;
+    }
+
+    /// Compute the world space size of a pixel at the anchor.
+    ///
+    /// This is a robust alternative to using the distance of the camera from the anchor point.
+    /// Camera distance is not directly related to how large something is on screen - that depends
+    /// on the camera projection.
+    ///
+    /// This function correctly accounts for camera projection, and is particularly useful when
+    /// doing zoom and scale calculations.
+    pub fn length_per_pixel_at_anchor(&self, camera: &Camera) -> Option<f32> {
+        let anchor_view = self.anchor_view_space()?.as_vec3();
+        super::zoom::length_per_pixel_at_view_space_pos(camera, anchor_view)
     }
 
     /// The last known anchor depth. This value will always be negative.
