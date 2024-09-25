@@ -1,6 +1,7 @@
 //! A minimal example demonstrating zooming through objects.
 
 use bevy::prelude::*;
+use bevy_color::palettes;
 use bevy_editor_cam::{extensions::dolly_zoom::DollyZoomTrigger, prelude::*};
 use zoom::ZoomLimits;
 
@@ -21,8 +22,8 @@ fn setup_camera(mut commands: Commands, asset_server: Res<AssetServer>) {
         Camera3dBundle::default(),
         EditorCam {
             zoom_limits: ZoomLimits {
-                min_size_per_pixel: 1e-4,
-                max_size_per_pixel: 1e-2,
+                min_size_per_pixel: 0.0001,
+                max_size_per_pixel: 0.01,
                 zoom_through_objects: true,
             },
             ..default()
@@ -35,10 +36,20 @@ fn setup_camera(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 }
 
-fn toggle_zoom(keys: Res<ButtonInput<KeyCode>>, mut cam: Query<&mut EditorCam>) {
+fn toggle_zoom(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut cam: Query<&mut EditorCam>,
+    mut text: Query<&mut Text>,
+) {
     if keys.just_pressed(KeyCode::KeyZ) {
         let mut editor = cam.single_mut();
-        editor.zoom_limits.zoom_through_objects = !editor.zoom_limits.zoom_through_objects
+        editor.zoom_limits.zoom_through_objects = !editor.zoom_limits.zoom_through_objects;
+        let mut text = text.single_mut();
+        text.sections.last_mut().unwrap().value = if editor.zoom_limits.zoom_through_objects {
+            "Zoom Through: Enabled".into()
+        } else {
+            "Zoom Through: Disabled".into()
+        };
     }
 }
 
@@ -90,6 +101,14 @@ fn setup_ui(mut commands: Commands) {
                     TextSection::new("Scroll - Zoom\n", style.clone()),
                     TextSection::new("P - Toggle projection\n", style.clone()),
                     TextSection::new("Z - Toggle zoom through object setting\n", style.clone()),
+                    TextSection::new(
+                        "Zoom Through: Enabled\n",
+                        TextStyle {
+                            font_size: 20.0,
+                            color: palettes::basic::YELLOW.into(),
+                            ..default()
+                        },
+                    ),
                 ])
                 .with_style(Style { ..default() }),
             );
