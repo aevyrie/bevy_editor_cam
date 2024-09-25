@@ -424,7 +424,7 @@ impl EditorCam {
                 } else {
                     clamped_scaled_zoom * size_at_anchor as f64
                 };
-                let translation = anchor.normalize() * zoom_scale * 100.0;
+                let translation = anchor.normalize() * zoom_scale * 130.0;
 
                 // If we can zoom through objects, then scoot the anchor point forward when we hit
                 // the limit, so we never reach it.
