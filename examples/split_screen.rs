@@ -63,6 +63,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default()
             },
             projection: Projection::Orthographic(OrthographicProjection {
+                scaling_mode: ScalingMode::WindowSize(100.0),
                 ..OrthographicProjection::default_3d()
             }),
             tonemapping: Tonemapping::AcesFitted,
