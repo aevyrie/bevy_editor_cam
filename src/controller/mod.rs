@@ -9,6 +9,7 @@ pub mod momentum;
 pub mod motion;
 pub mod projections;
 pub mod smoothing;
+pub mod zoom;
 
 /// Adds [`bevy_editor_cam`](crate) functionality without an input plugin or any extensions. This
 /// requires an input plugin to function! If you don't use the [`crate::input::DefaultInputPlugin`],
