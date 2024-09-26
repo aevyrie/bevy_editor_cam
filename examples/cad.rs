@@ -48,7 +48,12 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut config_store: ResMut<GizmoConfigStore>,
+) {
+    config_store.config_mut::<AabbGizmoConfigGroup>().1.draw_all ^= true;
     let diffuse_map = asset_server.load("environment_maps/diffuse_rgb9e5_zstd.ktx2");
     let specular_map = asset_server.load("environment_maps/specular_rgb9e5_zstd.ktx2");
 
@@ -99,11 +104,9 @@ fn projection_specific_render_config(
                 .insert(ScreenSpaceAmbientOcclusionBundle::default());
         }
         Projection::Orthographic(_) => {
-            *msaa = Msaa::Sample4;
-            commands
-                .entity(entity)
-                .remove::<TemporalJitter>()
-                .remove::<ScreenSpaceAmbientOcclusionBundle>();
+            // *msaa = Msaa::Sample4;
+            commands.entity(entity).remove::<TemporalJitter>();
+            // .remove::<ScreenSpaceAmbientOcclusionBundle>();
         }
     }
 }

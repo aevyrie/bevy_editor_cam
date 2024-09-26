@@ -357,11 +357,11 @@ impl EditorCam {
             |perspective: &PerspectiveProjection, depth: f64| -> Option<DVec2> {
                 let target_size = camera.logical_viewport_size()?.as_dvec2();
                 // This is a strange looking, but key part of the otherwise normal looking
-                // screen-to-view transformation. What we are trying to do here is answer "if we move by
-                // one pixel in x and y, how much distance do we cover in the world at the specified
-                // depth?" Because the viewport position's origin is in the corner, we need to halve the
-                // target size, and subtract one pixel. This gets us a viewport position one pixel
-                // diagonal offset from the center of the screen.
+                // screen-to-view transformation. What we are trying to do here is answer "if we
+                // move by one pixel in x and y, how much distance do we cover in the world at the
+                // specified depth?" Because the viewport position's origin is in the corner, we
+                // need to halve the target size, and subtract one pixel. This gets us a viewport
+                // position one pixel diagonal offset from the center of the screen.
                 let mut viewport_position = target_size / 2.0 - 1.0;
                 // Flip the y-coordinate origin from the top to the bottom.
                 viewport_position.y = target_size.y - viewport_position.y;

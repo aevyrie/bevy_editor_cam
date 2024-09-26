@@ -2,7 +2,7 @@
 
 use bevy_ecs::prelude::*;
 use bevy_reflect::prelude::*;
-use bevy_render::prelude::*;
+use bevy_render::{prelude::*, primitives::Aabb};
 use bevy_transform::prelude::*;
 
 use crate::prelude::*;
@@ -83,21 +83,45 @@ impl Default for OrthographicSettings {
 }
 
 /// Update the ortho camera projection and position based on the [`OrthographicSettings`].
-pub fn update_orthographic(mut cameras: Query<(&mut EditorCam, &mut Projection, &mut Transform)>) {
-    for (mut editor_cam, mut projection, mut cam_transform) in cameras.iter_mut() {
+pub fn update_orthographic(
+    mut cameras: Query<(
+        &mut EditorCam,
+        &mut Projection,
+        &mut Transform,
+        &GlobalTransform,
+    )>,
+    aabbs: Query<(&GlobalTransform, &Aabb)>,
+) {
+    for (mut editor_cam, mut projection, mut cam_transform, cam_global) in cameras.iter_mut() {
         let Projection::Orthographic(ref mut orthographic) = *projection else {
             continue;
         };
 
-        let anchor_dist = editor_cam.last_anchor_depth().abs() as f32;
-        let target_dist = (editor_cam.orthographic.scale_to_near_clip * orthographic.scale).clamp(
-            editor_cam.orthographic.near_clip_limits.start,
-            editor_cam.orthographic.near_clip_limits.end,
-        );
+        // Loop through all AABBs in the scene, to find a conservative bound for the near and far
+        // planes for the camera, to ensure all objects are visible while keeping the total depth
+        // range needed (near - far) as small as possible.
+        let world_to_view = cam_global.compute_matrix().inverse();
+        let mut near: Option<f32> = None;
+        let mut far: Option<f32> = None;
+        for (aabb_global, aabb) in aabbs.iter() {
+            let aabb_center = aabb_global.affine().transform_point(aabb.center);
+            let aabb_view = world_to_view.transform_point(aabb_center);
+            // -Z is forward, so we negate to work with positive values to match the definition of
+            // frustum near and far, which are positive.
+            let aabb_radius = aabb.half_extents.length();
+            let aabb_near = -aabb_view.z - aabb_radius * 2.0;
+            let aabb_far = -aabb_view.z + aabb_radius * 2.0;
+            near = Some(near.map_or(aabb_near, |near| near.min(aabb_near)));
+            far = Some(far.map_or(aabb_far, |far| far.max(aabb_far)));
+        }
 
-        let forward_amount = anchor_dist - target_dist;
+        // Move the camera so it is butted up against the nearest object. We will set the near
+        // clipping plane to zero. All that is left is to set the far plane, taking this translation
+        // into account.
+        let near = near.unwrap_or(0.0);
+        let forward_amount = dbg!(near);
+        let far = far.unwrap_or(1000.0) - forward_amount;
         let movement = cam_transform.forward() * forward_amount;
-
         cam_transform.translation += movement;
 
         editor_cam.last_anchor_depth += forward_amount as f64;
@@ -106,6 +130,25 @@ pub fn update_orthographic(mut cameras: Query<(&mut EditorCam, &mut Projection, 
         }
 
         orthographic.near = 0.0;
-        orthographic.far = anchor_dist * (1.0 + editor_cam.orthographic.far_clip_multiplier);
+        orthographic.far = far;
+
+        // let anchor_dist = editor_cam.last_anchor_depth().abs() as f32;
+        // let target_dist = (editor_cam.orthographic.scale_to_near_clip * orthographic.scale).clamp(
+        //     editor_cam.orthographic.near_clip_limits.start,
+        //     editor_cam.orthographic.near_clip_limits.end,
+        // );
+
+        // let forward_amount = anchor_dist - target_dist;
+        // let movement = cam_transform.forward() * forward_amount;
+
+        // cam_transform.translation += movement;
+
+        // editor_cam.last_anchor_depth += forward_amount as f64;
+        // if let CurrentMotion::UserControlled { ref mut anchor, .. } = editor_cam.current_motion {
+        //     anchor.z += forward_amount as f64;
+        // }
+
+        // orthographic.near = 0.0;
+        // orthographic.far = anchor_dist * (1.0 + editor_cam.orthographic.far_clip_multiplier);
     }
 }
