@@ -357,11 +357,11 @@ impl EditorCam {
             |perspective: &PerspectiveProjection, depth: f64| -> Option<DVec2> {
                 let target_size = camera.logical_viewport_size()?.as_dvec2();
                 // This is a strange looking, but key part of the otherwise normal looking
-                // screen-to-view transformation. What we are trying to do here is answer "if we move by
-                // one pixel in x and y, how much distance do we cover in the world at the specified
-                // depth?" Because the viewport position's origin is in the corner, we need to halve the
-                // target size, and subtract one pixel. This gets us a viewport position one pixel
-                // diagonal offset from the center of the screen.
+                // screen-to-view transformation. What we are trying to do here is answer "if we
+                // move by one pixel in x and y, how much distance do we cover in the world at the
+                // specified depth?" Because the viewport position's origin is in the corner, we
+                // need to halve the target size, and subtract one pixel. This gets us a viewport
+                // position one pixel diagonal offset from the center of the screen.
                 let mut viewport_position = target_size / 2.0 - 1.0;
                 // Flip the y-coordinate origin from the top to the bottom.
                 viewport_position.y = target_size.y - viewport_position.y;
@@ -396,55 +396,73 @@ impl EditorCam {
 
         let pan_translation_view_space = (pan * view_offset).extend(0.0);
 
-        let zoom_unscaled = (zoom.abs() / 60.0).powf(1.3);
-        // Varies from 0 to 1 over x = [0..inf]
-        let scaled_zoom = (1.0 - 1.0 / (zoom_unscaled + 1.0)) * zoom.signum();
-
         let size_at_anchor =
             super::zoom::length_per_pixel_at_view_space_pos(camera, anchor.as_vec3())
                 .unwrap_or(0.0);
 
-        // Clamp zoom to the magnification limits
-        let clamped_scaled_zoom = if size_at_anchor <= self.zoom_limits.min_size_per_pixel {
-            scaled_zoom.min(0.0)
+        // I'm not sure why I created this mapping - maybe it was to prevent zooming through
+        // surfaces if the user really whipped the mouse:
+        //
+        // let zoom_unscaled = (zoom.abs() / 60.0)
+        //     .powf(1.3); // Varies from 0 to 1 over x = [0..inf]
+        // let zoom_input = (1.0 - 1.0 / (zoom_unscaled + 1.0)) * zoom.signum();
+        //
+        // It is roughly equivalent to just using
+        // let zoom_input = zoom * 0.01;
+        //
+        // ...so I've opted to just factor this constant out of the other scaling constants below.
+        //
+        // I recall spending a lot of time on this mapping function, but for the life of me can't
+        // remember why. Leaving this comment behind for a few releases, delete me if nothing
+        // breaks.
+
+        // The zoom input, bounded to prevent zooming past the limits.
+        let zoom_bounded = if size_at_anchor <= self.zoom_limits.min_size_per_pixel {
+            zoom.min(0.0) // Prevent zooming in further
         } else if size_at_anchor >= self.zoom_limits.max_size_per_pixel {
-            scaled_zoom.max(0.0)
+            zoom.max(0.0) // Prevent zooming out further
         } else {
-            scaled_zoom
+            zoom
         };
 
-        // Constants are hand tuned to feel equivalent between perspective and ortho. Might be a
-        // better way to do this correctly, if it matters.
         let zoom_translation_view_space = match projection {
-            Projection::Perspective(_) => {
-                let zoom_scale = if self.zoom_limits.zoom_through_objects {
-                    // Need to ignore the clamped value because we can keep translating when in
-                    // perspective and if zoom_through_objects is true.
-                    scaled_zoom * size_at_anchor.max(self.zoom_limits.min_size_per_pixel) as f64
+            Projection::Perspective(perspective) => {
+                let zoom_amount = if self.zoom_limits.zoom_through_objects {
+                    // Clamp the zoom speed at the limits
+                    zoom * size_at_anchor.clamp(
+                        self.zoom_limits.min_size_per_pixel,
+                        self.zoom_limits.max_size_per_pixel,
+                    ) as f64
                 } else {
-                    clamped_scaled_zoom * size_at_anchor as f64
+                    // If we cannot zoom through objects, use the bounded input
+                    zoom_bounded * size_at_anchor as f64
                 };
-                let translation = anchor.normalize() * zoom_scale * 130.0;
-
-                // If we can zoom through objects, then scoot the anchor point forward when we hit
-                // the limit, so we never reach it.
-                if self.zoom_limits.zoom_through_objects
-                    && size_at_anchor < self.zoom_limits.min_size_per_pixel
-                {
-                    *anchor += translation;
-                }
-                translation
+                // Scale this with the perspective FOV, so zoom speed feels the same regardless.
+                anchor.normalize() * zoom_amount / perspective.fov as f64
             }
             Projection::Orthographic(ref mut ortho) => {
-                ortho.scale *= 1.0 - clamped_scaled_zoom as f32 * 0.15;
+                // Constants are hand tuned to feel equivalent between perspective and ortho. Might
+                // be a better way to do this correctly, if it matters.
+                ortho.scale *= 1.0 - zoom_bounded as f32 * 0.0015;
                 // We don't move the camera in z, as this is managed by another ortho system.
                 anchor.normalize()
-                    * clamped_scaled_zoom
+                    * zoom_bounded
                     * anchor.z.abs()
-                    * 0.15
+                    * 0.0015
                     * DVec3::new(1.0, 1.0, 0.0)
             }
         };
+
+        // If we can zoom through objects, then scoot the anchor point forward when we hit the
+        // limit. This prevents the anchor from getting closer to the camera than the minimum
+        // distance, or worse, zooming past the anchor.
+        if self.zoom_limits.zoom_through_objects
+            && size_at_anchor < self.zoom_limits.min_size_per_pixel
+            && matches!(projection, Projection::Perspective(_))
+            && zoom > 0.0
+        {
+            *anchor += zoom_translation_view_space;
+        }
 
         cam_transform.translation += (cam_transform.rotation.as_dquat()
             * (pan_translation_view_space + zoom_translation_view_space))
@@ -527,9 +545,6 @@ impl EditorCam {
                 }
             }
         }
-
-        // Prevent the anchor from going behind the camera
-        // anchor.z = dbg!(anchor.z).min(0.0);
 
         self.last_anchor_depth = anchor.z;
     }

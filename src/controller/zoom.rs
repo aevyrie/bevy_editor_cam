@@ -1,5 +1,7 @@
 //! Provides [`ZoomLimits`] settings.
 
+use core::f32;
+
 use bevy_math::prelude::*;
 use bevy_reflect::Reflect;
 use bevy_render::prelude::*;
@@ -29,13 +31,16 @@ pub struct ZoomLimits {
     /// When true, and when a perspective projection is being used, zooming in can pass through
     /// objects. When reaching `min_size_per_pixel`, instead of stopping, the camera will continue
     /// moving forward, passing through the object in front of the camera.
+    ///
+    /// Additionally, when reaching `max_size_per_pixel`, the camera does not continue zooming out,
+    /// but instead continues at the same speed.
     pub zoom_through_objects: bool,
 }
 
 impl Default for ZoomLimits {
     fn default() -> Self {
         Self {
-            min_size_per_pixel: 1e-5,
+            min_size_per_pixel: 1e-7, // Any smaller and floating point rendering artifacts appear.
             max_size_per_pixel: f32::MAX,
             zoom_through_objects: false,
         }
@@ -56,7 +61,8 @@ pub fn length_per_pixel_at_view_space_pos(camera: &Camera, view_space_pos: Vec3)
 
     let pixels_per_world_unit = (viewport_pos_offset - viewport_pos).length();
     // The length per pixel is the inverse of pixels_per_world_unit
-    Some(pixels_per_world_unit.recip())
+    let len_per_pixel = pixels_per_world_unit.recip();
+    len_per_pixel.is_finite().then_some(len_per_pixel)
 }
 
 /// Project a point in view space onto the camera's viewport.

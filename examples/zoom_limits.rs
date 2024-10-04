@@ -1,4 +1,4 @@
-//! A minimal example demonstrating zooming through objects.
+//! A minimal example demonstrating setting zoom limits and zooming through objects.
 
 use bevy::prelude::*;
 use bevy_color::palettes;

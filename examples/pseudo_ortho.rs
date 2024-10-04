@@ -21,7 +21,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands.spawn((
         Camera3dBundle {
-            transform: Transform::from_xyz(10.0, 10.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
+            transform: Transform::from_xyz(1000.0, 1000.0, 1000.0).looking_at(Vec3::ZERO, Vec3::Y),
             projection: Projection::Perspective(PerspectiveProjection {
                 fov: 0.001,
                 ..default()
@@ -48,10 +48,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         bevy_editor_cam::extensions::independent_skybox::IndependentSkybox::new(diffuse_map, 500.0),
     ));
 
-    spawn_helmets(27, &asset_server, &mut commands);
+    spawn_gltf(27, &asset_server, &mut commands);
 }
 
-fn spawn_helmets(n: usize, asset_server: &AssetServer, commands: &mut Commands) {
+fn spawn_gltf(n: usize, asset_server: &AssetServer, commands: &mut Commands) {
     let half_width = (((n as f32).powf(1.0 / 3.0) - 1.0) / 2.0) as i32;
     let scene = asset_server.load("models/PlaneEngine/scene.gltf#Scene0");
     let width = -half_width..=half_width;
