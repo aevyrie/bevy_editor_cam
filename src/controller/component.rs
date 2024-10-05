@@ -51,8 +51,7 @@ pub struct EditorCam {
     pub enabled_motion: EnabledMotion,
     /// The type of camera orbit to use.
     pub orbit_constraint: OrbitConstraint,
-    /// How close can the camera get to object before zooming through it. None
-    /// disables zooming through objects.
+    /// Set near and far zoom limits, as well as the ability to zoom through objects.
     pub zoom_limits: ZoomLimits,
     /// Input smoothing of camera motion.
     pub smoothing: Smoothing,
@@ -397,8 +396,7 @@ impl EditorCam {
         let pan_translation_view_space = (pan * view_offset).extend(0.0);
 
         let size_at_anchor =
-            super::zoom::length_per_pixel_at_view_space_pos(camera, anchor.as_vec3())
-                .unwrap_or(0.0);
+            super::zoom::length_per_pixel_at_view_space_pos(camera, *anchor).unwrap_or(0.0);
 
         // I'm not sure why I created this mapping - maybe it was to prevent zooming through
         // surfaces if the user really whipped the mouse:
@@ -557,8 +555,8 @@ impl EditorCam {
     ///
     /// This function correctly accounts for camera projection, and is particularly useful when
     /// doing zoom and scale calculations.
-    pub fn length_per_pixel_at_anchor(&self, camera: &Camera) -> Option<f32> {
-        let anchor_view = self.anchor_view_space()?.as_vec3();
+    pub fn length_per_pixel_at_anchor(&self, camera: &Camera) -> Option<f64> {
+        let anchor_view = self.anchor_view_space()?;
         super::zoom::length_per_pixel_at_view_space_pos(camera, anchor_view)
     }
 
