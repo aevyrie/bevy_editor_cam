@@ -35,23 +35,60 @@ pub struct PerspectiveSettings {
 impl Default for PerspectiveSettings {
     fn default() -> Self {
         Self {
-            near_clip_limits: 1e-9..0.1,
+            near_clip_limits: 1e-3..0.1,
             near_clip_multiplier: 0.05,
         }
     }
 }
 
 /// Updates perspective projection properties of editor cameras.
-pub fn update_perspective(mut cameras: Query<(&EditorCam, &mut Projection)>) {
-    for (editor_cam, mut projection) in cameras.iter_mut() {
+pub fn update_perspective(
+    mut cameras: Query<(&EditorCam, &mut Projection, &GlobalTransform)>,
+    aabbs: Query<(&GlobalTransform, &Aabb)>,
+) {
+    for (editor_cam, mut projection, cam_global) in cameras.iter_mut() {
         let Projection::Perspective(ref mut perspective) = *projection else {
             continue;
         };
-        let limits = editor_cam.perspective.near_clip_limits.clone();
-        let multiplier = editor_cam.perspective.near_clip_multiplier;
-        perspective.near = (editor_cam.last_anchor_depth.abs() as f32 * multiplier)
-            .clamp(limits.start, limits.end);
+
+        // Loop through all AABBs in the scene, to find a conservative bound for the near and far
+        // planes for the camera, to ensure all objects are visible while keeping the total depth
+        // range needed (near - far) as small as possible.
+        let world_to_view = cam_global.compute_matrix().inverse();
+        let mut near: Option<f32> = None;
+        let mut far: Option<f32> = None;
+        for (aabb_global, aabb) in aabbs.iter() {
+            let aabb_center = aabb_global.affine().transform_point(aabb.center);
+            let aabb_view = world_to_view.transform_point(aabb_center);
+            // -Z is forward, so we negate to work with positive values to match the definition of
+            // frustum near and far, which are positive.
+            let aabb_radius = aabb.half_extents.length();
+            let aabb_near = -aabb_view.z - aabb_radius * 2.0;
+            let aabb_far = -aabb_view.z + aabb_radius * 2.0;
+            near = Some(near.map_or(aabb_near, |near| near.min(aabb_near)));
+            far = Some(far.map_or(aabb_far, |far| far.max(aabb_far)));
+        }
+
+        // Move the camera so it is butted up against the nearest object. We will set the near
+        // clipping plane to zero. All that is left is to set the far plane, taking this translation
+        // into account.
+        let near = near
+            .unwrap_or(0.0)
+            .max(editor_cam.perspective.near_clip_limits.start);
+        // let far = far.unwrap_or(1000.0).max(1000.0);
+
+        perspective.near = near;
+        // perspective.far = far;
     }
+    // for (editor_cam, mut projection) in cameras.iter_mut() {
+    //     let Projection::Perspective(ref mut perspective) = *projection else {
+    //         continue;
+    //     };
+    //     let limits = editor_cam.perspective.near_clip_limits.clone();
+    //     let multiplier = editor_cam.perspective.near_clip_multiplier;
+    //     perspective.near = (editor_cam.last_anchor_depth.abs() as f32 * multiplier)
+    //         .clamp(limits.start, limits.end);
+    // }
 }
 
 /// Settings used when the [`EditorCam`] has an orthographic [`Projection`].
@@ -119,7 +156,7 @@ pub fn update_orthographic(
         // clipping plane to zero. All that is left is to set the far plane, taking this translation
         // into account.
         let near = near.unwrap_or(0.0);
-        let forward_amount = dbg!(near);
+        let forward_amount = near;
         let far = far.unwrap_or(1000.0) - forward_amount;
         let movement = cam_transform.forward() * forward_amount;
         cam_transform.translation += movement;
@@ -130,7 +167,7 @@ pub fn update_orthographic(
         }
 
         orthographic.near = 0.0;
-        orthographic.far = far;
+        orthographic.far = dbg!(far);
 
         // let anchor_dist = editor_cam.last_anchor_depth().abs() as f32;
         // let target_dist = (editor_cam.orthographic.scale_to_near_clip * orthographic.scale).clamp(
