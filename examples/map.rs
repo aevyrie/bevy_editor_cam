@@ -1,10 +1,8 @@
 use bevy::{
     core_pipeline::{
-        bloom::BloomSettings,
-        experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasSettings},
-        tonemapping::Tonemapping,
+        bloom::BloomSettings, experimental::taa::TemporalAntiAliasBundle, tonemapping::Tonemapping,
     },
-    pbr::{ScreenSpaceAmbientOcclusionBundle, ScreenSpaceAmbientOcclusionSettings},
+    pbr::ScreenSpaceAmbientOcclusionBundle,
     prelude::*,
     render::camera::TemporalJitter,
 };
@@ -21,7 +19,10 @@ fn main() {
         ))
         .insert_resource(Msaa::Off)
         .add_systems(Startup, (setup, setup_ui))
-        .add_systems(Update, toggle_projection)
+        .add_systems(
+            Update,
+            (toggle_projection, projection_specific_render_config).chain(),
+        )
         .run();
 }
 
@@ -114,39 +115,45 @@ fn spawn_buildings(
 }
 
 fn toggle_projection(
-    mut commands: Commands,
-    keys: ResMut<ButtonInput<KeyCode>>,
+    keys: Res<ButtonInput<KeyCode>>,
     mut dolly: EventWriter<DollyZoomTrigger>,
-    cam: Query<(Entity, &Projection), With<EditorCam>>,
+    cam: Query<Entity, With<EditorCam>>,
+    mut toggled: Local<bool>,
 ) {
-    let (camera, projection) = cam.single();
-    let target_projection = match projection {
-        Projection::Perspective(_) => Projection::Orthographic(OrthographicProjection::default()),
-        Projection::Orthographic(_) => Projection::Perspective(PerspectiveProjection::default()),
-    };
     if keys.just_pressed(KeyCode::KeyP) {
+        *toggled = !*toggled;
+        let target_projection = if *toggled {
+            Projection::Orthographic(OrthographicProjection::default())
+        } else {
+            Projection::Perspective(PerspectiveProjection::default())
+        };
         dolly.send(DollyZoomTrigger {
             target_projection,
-            camera,
+            camera: cam.single(),
         });
     }
+}
 
-    match projection {
+fn projection_specific_render_config(
+    mut commands: Commands,
+    cam: Query<(Entity, &Projection), With<EditorCam>>,
+    mut msaa: ResMut<Msaa>,
+) {
+    let (entity, proj) = cam.single();
+    match proj {
         Projection::Perspective(_) => {
+            *msaa = Msaa::Off;
             commands
-                .entity(camera)
-                .insert(ScreenSpaceAmbientOcclusionSettings::default())
-                .insert(TemporalAntiAliasSettings::default())
-                .insert(TemporalJitter::default());
-            commands.insert_resource(Msaa::Off);
+                .entity(entity)
+                .insert(TemporalAntiAliasBundle::default())
+                .insert(ScreenSpaceAmbientOcclusionBundle::default());
         }
         Projection::Orthographic(_) => {
+            *msaa = Msaa::Sample4;
             commands
-                .entity(camera)
-                .remove::<ScreenSpaceAmbientOcclusionSettings>()
-                .remove::<TemporalAntiAliasSettings>()
-                .remove::<TemporalJitter>();
-            commands.insert_resource(Msaa::Sample4);
+                .entity(entity)
+                .remove::<TemporalJitter>()
+                .remove::<ScreenSpaceAmbientOcclusionBundle>();
         }
     }
 }
