@@ -28,7 +28,7 @@ impl Plugin for DollyZoomPlugin {
                 DollyZoom::update
                     .before(crate::controller::component::EditorCam::update_camera_positions),
             )
-            .add_systems(PostUpdate, DollyZoomTrigger::receive) // In PostUpdate so we don't miss users sending this in Update. DollyZoom::update will catch the changes next frame.
+            .add_systems(Last, DollyZoomTrigger::receive) // This mutates camera components, so we want to be sure it runs *after* rendering has happened. We place it in Last to ensure that we wake the next frame if needed. If we run this in PostUpdate, this can result in rendering artifacts because this will mutate projections right before rendering.
             .register_type::<DollyZoom>();
     }
 }
@@ -141,7 +141,7 @@ struct ZoomEntry {
 /// Stores settings and state for the dolly zoom plugin.
 #[derive(Resource, Reflect)]
 pub struct DollyZoom {
-    /// THe duration of the dolly zoom transition animation.
+    /// The duration of the dolly zoom transition animation.
     pub animation_duration: Duration,
     /// The cubic curve used to animate the camera during a dolly zoom.
     #[reflect(ignore)]
@@ -153,8 +153,8 @@ pub struct DollyZoom {
 impl Default for DollyZoom {
     fn default() -> Self {
         Self {
-            animation_duration: Duration::from_millis(200),
-            animation_curve: CubicSegment::new_bezier((0.25, 0.1), (0.25, 1.0)),
+            animation_duration: Duration::from_millis(400),
+            animation_curve: CubicSegment::new_bezier((0.25, 0.0), (0.25, 1.0)),
             map: Default::default(),
         }
     }
