@@ -12,7 +12,7 @@ pub struct Momentum {
     pub pan_damping: u8,
     /// Momentum decay is constant.
     pub pan_friction: f64,
-    // The sampling window to use when a movement ends to determine the velocity of the camera when
+    /// The sampling window to use when a movement ends to determine the velocity of the camera when
     /// momentum decay begins. The higher this value, the easier it is to "flick" the camera, but
     /// the more of a velocity discontinuity will be present when momentum starts.
     pub init_pan: Duration,
@@ -30,10 +30,10 @@ impl Default for Momentum {
     fn default() -> Self {
         Self {
             pan_damping: 160,
-            pan_friction: 0.3,
+            pan_friction: 0.2,
             init_pan: Duration::from_millis(40),
             orbit_damping: 160,
-            orbit_friction: 0.3,
+            orbit_friction: 0.2,
             init_orbit: Duration::from_millis(60),
         }
     }

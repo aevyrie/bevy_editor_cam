@@ -156,7 +156,7 @@ impl Default for LookTo {
     fn default() -> Self {
         Self {
             animation_duration: Duration::from_millis(400),
-            animation_curve: CubicSegment::new_bezier((0.25, 0.1), (0.25, 1.0)),
+            animation_curve: CubicSegment::new_bezier((0.25, 0.0), (0.25, 1.0)),
             map: Default::default(),
         }
     }
