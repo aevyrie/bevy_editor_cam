@@ -37,6 +37,7 @@ bevy_picking_core = "0.20.0"
 
 [dev-dependencies]
 bevy = { version = "0.14.0", default-features = false, features = [
+    "bevy_animation",
     "bevy_gizmos",
     "bevy_gltf",
     "bevy_scene",
@@ -46,6 +47,7 @@ bevy = { version = "0.14.0", default-features = false, features = [
     "default_font",
     "multi_threaded",
     "jpeg",
+    "png",
     "ktx2",
     "tonemapping_luts",
     "x11",
