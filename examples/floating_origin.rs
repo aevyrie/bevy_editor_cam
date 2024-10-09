@@ -1,5 +1,9 @@
 use bevy::{color::palettes, prelude::*};
-use bevy_editor_cam::{controller::component::EditorCam, DefaultEditorCamPlugins};
+use bevy_editor_cam::{
+    controller::component::EditorCam,
+    prelude::{projections::PerspectiveSettings, zoom::ZoomLimits},
+    DefaultEditorCamPlugins,
+};
 use bevy_mod_picking::DefaultPickingPlugins;
 use big_space::{
     commands::BigSpaceCommands,
@@ -43,7 +47,17 @@ fn setup(
                 ..default()
             },
             FloatingOrigin, // Important: marks the floating origin entity for rendering.
-            EditorCam::default(),
+            EditorCam {
+                zoom_limits: ZoomLimits {
+                    min_size_per_pixel: 1e-20,
+                    ..Default::default()
+                },
+                perspective: PerspectiveSettings {
+                    near_clip_limits: 1e-20..0.1,
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
         ));
 
         let mesh_handle = meshes.add(Sphere::new(0.5).mesh().ico(32).unwrap());
