@@ -16,6 +16,7 @@ use bevy_editor_cam::{
     extensions::{dolly_zoom::DollyZoomTrigger, look_to::LookToTrigger},
     prelude::*,
 };
+use zoom::ZoomLimits;
 
 fn main() {
     App::new()
@@ -45,15 +46,22 @@ fn main() {
             )
                 .chain(),
         )
+        .add_systems(Startup, setup_anim)
+        .add_systems(Update, setup_scene_once_loaded)
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut config_store: ResMut<GizmoConfigStore>,
+) {
+    // config_store.config_mut::<AabbGizmoConfigGroup>().1.draw_all ^= true;
     let diffuse_map = asset_server.load("environment_maps/diffuse_rgb9e5_zstd.ktx2");
     let specular_map = asset_server.load("environment_maps/specular_rgb9e5_zstd.ktx2");
 
     commands.spawn(SceneBundle {
-        scene: asset_server.load("models/PlaneEngine/scene.gltf#Scene0"),
+        scene: asset_server.load("models/scene/scene.gltf#Scene0"),
         transform: Transform::from_scale(Vec3::splat(2.0)),
         ..Default::default()
     });
@@ -76,6 +84,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             EditorCam {
                 orbit_constraint: OrbitConstraint::Free,
                 last_anchor_depth: cam_trans.translation.length() as f64,
+                zoom_limits: ZoomLimits {
+                    zoom_through_objects: true,
+                    ..Default::default()
+                },
                 ..Default::default()
             },
         ))
@@ -99,11 +111,9 @@ fn projection_specific_render_config(
                 .insert(ScreenSpaceAmbientOcclusionBundle::default());
         }
         Projection::Orthographic(_) => {
-            *msaa = Msaa::Sample4;
-            commands
-                .entity(entity)
-                .remove::<TemporalJitter>()
-                .remove::<ScreenSpaceAmbientOcclusionBundle>();
+            // *msaa = Msaa::Sample4;
+            commands.entity(entity).remove::<TemporalJitter>();
+            // .remove::<ScreenSpaceAmbientOcclusionBundle>();
         }
     }
 }
@@ -287,5 +297,63 @@ fn explode(
     }
     for (_, matl) in matls.iter_mut() {
         matl.perceptual_roughness = matl.perceptual_roughness.clamp(0.1, 1.0)
+    }
+}
+
+#[derive(Resource)]
+struct Animations {
+    animations: Vec<AnimationNodeIndex>,
+    #[allow(dead_code)]
+    graph: Handle<AnimationGraph>,
+}
+
+fn setup_anim(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut graphs: ResMut<Assets<AnimationGraph>>,
+) {
+    // Build the animation graph
+    let mut graph = AnimationGraph::new();
+    let animations = graph
+        .add_clips(
+            [GltfAssetLabel::Animation(0).from_asset("models/scene/Scene.gltf")]
+                .into_iter()
+                .map(|path| asset_server.load(path)),
+            1.0,
+            graph.root,
+        )
+        .collect();
+
+    // Insert a resource with the current scene information
+    let graph = graphs.add(graph);
+    commands.insert_resource(Animations {
+        animations,
+        graph: graph.clone(),
+    });
+}
+
+// Once the scene is loaded, start the animation
+fn setup_scene_once_loaded(
+    mut commands: Commands,
+    animations: Res<Animations>,
+    mut players: Query<(Entity, &mut AnimationPlayer), Added<AnimationPlayer>>,
+) {
+    for (entity, mut player) in &mut players {
+        let mut transitions = AnimationTransitions::new();
+
+        // Make sure to start the animation via the `AnimationTransitions`
+        // component. The `AnimationTransitions` component wants to manage all
+        // the animations and will get confused if the animations are started
+        // directly via the `AnimationPlayer`.
+        transitions
+            .play(&mut player, animations.animations[0], Duration::ZERO)
+            .repeat();
+
+        commands
+            .entity(entity)
+            .insert(animations.graph.clone())
+            .insert(transitions);
     }
 }
