@@ -8,16 +8,12 @@ use bevy::{
 };
 use bevy_color::palettes;
 use bevy_editor_cam::{extensions::dolly_zoom::DollyZoomTrigger, prelude::*};
+use indoc::indoc;
 use rand::Rng;
 
 fn main() {
     App::new()
-        .add_plugins((
-            DefaultPlugins,
-            bevy_mod_picking::DefaultPickingPlugins,
-            DefaultEditorCamPlugins,
-        ))
-        .insert_resource(Msaa::Off)
+        .add_plugins((DefaultPlugins, MeshPickingPlugin, DefaultEditorCamPlugins))
         .add_systems(Startup, (setup, setup_ui))
         .add_systems(
             Update,
@@ -39,16 +35,15 @@ fn setup(
 
     commands
         .spawn((
-            Camera3dBundle {
-                transform: Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
-                tonemapping: Tonemapping::AcesFitted,
-                ..default()
-            },
+            Camera3d::default(),
+            Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
+            Tonemapping::AcesFitted,
             BloomSettings::default(),
             EnvironmentMapLight {
                 intensity: 1000.0,
                 diffuse_map: diffuse_map.clone(),
                 specular_map: specular_map.clone(),
+                rotation: default(),
             },
             EditorCam {
                 orbit_constraint: OrbitConstraint::Fixed {
@@ -74,11 +69,11 @@ fn spawn_buildings(
     half_width: f32,
 ) {
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::new(Vec3::Y, Vec2::splat(half_width * 20.0))),
-        material: matls.add(StandardMaterial {
+        mesh: Mesh3d(meshes.add(Plane3d::new(Vec3::Y, Vec2::splat(half_width * 20.0)))),
+        material: MeshMaterial3d(matls.add(StandardMaterial {
             base_color: Color::Srgba(palettes::css::DARK_GRAY),
             ..Default::default()
-        }),
+        })),
         transform: Transform::from_xyz(0.0, -5.0, 0.0),
         ..Default::default()
     });
@@ -101,8 +96,8 @@ fn spawn_buildings(
             let y_scale = 1.02f32.powf(100.0 * y);
 
             commands.spawn(PbrBundle {
-                mesh: mesh.clone(),
-                material: material[rng.gen_range(0..material.len())].clone(),
+                mesh: Mesh3d(mesh.clone()),
+                material: MeshMaterial3d(material[rng.gen_range(0..material.len())].clone()),
                 transform: Transform::from_xyz(x, y_scale / 2.0 - 5.0, z).with_scale(Vec3::new(
                     (rng.gen::<f32>() + 0.5) * 0.3,
                     y_scale,
@@ -123,7 +118,7 @@ fn toggle_projection(
     if keys.just_pressed(KeyCode::KeyP) {
         *toggled = !*toggled;
         let target_projection = if *toggled {
-            Projection::Orthographic(OrthographicProjection::default())
+            Projection::Orthographic(OrthographicProjection::default_3d())
         } else {
             Projection::Perspective(PerspectiveProjection::default())
         };
@@ -136,10 +131,9 @@ fn toggle_projection(
 
 fn projection_specific_render_config(
     mut commands: Commands,
-    cam: Query<(Entity, &Projection), With<EditorCam>>,
-    mut msaa: ResMut<Msaa>,
+    mut cam: Query<(Entity, &Projection, &mut Msaa), With<EditorCam>>,
 ) {
-    let (entity, proj) = cam.single();
+    let (entity, proj, mut msaa) = cam.single_mut();
     match proj {
         Projection::Perspective(_) => {
             *msaa = Msaa::Off;
@@ -159,22 +153,17 @@ fn projection_specific_render_config(
 }
 
 fn setup_ui(mut commands: Commands) {
-    let style = TextStyle {
-        font_size: 20.0,
-        ..default()
-    };
-    commands.spawn(
-        TextBundle::from_sections(vec![
-            TextSection::new("Left Mouse - Pan\n", style.clone()),
-            TextSection::new("Right Mouse - Orbit\n", style.clone()),
-            TextSection::new("Scroll - Zoom\n", style.clone()),
-            TextSection::new("P - Toggle projection\n", style.clone()),
-        ])
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+    let text = indoc! {"
+        Left Mouse  - Pan
+        Right Mouse - Orbit
+        Scroll      - Zoom
+        P           - Toggle projection       
+    "};
+    commands.spawn((
+        Text::new(text),
+        TextFont {
+            font_size: 20.0,
             ..default()
-        }),
-    );
+        },
+    ));
 }
