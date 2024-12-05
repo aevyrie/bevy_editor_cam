@@ -8,11 +8,7 @@ use bevy_editor_cam::prelude::*;
 
 fn main() {
     App::new()
-        .add_plugins((
-            DefaultPlugins,
-            bevy_mod_picking::DefaultPickingPlugins,
-            DefaultEditorCamPlugins,
-        ))
+        .add_plugins((DefaultPlugins, MeshPickingPlugin, DefaultEditorCamPlugins))
         .add_systems(Startup, setup)
         .add_systems(Update, set_camera_viewports)
         .run();
@@ -40,6 +36,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             intensity: 1000.0,
             diffuse_map: diffuse_map.clone(),
             specular_map: specular_map.clone(),
+            rotation: default(),
         },
         EditorCam::default(),
         bevy_editor_cam::extensions::independent_skybox::IndependentSkybox::new(
@@ -63,7 +60,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             projection: Projection::Orthographic(OrthographicProjection {
                 scale: 0.01,
-                ..default()
+                ..OrthographicProjection::default_3d()
             }),
             tonemapping: Tonemapping::AcesFitted,
             ..default()
@@ -72,6 +69,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             intensity: 1000.0,
             diffuse_map: diffuse_map.clone(),
             specular_map: specular_map.clone(),
+            rotation: default(),
         },
         EditorCam::default(),
         bevy_editor_cam::extensions::independent_skybox::IndependentSkybox::new(diffuse_map, 500.0),
@@ -126,7 +124,7 @@ fn spawn_helmets(n: usize, asset_server: &AssetServer, commands: &mut Commands) 
         for y in width.clone() {
             for z in width.clone() {
                 commands.spawn((SceneBundle {
-                    scene: scene.clone(),
+                    scene: SceneRoot(scene.clone()),
                     transform: Transform::from_translation(IVec3::new(x, y, z).as_vec3() * 2.0)
                         .with_scale(Vec3::splat(1.)),
                     ..default()
