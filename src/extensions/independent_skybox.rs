@@ -9,6 +9,7 @@ use bevy_app::prelude::*;
 use bevy_asset::Handle;
 use bevy_core_pipeline::{prelude::*, Skybox};
 use bevy_ecs::prelude::*;
+use bevy_image::Image;
 use bevy_reflect::prelude::*;
 use bevy_render::{prelude::*, view::RenderLayers};
 use bevy_transform::prelude::*;
@@ -118,26 +119,25 @@ impl IndependentSkyboxCamera {
 
             let entity = commands
                 .spawn((
-                    Camera3dBundle {
-                        camera: Camera {
-                            order: camera.order + editor_without_skybox.skybox_cam_order_offset,
-                            hdr: true,
-                            clear_color: ClearColorConfig::None,
-                            ..Default::default()
-                        },
-                        projection: Projection::Perspective(PerspectiveProjection {
-                            fov: match editor_without_skybox.fov {
-                                SkyboxFov::Auto => PerspectiveProjection::default().fov,
-                                SkyboxFov::Fixed(fov) => fov,
-                            },
-                            ..Default::default()
-                        }),
+                    Camera3d::default(),
+                    Camera {
+                        order: camera.order + editor_without_skybox.skybox_cam_order_offset,
+                        hdr: true,
+                        clear_color: ClearColorConfig::None,
                         ..Default::default()
                     },
+                    Projection::Perspective(PerspectiveProjection {
+                        fov: match editor_without_skybox.fov {
+                            SkyboxFov::Auto => PerspectiveProjection::default().fov,
+                            SkyboxFov::Fixed(fov) => fov,
+                        },
+                        ..Default::default()
+                    }),
                     RenderLayers::none(),
                     Skybox {
                         image: editor_without_skybox.skybox.clone(),
                         brightness: editor_without_skybox.brightness,
+                        rotation: Default::default(),
                     },
                     IndependentSkyboxCamera {
                         driven_by: editor_cam_entity,
