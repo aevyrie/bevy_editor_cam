@@ -1,17 +1,13 @@
 //! A minimal example demonstrating setting zoom limits and zooming through objects.
 
 use bevy::prelude::*;
-use bevy_color::palettes;
 use bevy_editor_cam::{extensions::dolly_zoom::DollyZoomTrigger, prelude::*};
+use indoc::formatdoc;
 use zoom::ZoomLimits;
 
 fn main() {
     App::new()
-        .add_plugins((
-            DefaultPlugins,
-            bevy_mod_picking::DefaultPickingPlugins,
-            DefaultEditorCamPlugins,
-        ))
+        .add_plugins((DefaultPlugins, MeshPickingPlugin, DefaultEditorCamPlugins))
         .add_systems(Startup, (setup_camera, setup_scene, setup_ui))
         .add_systems(Update, (toggle_projection, toggle_zoom))
         .run();
@@ -32,6 +28,7 @@ fn setup_camera(mut commands: Commands, asset_server: Res<AssetServer>) {
             intensity: 1000.0,
             diffuse_map: asset_server.load("environment_maps/diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/specular_rgb9e5_zstd.ktx2"),
+            rotation: default(),
         },
     ));
 }
@@ -45,11 +42,7 @@ fn toggle_zoom(
         let mut editor = cam.single_mut();
         editor.zoom_limits.zoom_through_objects = !editor.zoom_limits.zoom_through_objects;
         let mut text = text.single_mut();
-        text.sections.last_mut().unwrap().value = if editor.zoom_limits.zoom_through_objects {
-            "Zoom Through: Enabled".into()
-        } else {
-            "Zoom Through: Disabled".into()
-        };
+        *text = Text::new(help_text(editor.zoom_limits.zoom_through_objects));
     }
 }
 
@@ -67,8 +60,8 @@ fn setup_scene(
 
     for i in 1..5 {
         commands.spawn(PbrBundle {
-            mesh: mesh.clone(),
-            material: material.clone(),
+            mesh: Mesh3d(mesh.clone()),
+            material: MeshMaterial3d(material.clone()),
             transform: Transform::from_xyz(0.0, 0.0, -2.0 * i as f32),
             ..default()
         });
@@ -76,43 +69,25 @@ fn setup_scene(
 }
 
 fn setup_ui(mut commands: Commands) {
-    let style = TextStyle {
-        font_size: 20.0,
-        ..default()
-    };
-    commands
-        .spawn((
-            // TargetCamera(camera),
-            NodeBundle {
-                style: Style {
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
-                    padding: UiRect::all(Val::Px(20.)),
-                    ..default()
-                },
-                ..default()
-            },
-        ))
-        .with_children(|parent| {
-            parent.spawn(
-                TextBundle::from_sections(vec![
-                    TextSection::new("Left Mouse - Pan\n", style.clone()),
-                    TextSection::new("Right Mouse - Orbit\n", style.clone()),
-                    TextSection::new("Scroll - Zoom\n", style.clone()),
-                    TextSection::new("P - Toggle projection\n", style.clone()),
-                    TextSection::new("Z - Toggle zoom through object setting\n", style.clone()),
-                    TextSection::new(
-                        "Zoom Through: Enabled\n",
-                        TextStyle {
-                            font_size: 20.0,
-                            color: palettes::basic::YELLOW.into(),
-                            ..default()
-                        },
-                    ),
-                ])
-                .with_style(Style { ..default() }),
-            );
-        });
+    commands.spawn((
+        Text::new(help_text(true)),
+        TextFont {
+            font_size: 20.0,
+            ..default()
+        },
+        // TargetCamera(camera),
+    ));
+}
+
+fn help_text(zoom_through: bool) -> String {
+    formatdoc! {"
+        Left Mouse - Pan
+        Right Mouse - Orbit
+        Scroll - Zoom
+        P - Toggle projection
+        Z - Toggle zoom through object setting
+        Zoom Through: {zoom_through}
+    "}
 }
 
 fn toggle_projection(
@@ -124,7 +99,7 @@ fn toggle_projection(
     if keys.just_pressed(KeyCode::KeyP) {
         *toggled = !*toggled;
         let target_projection = if *toggled {
-            Projection::Orthographic(OrthographicProjection::default())
+            Projection::Orthographic(OrthographicProjection::default_3d())
         } else {
             Projection::Perspective(PerspectiveProjection::default())
         };
