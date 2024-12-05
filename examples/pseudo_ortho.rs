@@ -3,14 +3,11 @@
 
 use bevy::prelude::*;
 use bevy_editor_cam::prelude::*;
+use indoc::indoc;
 
 fn main() {
     App::new()
-        .add_plugins((
-            DefaultPlugins,
-            bevy_mod_picking::DefaultPickingPlugins,
-            DefaultEditorCamPlugins,
-        ))
+        .add_plugins((DefaultPlugins, MeshPickingPlugin, DefaultEditorCamPlugins))
         .add_systems(Startup, (setup, setup_ui))
         .run();
 }
@@ -36,6 +33,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             intensity: 1000.0,
             diffuse_map: diffuse_map.clone(),
             specular_map: specular_map.clone(),
+            rotation: default(),
         },
         // This component makes the camera controllable with this plugin:
         EditorCam::default(),
@@ -59,7 +57,7 @@ fn spawn_gltf(n: usize, asset_server: &AssetServer, commands: &mut Commands) {
         for y in width.clone() {
             for z in width.clone() {
                 commands.spawn((SceneBundle {
-                    scene: scene.clone(),
+                    scene: SceneRoot(scene.clone()),
                     transform: Transform::from_translation(IVec3::new(x, y, z).as_vec3() * 2.0)
                         .with_scale(Vec3::splat(1.)),
                     ..default()
@@ -70,21 +68,16 @@ fn spawn_gltf(n: usize, asset_server: &AssetServer, commands: &mut Commands) {
 }
 
 fn setup_ui(mut commands: Commands) {
-    let style = TextStyle {
-        font_size: 20.0,
-        ..default()
-    };
-    commands.spawn(
-        TextBundle::from_sections(vec![
-            TextSection::new("Left Mouse - Pan\n", style.clone()),
-            TextSection::new("Right Mouse - Orbit\n", style.clone()),
-            TextSection::new("Scroll - Zoom\n", style.clone()),
-        ])
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+    let text = indoc! {"
+        Left Mouse - Pan
+        Right Mouse - Orbit
+        Scroll - Zoom
+    "};
+    commands.spawn((
+        Text::new(text),
+        TextFont {
+            font_size: 20.0,
             ..default()
-        }),
-    );
+        },
+    ));
 }
