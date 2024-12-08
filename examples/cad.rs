@@ -2,16 +2,15 @@ use std::time::Duration;
 
 use bevy::{
     core_pipeline::{
-        bloom::BloomSettings,
-        experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin},
-        tonemapping::Tonemapping,
+        bloom::Bloom, experimental::taa::TemporalAntiAliasPlugin, tonemapping::Tonemapping,
     },
-    pbr::ScreenSpaceAmbientOcclusionBundle,
+    pbr::ScreenSpaceAmbientOcclusion,
     prelude::*,
     render::{camera::TemporalJitter, primitives::Aabb},
     utils::Instant,
     window::RequestRedraw,
 };
+use bevy_core_pipeline::experimental::taa::TemporalAntiAliasing;
 use bevy_editor_cam::{
     extensions::{dolly_zoom::DollyZoomTrigger, look_to::LookToTrigger},
     prelude::*,
@@ -52,11 +51,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let diffuse_map = asset_server.load("environment_maps/diffuse_rgb9e5_zstd.ktx2");
     let specular_map = asset_server.load("environment_maps/specular_rgb9e5_zstd.ktx2");
 
-    commands.spawn(SceneBundle {
-        scene: SceneRoot(asset_server.load("models/PlaneEngine/scene.gltf#Scene0")),
-        transform: Transform::from_scale(Vec3::splat(2.0)),
-        ..Default::default()
-    });
+    commands.spawn((
+        SceneRoot(asset_server.load("models/PlaneEngine/scene.gltf#Scene0")),
+        Transform::from_scale(Vec3::splat(2.0)),
+    ));
 
     let cam_trans = Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y);
 
@@ -65,7 +63,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             Camera3d::default(),
             cam_trans,
             Tonemapping::AcesFitted,
-            BloomSettings::default(),
+            Bloom::default(),
             EnvironmentMapLight {
                 intensity: 1000.0,
                 diffuse_map: diffuse_map.clone(),
@@ -93,15 +91,15 @@ fn projection_specific_render_config(
             *msaa = Msaa::Off;
             commands
                 .entity(entity)
-                .insert(TemporalAntiAliasBundle::default())
-                .insert(ScreenSpaceAmbientOcclusionBundle::default());
+                .insert(TemporalAntiAliasing::default())
+                .insert(ScreenSpaceAmbientOcclusion::default());
         }
         Projection::Orthographic(_) => {
             *msaa = Msaa::Sample4;
             commands
                 .entity(entity)
                 .remove::<TemporalJitter>()
-                .remove::<ScreenSpaceAmbientOcclusionBundle>();
+                .remove::<ScreenSpaceAmbientOcclusion>();
         }
     }
 }

@@ -38,15 +38,12 @@ fn setup(
 ) {
     commands.spawn_big_space(ReferenceFrame::<i128>::default(), |root| {
         root.spawn_spatial((
-            Camera3dBundle {
-                transform: Transform::from_xyz(0.0, 0.0, 8.0)
-                    .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
-                projection: Projection::Perspective(PerspectiveProjection {
-                    near: 1e-18,
-                    ..default()
-                }),
+            Camera3d::default(),
+            Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
+            Projection::Perspective(PerspectiveProjection {
+                near: 1e-18,
                 ..default()
-            },
+            }),
             FloatingOrigin, // Important: marks the floating origin entity for rendering.
             EditorCam {
                 zoom_limits: ZoomLimits {

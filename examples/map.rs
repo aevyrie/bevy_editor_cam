@@ -1,12 +1,11 @@
 use bevy::{
-    core_pipeline::{
-        bloom::BloomSettings, experimental::taa::TemporalAntiAliasBundle, tonemapping::Tonemapping,
-    },
-    pbr::ScreenSpaceAmbientOcclusionBundle,
+    core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
+    pbr::ScreenSpaceAmbientOcclusion,
     prelude::*,
     render::camera::TemporalJitter,
 };
 use bevy_color::palettes;
+use bevy_core_pipeline::experimental::taa::TemporalAntiAliasing;
 use bevy_editor_cam::{extensions::dolly_zoom::DollyZoomTrigger, prelude::*};
 use indoc::indoc;
 use rand::Rng;
@@ -38,7 +37,7 @@ fn setup(
             Camera3d::default(),
             Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
             Tonemapping::AcesFitted,
-            BloomSettings::default(),
+            Bloom::default(),
             EnvironmentMapLight {
                 intensity: 1000.0,
                 diffuse_map: diffuse_map.clone(),
@@ -58,8 +57,8 @@ fn setup(
                 1000.0,
             ),
         ))
-        .insert(ScreenSpaceAmbientOcclusionBundle::default())
-        .insert(TemporalAntiAliasBundle::default());
+        .insert(ScreenSpaceAmbientOcclusion::default())
+        .insert(TemporalAntiAliasing::default());
 }
 
 fn spawn_buildings(
@@ -68,15 +67,14 @@ fn spawn_buildings(
     matls: &mut Assets<StandardMaterial>,
     half_width: f32,
 ) {
-    commands.spawn(PbrBundle {
-        mesh: Mesh3d(meshes.add(Plane3d::new(Vec3::Y, Vec2::splat(half_width * 20.0)))),
-        material: MeshMaterial3d(matls.add(StandardMaterial {
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::new(Vec3::Y, Vec2::splat(half_width * 20.0)))),
+        MeshMaterial3d(matls.add(StandardMaterial {
             base_color: Color::Srgba(palettes::css::DARK_GRAY),
             ..Default::default()
         })),
-        transform: Transform::from_xyz(0.0, -5.0, 0.0),
-        ..Default::default()
-    });
+        Transform::from_xyz(0.0, -5.0, 0.0),
+    ));
 
     let mut rng = rand::thread_rng();
     let mesh = meshes.add(Cuboid::default());
@@ -95,16 +93,15 @@ fn spawn_buildings(
             let y = rng.gen::<f32>() * rng.gen::<f32>() * rng.gen::<f32>() * rng.gen::<f32>();
             let y_scale = 1.02f32.powf(100.0 * y);
 
-            commands.spawn(PbrBundle {
-                mesh: Mesh3d(mesh.clone()),
-                material: MeshMaterial3d(material[rng.gen_range(0..material.len())].clone()),
-                transform: Transform::from_xyz(x, y_scale / 2.0 - 5.0, z).with_scale(Vec3::new(
+            commands.spawn((
+                Mesh3d(mesh.clone()),
+                MeshMaterial3d(material[rng.gen_range(0..material.len())].clone()),
+                Transform::from_xyz(x, y_scale / 2.0 - 5.0, z).with_scale(Vec3::new(
                     (rng.gen::<f32>() + 0.5) * 0.3,
                     y_scale,
                     (rng.gen::<f32>() + 0.5) * 0.3,
                 )),
-                ..Default::default()
-            });
+            ));
         }
     }
 }
@@ -139,15 +136,15 @@ fn projection_specific_render_config(
             *msaa = Msaa::Off;
             commands
                 .entity(entity)
-                .insert(TemporalAntiAliasBundle::default())
-                .insert(ScreenSpaceAmbientOcclusionBundle::default());
+                .insert(TemporalAntiAliasing::default())
+                .insert(ScreenSpaceAmbientOcclusion::default());
         }
         Projection::Orthographic(_) => {
             *msaa = Msaa::Sample4;
             commands
                 .entity(entity)
                 .remove::<TemporalJitter>()
-                .remove::<ScreenSpaceAmbientOcclusionBundle>();
+                .remove::<ScreenSpaceAmbientOcclusion>();
         }
     }
 }

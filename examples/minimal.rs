@@ -17,7 +17,7 @@ fn main() {
 
 fn setup_camera(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
-        Camera3dBundle::default(),
+        Camera3d::default(),
         EditorCam::default(), // Step 2: add camera controller component to any cameras
         EnvironmentMapLight {
             // Unrelated to camera controller, needed for lighting:
@@ -34,11 +34,10 @@ fn setup_camera(mut commands: Commands, asset_server: Res<AssetServer>) {
 //
 
 fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(SceneBundle {
-        scene: SceneRoot(asset_server.load("models/PlaneEngine/scene.gltf#Scene0")),
-        transform: Transform::from_xyz(0.0, -0.5, -2.0),
-        ..Default::default()
-    });
+    commands.spawn((
+        SceneRoot(asset_server.load("models/PlaneEngine/scene.gltf#Scene0")),
+        Transform::from_xyz(0.0, -0.5, -2.0),
+    ));
 
     let text = indoc! {"
         Left Mouse - Pan

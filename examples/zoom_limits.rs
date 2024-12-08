@@ -15,7 +15,7 @@ fn main() {
 
 fn setup_camera(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
-        Camera3dBundle::default(),
+        Camera3d::default(),
         EditorCam {
             zoom_limits: ZoomLimits {
                 min_size_per_pixel: 0.0001,
@@ -59,12 +59,11 @@ fn setup_scene(
     let mesh = meshes.add(Cuboid::from_size(Vec3::new(1.0, 1.0, 0.1)));
 
     for i in 1..5 {
-        commands.spawn(PbrBundle {
-            mesh: Mesh3d(mesh.clone()),
-            material: MeshMaterial3d(material.clone()),
-            transform: Transform::from_xyz(0.0, 0.0, -2.0 * i as f32),
-            ..default()
-        });
+        commands.spawn((
+            Mesh3d(mesh.clone()),
+            MeshMaterial3d(material.clone()),
+            Transform::from_xyz(0.0, 0.0, -2.0 * i as f32),
+        ));
     }
 }
 
