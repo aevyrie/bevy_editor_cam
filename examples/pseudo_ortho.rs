@@ -27,6 +27,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             hdr: true,
             ..Default::default()
         },
+        Msaa::Off,
         EnvironmentMapLight {
             intensity: 1000.0,
             diffuse_map: diffuse_map.clone(),

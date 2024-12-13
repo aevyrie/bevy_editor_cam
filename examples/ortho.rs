@@ -26,6 +26,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             specular_map: specular_map.clone(),
             rotation: default(),
         },
+        Msaa::Off,
         // This component makes the camera controllable with this plugin.
         //
         // Important: the `with_initial_anchor_depth` is critical for an orthographic camera. Unlike
