@@ -32,33 +32,31 @@ fn setup(
     let diffuse_map = asset_server.load("environment_maps/diffuse_rgb9e5_zstd.ktx2");
     let specular_map = asset_server.load("environment_maps/specular_rgb9e5_zstd.ktx2");
 
-    commands
-        .spawn((
-            Camera3d::default(),
-            Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
-            Tonemapping::AcesFitted,
-            Bloom::default(),
-            EnvironmentMapLight {
-                intensity: 1000.0,
-                diffuse_map: diffuse_map.clone(),
-                specular_map: specular_map.clone(),
-                rotation: default(),
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Tonemapping::AcesFitted,
+        Bloom::default(),
+        EnvironmentMapLight {
+            intensity: 1000.0,
+            diffuse_map: diffuse_map.clone(),
+            specular_map: specular_map.clone(),
+            rotation: default(),
+        },
+        EditorCam {
+            orbit_constraint: OrbitConstraint::Fixed {
+                up: Vec3::Y,
+                can_pass_tdc: false,
             },
-            EditorCam {
-                orbit_constraint: OrbitConstraint::Fixed {
-                    up: Vec3::Y,
-                    can_pass_tdc: false,
-                },
-                last_anchor_depth: 2.0,
-                ..Default::default()
-            },
-            bevy_editor_cam::extensions::independent_skybox::IndependentSkybox::new(
-                diffuse_map,
-                1000.0,
-            ),
-        ))
-        .insert(ScreenSpaceAmbientOcclusion::default())
-        .insert((Msaa::Off, TemporalAntiAliasing::default()));
+            last_anchor_depth: 2.0,
+            ..Default::default()
+        },
+        bevy_editor_cam::extensions::independent_skybox::IndependentSkybox::new(
+            diffuse_map,
+            1000.0,
+        ),
+        Msaa::Off,
+    ));
 }
 
 fn spawn_buildings(
@@ -128,19 +126,17 @@ fn toggle_projection(
 
 fn projection_specific_render_config(
     mut commands: Commands,
-    mut cam: Query<(Entity, &Projection, &mut Msaa), With<EditorCam>>,
+    cam: Query<(Entity, &Projection), With<EditorCam>>,
 ) {
-    let (entity, proj, mut msaa) = cam.single_mut();
+    let (entity, proj) = cam.single();
     match proj {
         Projection::Perspective(_) => {
-            *msaa = Msaa::Off;
             commands
                 .entity(entity)
                 .insert(TemporalAntiAliasing::default())
                 .insert(ScreenSpaceAmbientOcclusion::default());
         }
         Projection::Orthographic(_) => {
-            *msaa = Msaa::Sample4;
             commands
                 .entity(entity)
                 .remove::<TemporalJitter>()
