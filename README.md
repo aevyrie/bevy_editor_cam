@@ -17,7 +17,9 @@ https://github.com/aevyrie/bevy_editor_cam/assets/2632925/50e342ac-9cb3-4ab5-857
 
 | bevy | bevy_editor_cam  |
 | ---- | ---------------- |
-| 0.14 | 0.3              |
+| 0.15 | 0.5              |
+| 0.14 | 0.3, 0.4         |
 | 0.13 | 0.2              |
 | 0.12 | 0.1              |
+
 </details>
