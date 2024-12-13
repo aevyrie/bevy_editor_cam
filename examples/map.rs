@@ -58,7 +58,7 @@ fn setup(
             ),
         ))
         .insert(ScreenSpaceAmbientOcclusion::default())
-        .insert(TemporalAntiAliasing::default());
+        .insert((Msaa::Off, TemporalAntiAliasing::default()));
 }
 
 fn spawn_buildings(
@@ -144,6 +144,7 @@ fn projection_specific_render_config(
             commands
                 .entity(entity)
                 .remove::<TemporalJitter>()
+                .remove::<TemporalAntiAliasing>()
                 .remove::<ScreenSpaceAmbientOcclusion>();
         }
     }

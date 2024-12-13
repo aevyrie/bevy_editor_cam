@@ -126,6 +126,7 @@ impl IndependentSkyboxCamera {
                         clear_color: ClearColorConfig::None,
                         ..Default::default()
                     },
+                    Msaa::Off,
                     Projection::Perspective(PerspectiveProjection {
                         fov: match editor_without_skybox.fov {
                             SkyboxFov::Auto => PerspectiveProjection::default().fov,
