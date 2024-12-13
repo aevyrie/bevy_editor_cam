@@ -97,17 +97,18 @@
 //!
 //! # Usage
 //!
-//! This plugin only requires three things to work. The `bevy_mod_picking` plugin for hit tests, the
+//! This plugin only requires three things to work. The [`bevy_picking::DefaultPickingPlugins`] for hit tests, the
 //! [`DefaultEditorCamPlugins`] plugin group, and the [`EditorCam`](crate::prelude::EditorCam)
 //! component. Controller settings are configured per-camera in the
 //! [`EditorCam`](crate::prelude::EditorCam) component.
 //!
 //! ## Getting Started
 //!
-//! #### 1. Add `bevy_mod_picking`
+//! #### 1. Add [`bevy_picking`]
 //!
-//! The camera controller uses [`bevy_picking_core`] for pointer interactions. If you already use
-//! the picking plugin, then using this camera controller is essentially free because it can reuse
+//! The camera controller uses [`bevy_picking`] for pointer interactions. If you already use
+//! the picking plugin (which is included in [`bevy::DefaultPlugins`]),
+//! then using this camera controller is essentially free because it can reuse
 //! those same hit tests you are already running.
 //!
 //! If you are not using the picking plugin yet, all you need to get started are the default
@@ -115,7 +116,7 @@
 //!
 //! ```
 //! # let mut app = bevy::app::App::new();
-//! app.add_plugins(bevy_mod_picking::DefaultPickingPlugins);
+//! app.add_plugins(bevy::picking::DefaultPickingPlugins);
 //! ```
 //!
 //! #### 2. Add `DefaultEditorCamPlugins`
@@ -167,10 +168,10 @@
 //! ### Pointer and Hit Test Agnostic
 //!
 //! Users of this library shouldn't be forced into using any particular hit testing method, like CPU
-//! raycasting. The controller uses [`bevy_picking_core`] to work with:
+//! raycasting. The controller uses [`bevy_picking`] to work with:
 //!
 //! - Arbitrary hit testing backends, including those written by users. See
-//!   [`bevy_picking_core::backend`] for more information.
+//!   [`bevy_picking::backend`] for more information.
 //! - Any number of pointing inputs, including touch.
 //! - Viewports and multi-pass rendering.
 

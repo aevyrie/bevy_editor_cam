@@ -292,7 +292,8 @@ impl EditorCamInputEvent {
                 .sum();
 
             let zoom_amount = match pointer {
-                // TODO: add pinch zoom support, probably in mod_picking
+                // TODO: add pinch zoom support, probably in bevy_picking
+                //   https://github.com/bevyengine/bevy/issues/6174
                 PointerId::Mouse => mouse_wheel
                     .read()
                     .map(|mw| {
