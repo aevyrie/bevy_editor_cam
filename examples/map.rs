@@ -7,12 +7,16 @@ use bevy::{
 use bevy_color::palettes;
 use bevy_core_pipeline::experimental::taa::TemporalAntiAliasing;
 use bevy_editor_cam::{extensions::dolly_zoom::DollyZoomTrigger, prelude::*};
-use indoc::indoc;
 use rand::Rng;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, MeshPickingPlugin, DefaultEditorCamPlugins))
+        .add_plugins((
+            DefaultPlugins,
+            MeshPickingPlugin,
+            DefaultEditorCamPlugins,
+            bevy_framepace::FramepacePlugin,
+        ))
         .add_systems(Startup, (setup, setup_ui))
         .add_systems(
             Update,
@@ -150,7 +154,7 @@ fn projection_specific_render_config(
 }
 
 fn setup_ui(mut commands: Commands) {
-    let text = indoc! {"
+    let text = indoc::indoc! {"
         Left Mouse  - Pan
         Right Mouse - Orbit
         Scroll      - Zoom

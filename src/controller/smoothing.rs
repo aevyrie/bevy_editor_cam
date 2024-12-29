@@ -24,9 +24,9 @@ pub struct Smoothing {
 impl Default for Smoothing {
     fn default() -> Self {
         Smoothing {
-            pan: Duration::from_millis(10),
-            orbit: Duration::from_millis(30),
-            zoom: Duration::from_millis(60),
+            pan: Duration::from_millis(0),
+            orbit: Duration::from_millis(20),
+            zoom: Duration::from_millis(40),
         }
     }
 }

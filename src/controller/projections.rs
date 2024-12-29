@@ -1,5 +1,7 @@
 //! Configurable options for the challenge of working with orthographic cameras.
 
+use core::f32;
+
 use bevy_ecs::prelude::*;
 use bevy_reflect::prelude::*;
 use bevy_render::prelude::*;
@@ -35,7 +37,7 @@ pub struct PerspectiveSettings {
 impl Default for PerspectiveSettings {
     fn default() -> Self {
         Self {
-            near_clip_limits: 1e-9..0.1,
+            near_clip_limits: 1e-9..1e20,
             near_clip_multiplier: 0.05,
         }
     }
@@ -75,7 +77,7 @@ pub struct OrthographicSettings {
 impl Default for OrthographicSettings {
     fn default() -> Self {
         Self {
-            scale_to_near_clip: 1_000_000.0,
+            scale_to_near_clip: 4_000.0,
             near_clip_limits: 1.0..1_000_000.0,
             far_clip_multiplier: 1.0,
         }
@@ -90,7 +92,8 @@ pub fn update_orthographic(mut cameras: Query<(&mut EditorCam, &mut Projection, 
         };
 
         let anchor_dist = editor_cam.last_anchor_depth().abs() as f32;
-        let target_dist = (editor_cam.orthographic.scale_to_near_clip * orthographic.scale).clamp(
+        let dist = editor_cam.orthographic.scale_to_near_clip * orthographic.scale;
+        let target_dist = (dist).clamp(
             editor_cam.orthographic.near_clip_limits.start,
             editor_cam.orthographic.near_clip_limits.end,
         );

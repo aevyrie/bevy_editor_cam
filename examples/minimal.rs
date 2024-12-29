@@ -2,7 +2,6 @@
 
 use bevy::prelude::*;
 use bevy_editor_cam::prelude::*;
-use indoc::indoc;
 
 fn main() {
     App::new()
@@ -39,7 +38,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
         Transform::from_xyz(0.0, -0.5, -2.0),
     ));
 
-    let text = indoc! {"
+    let text = indoc::indoc! {"
         Left Mouse - Pan
         Right Mouse - Orbit
         Scroll - Zoom

@@ -1,21 +1,18 @@
 use std::time::Duration;
 
 use bevy::{
-    core_pipeline::{
-        bloom::Bloom, experimental::taa::TemporalAntiAliasPlugin, tonemapping::Tonemapping,
-    },
+    core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
     pbr::ScreenSpaceAmbientOcclusion,
     prelude::*,
-    render::{camera::TemporalJitter, primitives::Aabb},
+    render::primitives::Aabb,
     utils::Instant,
     window::RequestRedraw,
 };
-use bevy_core_pipeline::experimental::taa::TemporalAntiAliasing;
+use bevy_core_pipeline::smaa::Smaa;
 use bevy_editor_cam::{
     extensions::{dolly_zoom::DollyZoomTrigger, look_to::LookToTrigger},
     prelude::*,
 };
-use indoc::indoc;
 
 fn main() {
     App::new()
@@ -23,7 +20,7 @@ fn main() {
             DefaultPlugins,
             DefaultEditorCamPlugins,
             MeshPickingPlugin,
-            TemporalAntiAliasPlugin,
+            bevy_framepace::FramepacePlugin,
         ))
         // The camera controller works with reactive rendering:
         // .insert_resource(bevy::winit::WinitSettings::desktop_app())
@@ -57,12 +54,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 
     let cam_trans = Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y);
-
     let camera = commands
         .spawn((
             Camera3d::default(),
             cam_trans,
-            Tonemapping::AcesFitted,
+            Tonemapping::TonyMcMapface,
             Bloom::default(),
             EnvironmentMapLight {
                 intensity: 1000.0,
@@ -75,6 +71,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 last_anchor_depth: cam_trans.translation.length() as f64,
                 ..Default::default()
             },
+            ScreenSpaceAmbientOcclusion::default(),
+            Smaa::default(),
         ))
         .id();
 
@@ -86,22 +84,7 @@ fn projection_specific_render_config(
     mut cam: Query<(Entity, &Projection, &mut Msaa), With<EditorCam>>,
 ) {
     let (entity, proj, mut msaa) = cam.single_mut();
-    match proj {
-        Projection::Perspective(_) => {
-            *msaa = Msaa::Off;
-            commands
-                .entity(entity)
-                .insert(TemporalAntiAliasing::default())
-                .insert(ScreenSpaceAmbientOcclusion::default());
-        }
-        Projection::Orthographic(_) => {
-            *msaa = Msaa::Sample4;
-            commands
-                .entity(entity)
-                .remove::<TemporalJitter>()
-                .remove::<ScreenSpaceAmbientOcclusion>();
-        }
-    }
+    *msaa = Msaa::Off
 }
 
 fn toggle_projection(
@@ -207,7 +190,7 @@ fn switch_direction(
 }
 
 fn setup_ui(mut commands: Commands, camera: Entity) {
-    let text = indoc! {"
+    let text = indoc::indoc! {"
         Left Mouse  - Pan
         Right Mouse - Orbit
         Scroll      - Zoom
@@ -268,6 +251,6 @@ fn explode(
         }
     }
     for (_, matl) in matls.iter_mut() {
-        matl.perceptual_roughness = matl.perceptual_roughness.clamp(0.1, 1.0)
+        matl.perceptual_roughness = matl.perceptual_roughness.clamp(0.3, 1.0)
     }
 }

@@ -34,7 +34,7 @@ impl Plugin for DollyZoomPlugin {
 }
 
 /// Used when transitioning from ortho to perspective, this needs to be close to ortho (zero fov).
-const ZERO_FOV: f64 = 1e-3;
+const ZERO_FOV: f64 = 5e-3;
 
 /// Triggers a dolly zoom on the specified camera.
 #[derive(Debug, Event)]
@@ -153,8 +153,8 @@ pub struct DollyZoom {
 impl Default for DollyZoom {
     fn default() -> Self {
         Self {
-            animation_duration: Duration::from_millis(400),
-            animation_curve: CubicSegment::new_bezier((0.25, 0.0), (0.25, 1.0)),
+            animation_duration: Duration::from_millis(300),
+            animation_curve: CubicSegment::new_bezier((0.65, 0.0), (0.35, 1.0)),
             map: Default::default(),
         }
     }

@@ -10,7 +10,6 @@ use big_space::{
     world_query::{GridTransformReadOnly, GridTransformReadOnlyItem},
     FloatingOrigin, GridCell,
 };
-use indoc::formatdoc;
 
 fn main() {
     App::new()
@@ -19,6 +18,7 @@ fn main() {
             MeshPickingPlugin,
             big_space::BigSpacePlugin::<i128>::default(),
             big_space::debug::FloatingOriginDebugPlugin::<i128>::default(),
+            bevy_framepace::FramepacePlugin,
         ))
         .add_plugins(DefaultEditorCamPlugins)
         .insert_resource(ClearColor(Color::BLACK))
@@ -148,7 +148,7 @@ fn ui_text(
         .into();
     let [sx, sy, sz] = [dx as f32, dy as f32, dz as f32];
 
-    formatdoc! {"
+    indoc::formatdoc! {"
         GridCell: {cx}x, {cy}y, {cz}z
         Transform: {tx}x, {ty}y, {tz}z
         Combined (f64): {dx}x, {dy}y, {dz}z

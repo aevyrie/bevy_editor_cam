@@ -1,10 +1,14 @@
 use bevy::prelude::*;
 use bevy_editor_cam::prelude::*;
-use indoc::indoc;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, MeshPickingPlugin, DefaultEditorCamPlugins))
+        .add_plugins((
+            DefaultPlugins,
+            MeshPickingPlugin,
+            DefaultEditorCamPlugins,
+            bevy_framepace::FramepacePlugin,
+        ))
         .add_systems(Startup, (setup, setup_ui))
         .run();
 }
@@ -68,7 +72,7 @@ fn spawn_helmets(n: usize, asset_server: &AssetServer, commands: &mut Commands) 
 }
 
 fn setup_ui(mut commands: Commands) {
-    let text = indoc! {"
+    let text = indoc::indoc! {"
         Left Mouse - Pan
         Right Mouse - Orbit
         Scroll - Zoom

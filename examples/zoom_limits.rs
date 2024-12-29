@@ -2,12 +2,16 @@
 
 use bevy::prelude::*;
 use bevy_editor_cam::{extensions::dolly_zoom::DollyZoomTrigger, prelude::*};
-use indoc::formatdoc;
 use zoom::ZoomLimits;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, MeshPickingPlugin, DefaultEditorCamPlugins))
+        .add_plugins((
+            DefaultPlugins,
+            MeshPickingPlugin,
+            DefaultEditorCamPlugins,
+            bevy_framepace::FramepacePlugin,
+        ))
         .add_systems(Startup, (setup_camera, setup_scene, setup_ui))
         .add_systems(Update, (toggle_projection, toggle_zoom))
         .run();
@@ -79,7 +83,7 @@ fn setup_ui(mut commands: Commands) {
 }
 
 fn help_text(zoom_through: bool) -> String {
-    formatdoc! {"
+    indoc::formatdoc! {"
         Left Mouse - Pan
         Right Mouse - Orbit
         Scroll - Zoom

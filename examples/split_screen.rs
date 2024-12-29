@@ -8,7 +8,12 @@ use bevy_editor_cam::prelude::*;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, MeshPickingPlugin, DefaultEditorCamPlugins))
+        .add_plugins((
+            DefaultPlugins,
+            MeshPickingPlugin,
+            DefaultEditorCamPlugins,
+            bevy_framepace::FramepacePlugin,
+        ))
         .add_systems(Startup, setup)
         .add_systems(Update, set_camera_viewports)
         .run();
