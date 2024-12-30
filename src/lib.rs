@@ -97,26 +97,18 @@
 //!
 //! # Usage
 //!
-//! This plugin only requires three things to work. The `bevy_mod_picking` plugin for hit tests, the
+//! This plugin only requires three things to work. The `bevy_picking` plugin for hit tests, the
 //! [`DefaultEditorCamPlugins`] plugin group, and the [`EditorCam`](crate::prelude::EditorCam)
 //! component. Controller settings are configured per-camera in the
 //! [`EditorCam`](crate::prelude::EditorCam) component.
 //!
 //! ## Getting Started
 //!
-//! #### 1. Add `bevy_mod_picking`
+//! #### 1. Add `bevy_picking`
 //!
-//! The camera controller uses [`bevy_picking_core`] for pointer interactions. If you already use
-//! the picking plugin, then using this camera controller is essentially free because it can reuse
-//! those same hit tests you are already running.
-//!
-//! If you are not using the picking plugin yet, all you need to get started are the default
-//! plugins:
-//!
-//! ```
-//! # let mut app = bevy::app::App::new();
-//! app.add_plugins(bevy_mod_picking::DefaultPickingPlugins);
-//! ```
+//! The camera controller uses [`bevy_picking`] for pointer interactions. If you already it along
+//! with a picking backend, then using this camera controller is essentially free because it can
+//! reuse those same hit tests you are already running.
 //!
 //! #### 2. Add `DefaultEditorCamPlugins`
 //!
