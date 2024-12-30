@@ -83,5 +83,9 @@ fn setup_ui(mut commands: Commands) {
             font_size: 20.0,
             ..default()
         },
+        Node {
+            margin: UiRect::all(Val::Px(20.0)),
+            ..Default::default()
+        },
     ));
 }

@@ -49,5 +49,9 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
             font_size: 20.0,
             ..default()
         },
+        Node {
+            margin: UiRect::all(Val::Px(20.0)),
+            ..Default::default()
+        },
     ));
 }

@@ -101,6 +101,10 @@ fn ui_setup(mut commands: Commands) {
             font_size: 18.0,
             ..default()
         },
+        Node {
+            margin: UiRect::all(Val::Px(20.0)),
+            ..Default::default()
+        },
         TextColor(Color::WHITE),
         BigSpaceDebugText,
     ));
@@ -109,6 +113,10 @@ fn ui_setup(mut commands: Commands) {
         TextFont {
             font_size: 52.0,
             ..default()
+        },
+        Node {
+            margin: UiRect::all(Val::Px(20.0)),
+            ..Default::default()
         },
         TextColor(Color::WHITE),
         FunFactText,

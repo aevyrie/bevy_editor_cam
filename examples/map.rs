@@ -2,10 +2,9 @@ use bevy::{
     core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
     pbr::ScreenSpaceAmbientOcclusion,
     prelude::*,
-    render::camera::TemporalJitter,
 };
 use bevy_color::palettes;
-use bevy_core_pipeline::experimental::taa::TemporalAntiAliasing;
+use bevy_core_pipeline::smaa::Smaa;
 use bevy_editor_cam::{extensions::dolly_zoom::DollyZoomTrigger, prelude::*};
 use rand::Rng;
 
@@ -18,10 +17,7 @@ fn main() {
             bevy_framepace::FramepacePlugin,
         ))
         .add_systems(Startup, (setup, setup_ui))
-        .add_systems(
-            Update,
-            (toggle_projection, projection_specific_render_config).chain(),
-        )
+        .add_systems(Update, toggle_projection)
         .run();
 }
 
@@ -35,34 +31,35 @@ fn setup(
 
     let diffuse_map = asset_server.load("environment_maps/diffuse_rgb9e5_zstd.ktx2");
     let specular_map = asset_server.load("environment_maps/specular_rgb9e5_zstd.ktx2");
+    let translation = Vec3::new(7.0, 7.0, 7.0);
 
-    commands
-        .spawn((
-            Camera3d::default(),
-            Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
-            Tonemapping::AcesFitted,
-            Bloom::default(),
-            EnvironmentMapLight {
-                intensity: 1000.0,
-                diffuse_map: diffuse_map.clone(),
-                specular_map: specular_map.clone(),
-                rotation: default(),
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_translation(translation).looking_at(Vec3::ZERO, Vec3::Y),
+        Tonemapping::AcesFitted,
+        Bloom::default(),
+        ScreenSpaceAmbientOcclusion::default(),
+        Msaa::Off,
+        Smaa::default(),
+        EnvironmentMapLight {
+            intensity: 1000.0,
+            diffuse_map: diffuse_map.clone(),
+            specular_map: specular_map.clone(),
+            rotation: default(),
+        },
+        EditorCam {
+            orbit_constraint: OrbitConstraint::Fixed {
+                up: Vec3::Y,
+                can_pass_tdc: false,
             },
-            EditorCam {
-                orbit_constraint: OrbitConstraint::Fixed {
-                    up: Vec3::Y,
-                    can_pass_tdc: false,
-                },
-                last_anchor_depth: 2.0,
-                ..Default::default()
-            },
-            bevy_editor_cam::extensions::independent_skybox::IndependentSkybox::new(
-                diffuse_map,
-                1000.0,
-            ),
-        ))
-        .insert(ScreenSpaceAmbientOcclusion::default())
-        .insert(TemporalAntiAliasing::default());
+            last_anchor_depth: -translation.length() as f64,
+            ..Default::default()
+        },
+        bevy_editor_cam::extensions::independent_skybox::IndependentSkybox::new(
+            diffuse_map,
+            1000.0,
+        ),
+    ));
 }
 
 fn spawn_buildings(
@@ -77,7 +74,7 @@ fn spawn_buildings(
             base_color: Color::Srgba(palettes::css::DARK_GRAY),
             ..Default::default()
         })),
-        Transform::from_xyz(0.0, -5.0, 0.0),
+        Transform::from_xyz(0.0, 0.0, 0.0),
     ));
 
     let mut rng = rand::thread_rng();
@@ -100,7 +97,7 @@ fn spawn_buildings(
             commands.spawn((
                 Mesh3d(mesh.clone()),
                 MeshMaterial3d(material[rng.gen_range(0..material.len())].clone()),
-                Transform::from_xyz(x, y_scale / 2.0 - 5.0, z).with_scale(Vec3::new(
+                Transform::from_xyz(x, y_scale / 2.0, z).with_scale(Vec3::new(
                     (rng.gen::<f32>() + 0.5) * 0.3,
                     y_scale,
                     (rng.gen::<f32>() + 0.5) * 0.3,
@@ -130,29 +127,6 @@ fn toggle_projection(
     }
 }
 
-fn projection_specific_render_config(
-    mut commands: Commands,
-    mut cam: Query<(Entity, &Projection, &mut Msaa), With<EditorCam>>,
-) {
-    let (entity, proj, mut msaa) = cam.single_mut();
-    match proj {
-        Projection::Perspective(_) => {
-            *msaa = Msaa::Off;
-            commands
-                .entity(entity)
-                .insert(TemporalAntiAliasing::default())
-                .insert(ScreenSpaceAmbientOcclusion::default());
-        }
-        Projection::Orthographic(_) => {
-            *msaa = Msaa::Sample4;
-            commands
-                .entity(entity)
-                .remove::<TemporalJitter>()
-                .remove::<ScreenSpaceAmbientOcclusion>();
-        }
-    }
-}
-
 fn setup_ui(mut commands: Commands) {
     let text = indoc::indoc! {"
         Left Mouse  - Pan
@@ -165,6 +139,10 @@ fn setup_ui(mut commands: Commands) {
         TextFont {
             font_size: 20.0,
             ..default()
+        },
+        Node {
+            margin: UiRect::all(Val::Px(20.0)),
+            ..Default::default()
         },
     ));
 }

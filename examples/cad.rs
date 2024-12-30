@@ -34,7 +34,6 @@ fn main() {
             Update,
             (
                 toggle_projection,
-                projection_specific_render_config,
                 toggle_constraint,
                 explode,
                 switch_direction,
@@ -58,7 +57,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn((
             Camera3d::default(),
             cam_trans,
-            Tonemapping::TonyMcMapface,
+            Tonemapping::AcesFitted,
             Bloom::default(),
             EnvironmentMapLight {
                 intensity: 1000.0,
@@ -68,23 +67,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             EditorCam {
                 orbit_constraint: OrbitConstraint::Free,
-                last_anchor_depth: cam_trans.translation.length() as f64,
+                last_anchor_depth: -cam_trans.translation.length() as f64,
                 ..Default::default()
             },
             ScreenSpaceAmbientOcclusion::default(),
             Smaa::default(),
+            Msaa::Off,
         ))
         .id();
 
     setup_ui(commands, camera);
-}
-
-fn projection_specific_render_config(
-    mut commands: Commands,
-    mut cam: Query<(Entity, &Projection, &mut Msaa), With<EditorCam>>,
-) {
-    let (entity, proj, mut msaa) = cam.single_mut();
-    *msaa = Msaa::Off
 }
 
 fn toggle_projection(
@@ -204,6 +196,10 @@ fn setup_ui(mut commands: Commands, camera: Entity) {
         TextFont {
             font_size: 20.0,
             ..default()
+        },
+        Node {
+            margin: UiRect::all(Val::Px(20.0)),
+            ..Default::default()
         },
         TargetCamera(camera),
     ));
