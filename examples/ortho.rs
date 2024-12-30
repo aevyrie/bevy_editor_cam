@@ -16,10 +16,11 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let diffuse_map = asset_server.load("environment_maps/diffuse_rgb9e5_zstd.ktx2");
     let specular_map = asset_server.load("environment_maps/specular_rgb9e5_zstd.ktx2");
+    let translation = Vec3::new(10.0, 10.0, 10.0);
 
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(10.0, 10.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform::from_translation(translation).looking_at(Vec3::ZERO, Vec3::Y),
         Projection::Orthographic(OrthographicProjection {
             scale: 0.01,
             ..OrthographicProjection::default_3d()
@@ -41,14 +42,18 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // orthographic scale, as well as the near and far planes. This can be a bit tricky if you
         // are unfamiliar with orthographic projections. Consider using an pseudo-ortho projection
         // (see `pseudo_ortho` example) if you don't need a true ortho projection.
-        EditorCam::default().with_initial_anchor_depth(10.0),
+        EditorCam::default().with_initial_anchor_depth(-translation.length() as f64),
         // This is an extension made specifically for orthographic cameras. Because an ortho camera
         // projection has no field of view, a skybox can't be sensibly rendered, only a single point
         // on the skybox would be visible to the camera at any given time. While this is technically
         // correct to what the camera would see, it is not visually helpful nor appealing. It is
         // common for CAD software to render a skybox with a field of view that is decoupled from
         // the camera field of view.
-        bevy_editor_cam::extensions::independent_skybox::IndependentSkybox::new(diffuse_map, 500.0),
+        bevy_editor_cam::extensions::independent_skybox::IndependentSkybox::new(
+            diffuse_map,
+            500.0,
+            default(),
+        ),
     ));
 
     spawn_helmets(27, &asset_server, &mut commands);

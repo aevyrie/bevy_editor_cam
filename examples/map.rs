@@ -58,6 +58,7 @@ fn setup(
         bevy_editor_cam::extensions::independent_skybox::IndependentSkybox::new(
             diffuse_map,
             1000.0,
+            default(),
         ),
     ));
 }

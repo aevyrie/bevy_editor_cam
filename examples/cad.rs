@@ -24,11 +24,7 @@ fn main() {
         ))
         // The camera controller works with reactive rendering:
         // .insert_resource(bevy::winit::WinitSettings::desktop_app())
-        .insert_resource(ClearColor(Color::srgb(0.15, 0.15, 0.15)))
-        .insert_resource(AmbientLight {
-            brightness: 0.0,
-            ..default()
-        })
+        .insert_resource(AmbientLight::NONE)
         .add_systems(Startup, setup)
         .add_systems(
             Update,
@@ -56,6 +52,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let camera = commands
         .spawn((
             Camera3d::default(),
+            Camera {
+                hdr: true,
+                ..Default::default()
+            },
             cam_trans,
             Tonemapping::AcesFitted,
             Bloom::default(),
@@ -63,7 +63,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 intensity: 1000.0,
                 diffuse_map: diffuse_map.clone(),
                 specular_map: specular_map.clone(),
-                rotation: default(),
+                ..Default::default()
             },
             EditorCam {
                 orbit_constraint: OrbitConstraint::Free,
@@ -251,6 +251,6 @@ fn explode(
         }
     }
     for (_, matl) in matls.iter_mut() {
-        matl.perceptual_roughness = matl.perceptual_roughness.clamp(0.3, 1.0)
+        matl.perceptual_roughness = matl.perceptual_roughness.clamp(0.5, 1.0)
     }
 }
