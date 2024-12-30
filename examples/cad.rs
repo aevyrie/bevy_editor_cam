@@ -251,6 +251,6 @@ fn explode(
         }
     }
     for (_, matl) in matls.iter_mut() {
-        matl.perceptual_roughness = matl.perceptual_roughness.clamp(0.5, 1.0)
+        matl.perceptual_roughness = matl.perceptual_roughness.clamp(0.3, 1.0)
     }
 }
