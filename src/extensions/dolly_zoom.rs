@@ -34,7 +34,7 @@ impl Plugin for DollyZoomPlugin {
 }
 
 /// Used when transitioning from ortho to perspective, this needs to be close to ortho (zero fov).
-const ZERO_FOV: f64 = 1e-2;
+const ZERO_FOV: f64 = 1e-3;
 
 /// Triggers a dolly zoom on the specified camera.
 #[derive(Debug, Event)]

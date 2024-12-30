@@ -36,11 +36,6 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Transform::from_translation(translation).looking_at(Vec3::ZERO, Vec3::Y),
-        Tonemapping::AcesFitted,
-        Bloom::default(),
-        ScreenSpaceAmbientOcclusion::default(),
-        Msaa::Off,
-        Smaa::default(),
         EnvironmentMapLight {
             intensity: 1000.0,
             diffuse_map: diffuse_map.clone(),
