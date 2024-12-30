@@ -68,6 +68,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             EditorCam {
                 orbit_constraint: OrbitConstraint::Free,
                 last_anchor_depth: -cam_trans.translation.length() as f64,
+                orthographic: projections::OrthographicSettings {
+                    scale_to_near_clip: 1_000_f32, // Needed for SSAO to work in ortho
+                    ..Default::default()
+                },
                 ..Default::default()
             },
             ScreenSpaceAmbientOcclusion::default(),

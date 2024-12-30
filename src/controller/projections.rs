@@ -1,7 +1,5 @@
 //! Configurable options for the challenge of working with orthographic cameras.
 
-use core::f32;
-
 use bevy_ecs::prelude::*;
 use bevy_reflect::prelude::*;
 use bevy_render::prelude::*;
@@ -37,7 +35,7 @@ pub struct PerspectiveSettings {
 impl Default for PerspectiveSettings {
     fn default() -> Self {
         Self {
-            near_clip_limits: 1e-9..1e20,
+            near_clip_limits: 1e-9..f32::INFINITY,
             near_clip_multiplier: 0.05,
         }
     }
@@ -62,6 +60,12 @@ pub struct OrthographicSettings {
     /// The camera's near clipping plane will move closer and farther from the anchor point during
     /// zoom to maximize precision. The position of the near plane is based on the orthographic
     /// projection `scale`, multiplied by this value.
+    ///
+    /// To maximize depth precision, make this as small ap possible. If the value is too large,
+    /// depth-based effects like SSAO will break down. If the value is too small, objects that
+    /// should be visible will be clipped. Ideally, the clipping planes should scale with the scene
+    /// geometry and camera frustum to tightly bound the visible scene, but this is not yet
+    /// implemented.
     pub scale_to_near_clip: f32,
     /// Limits the distance the near clip plane can be to the anchor. The low limit is useful to
     /// prevent geometry clipping when zooming in, while the high limit is useful to prevent the
@@ -77,7 +81,7 @@ pub struct OrthographicSettings {
 impl Default for OrthographicSettings {
     fn default() -> Self {
         Self {
-            scale_to_near_clip: 4_000.0,
+            scale_to_near_clip: 1_000_000.0,
             near_clip_limits: 1.0..1_000_000.0,
             far_clip_multiplier: 1.0,
         }
@@ -92,8 +96,7 @@ pub fn update_orthographic(mut cameras: Query<(&mut EditorCam, &mut Projection, 
         };
 
         let anchor_dist = editor_cam.last_anchor_depth().abs() as f32;
-        let dist = editor_cam.orthographic.scale_to_near_clip * orthographic.scale;
-        let target_dist = (dist).clamp(
+        let target_dist = (editor_cam.orthographic.scale_to_near_clip * orthographic.scale).clamp(
             editor_cam.orthographic.near_clip_limits.start,
             editor_cam.orthographic.near_clip_limits.end,
         );
