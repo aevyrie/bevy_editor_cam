@@ -4,22 +4,23 @@ use bevy_editor_cam::{
     prelude::{projections::PerspectiveSettings, zoom::ZoomLimits},
     DefaultEditorCamPlugins,
 };
-use bevy_mod_picking::DefaultPickingPlugins;
 use big_space::{
     commands::BigSpaceCommands,
     reference_frame::{local_origin::ReferenceFrames, ReferenceFrame},
-    world_query::GridTransformReadOnly,
-    FloatingOrigin,
+    world_query::{GridTransformReadOnly, GridTransformReadOnlyItem},
+    FloatingOrigin, GridCell,
 };
 
 fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins.build().disable::<TransformPlugin>(),
+            MeshPickingPlugin,
             big_space::BigSpacePlugin::<i128>::default(),
             big_space::debug::FloatingOriginDebugPlugin::<i128>::default(),
+            bevy_framepace::FramepacePlugin,
         ))
-        .add_plugins((DefaultEditorCamPlugins, DefaultPickingPlugins))
+        .add_plugins(DefaultEditorCamPlugins)
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(AmbientLight {
             color: Color::WHITE,
@@ -37,15 +38,12 @@ fn setup(
 ) {
     commands.spawn_big_space(ReferenceFrame::<i128>::default(), |root| {
         root.spawn_spatial((
-            Camera3dBundle {
-                transform: Transform::from_xyz(0.0, 0.0, 8.0)
-                    .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
-                projection: Projection::Perspective(PerspectiveProjection {
-                    near: 1e-18,
-                    ..default()
-                }),
+            Camera3d::default(),
+            Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
+            Projection::Perspective(PerspectiveProjection {
+                near: 1e-18,
                 ..default()
-            },
+            }),
             FloatingOrigin, // Important: marks the floating origin entity for rendering.
             EditorCam {
                 zoom_limits: ZoomLimits {
@@ -75,20 +73,16 @@ fn setup(
             translation.x += j / 2.0 + k;
             translation.y = j / 2.0;
 
-            root.spawn_spatial(PbrBundle {
-                mesh: mesh_handle.clone(),
-                material: matl_handle.clone(),
-                transform: Transform::from_scale(Vec3::splat(j)).with_translation(translation),
-                ..default()
-            });
+            root.spawn_spatial((
+                Mesh3d(mesh_handle.clone()),
+                MeshMaterial3d(matl_handle.clone()),
+                Transform::from_scale(Vec3::splat(j)).with_translation(translation),
+            ));
         }
 
         // light
-        root.spawn_spatial(DirectionalLightBundle {
-            directional_light: DirectionalLight {
-                illuminance: 10_000.0,
-                ..default()
-            },
+        root.spawn_spatial(DirectionalLight {
+            illuminance: 10_000.0,
             ..default()
         });
     });
@@ -102,41 +96,29 @@ pub struct FunFactText;
 
 fn ui_setup(mut commands: Commands) {
     commands.spawn((
-        TextBundle::from_section(
-            "",
-            TextStyle {
-                font_size: 18.0,
-                color: Color::WHITE,
-                ..default()
-            },
-        )
-        .with_text_justify(JustifyText::Left)
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            left: Val::Px(10.0),
+        Text::new(""),
+        TextFont {
+            font_size: 18.0,
             ..default()
-        }),
+        },
+        Node {
+            margin: UiRect::all(Val::Px(20.0)),
+            ..Default::default()
+        },
+        TextColor(Color::WHITE),
         BigSpaceDebugText,
     ));
-
     commands.spawn((
-        TextBundle::from_section(
-            "",
-            TextStyle {
-                font_size: 52.0,
-                color: Color::WHITE,
-                ..default()
-            },
-        )
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            bottom: Val::Px(10.0),
-            right: Val::Px(10.0),
-            left: Val::Px(10.0),
+        Text::new(""),
+        TextFont {
+            font_size: 52.0,
             ..default()
-        })
-        .with_text_justify(JustifyText::Center),
+        },
+        Node {
+            margin: UiRect::all(Val::Px(20.0)),
+            ..Default::default()
+        },
+        TextColor(Color::WHITE),
         FunFactText,
     ));
 }
@@ -151,35 +133,33 @@ fn ui_text_system(
     origin: Query<(Entity, GridTransformReadOnly<i128>), With<FloatingOrigin>>,
 ) {
     let (origin_entity, origin_pos) = origin.single();
-    let translation = origin_pos.transform.translation;
-
-    let grid_text = format!(
-        "GridCell: {}x, {}y, {}z",
-        origin_pos.cell.x, origin_pos.cell.y, origin_pos.cell.z
-    );
-
-    let translation_text = format!(
-        "Transform: {}x, {}y, {}z",
-        translation.x, translation.y, translation.z
-    );
-
     let Some(ref_frame) = ref_frames.parent_frame(origin_entity) else {
         return;
     };
 
-    let real_position = ref_frame.grid_position_double(origin_pos.cell, origin_pos.transform);
-    let real_position_f64_text = format!(
-        "Combined (f64): {}x, {}y, {}z",
-        real_position.x, real_position.y, real_position.z
-    );
-    let real_position_f32_text = format!(
-        "Combined (f32): {}x, {}y, {}z",
-        real_position.x as f32, real_position.y as f32, real_position.z as f32
-    );
-
     let mut debug_text = debug_text.single_mut();
+    *debug_text.0 = Text::new(ui_text(ref_frame, &origin_pos));
+}
 
-    debug_text.0.sections[0].value = format!(
-        "{grid_text}\n{translation_text}\n\n{real_position_f64_text}\n{real_position_f32_text}"
-    );
+fn ui_text(
+    ref_frame: &ReferenceFrame<i128>,
+    origin_pos: &GridTransformReadOnlyItem<i128>,
+) -> String {
+    let GridCell {
+        x: cx,
+        y: cy,
+        z: cz,
+    } = origin_pos.cell;
+    let [tx, ty, tz] = origin_pos.transform.translation.into();
+    let [dx, dy, dz] = ref_frame
+        .grid_position_double(origin_pos.cell, origin_pos.transform)
+        .into();
+    let [sx, sy, sz] = [dx as f32, dy as f32, dz as f32];
+
+    indoc::formatdoc! {"
+        GridCell: {cx}x, {cy}y, {cz}z
+        Transform: {tx}x, {ty}y, {tz}z
+        Combined (f64): {dx}x, {dy}y, {dz}z
+        Combined (f32): {sx}x, {sy}y, {sz}z
+    "}
 }

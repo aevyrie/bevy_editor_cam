@@ -41,21 +41,19 @@ impl Default for Momentum {
 
 impl Momentum {
     fn decay_velocity_orbit(self, velocity: DVec2, delta_time: Duration) -> DVec2 {
-        let velocity =
-            velocity * (self.orbit_damping as f64 / 256.0).powf(delta_time.as_secs_f64() * 10.0);
-        let static_decay =
-            velocity.normalize() * self.orbit_friction * delta_time.as_secs_f64() * 120.0;
-        let static_decay_clamped = static_decay.abs().min(velocity.abs()) * velocity.signum();
-        velocity - static_decay_clamped
+        let speed = velocity.length();
+        let f_damping = self.orbit_damping as f64 / 256.0 * speed * 10.0;
+        let f_friction = self.orbit_friction * 40.0;
+        let braking = (f_damping + f_friction) * delta_time.as_secs_f64();
+        (speed - braking).max(0.0) * velocity.normalize_or_zero()
     }
 
     fn decay_velocity_pan(self, velocity: DVec2, delta_time: Duration) -> DVec2 {
-        let velocity =
-            velocity * (self.pan_damping as f64 / 256.0).powf(delta_time.as_secs_f64() * 10.0);
-        let static_decay =
-            velocity.normalize() * self.pan_friction * delta_time.as_secs_f64() * 120.0;
-        let static_decay_clamped = static_decay.abs().min(velocity.abs()) * velocity.signum();
-        velocity - static_decay_clamped
+        let speed = velocity.length();
+        let f_damping = self.pan_damping as f64 / 256.0 * speed * 10.0;
+        let f_friction = self.pan_friction * 40.0;
+        let braking = (f_damping + f_friction) * delta_time.as_secs_f64();
+        (speed - braking).max(0.0) * velocity.normalize_or_zero()
     }
 }
 

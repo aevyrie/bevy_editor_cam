@@ -80,8 +80,7 @@ pub fn draw_anchor(
             let arm_length = 0.4;
 
             gizmos.circle(
-                anchor_world,
-                Dir3::new_unchecked(cam_transform.forward().normalize()),
+                Isometry3d::new(anchor_world, cam_transform.rotation()),
                 scale,
                 gizmo_color(),
             );

@@ -153,8 +153,8 @@ pub struct DollyZoom {
 impl Default for DollyZoom {
     fn default() -> Self {
         Self {
-            animation_duration: Duration::from_millis(400),
-            animation_curve: CubicSegment::new_bezier((0.25, 0.0), (0.25, 1.0)),
+            animation_duration: Duration::from_millis(300),
+            animation_curve: CubicSegment::new_bezier((0.65, 0.0), (0.35, 1.0)),
             map: Default::default(),
         }
     }
@@ -238,7 +238,7 @@ fn ortho_tri_base_to_scale_factor(camera: &Camera, ortho: &OrthographicProjectio
     if let Some(size) = camera.logical_viewport_size() {
         let (width, height) = (size.x as f64, size.y as f64);
         2.0 / match ortho.scaling_mode {
-            ScalingMode::WindowSize(pixel_scale) => height / pixel_scale as f64,
+            ScalingMode::WindowSize => height,
             ScalingMode::AutoMin {
                 min_width,
                 min_height,
@@ -259,8 +259,10 @@ fn ortho_tri_base_to_scale_factor(camera: &Camera, ortho: &OrthographicProjectio
                     height * max_width as f64 / width
                 }
             }
-            ScalingMode::FixedVertical(viewport_height) => viewport_height as f64,
-            ScalingMode::FixedHorizontal(viewport_width) => height * viewport_width as f64 / width,
+            ScalingMode::FixedVertical { viewport_height } => viewport_height as f64,
+            ScalingMode::FixedHorizontal { viewport_width } => {
+                height * viewport_width as f64 / width
+            }
             ScalingMode::Fixed { height, .. } => height as f64,
         }
     } else {

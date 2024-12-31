@@ -35,7 +35,7 @@ pub struct PerspectiveSettings {
 impl Default for PerspectiveSettings {
     fn default() -> Self {
         Self {
-            near_clip_limits: 1e-9..0.1,
+            near_clip_limits: 1e-9..f32::INFINITY,
             near_clip_multiplier: 0.05,
         }
     }
@@ -60,6 +60,12 @@ pub struct OrthographicSettings {
     /// The camera's near clipping plane will move closer and farther from the anchor point during
     /// zoom to maximize precision. The position of the near plane is based on the orthographic
     /// projection `scale`, multiplied by this value.
+    ///
+    /// To maximize depth precision, make this as small ap possible. If the value is too large,
+    /// depth-based effects like SSAO will break down. If the value is too small, objects that
+    /// should be visible will be clipped. Ideally, the clipping planes should scale with the scene
+    /// geometry and camera frustum to tightly bound the visible scene, but this is not yet
+    /// implemented.
     pub scale_to_near_clip: f32,
     /// Limits the distance the near clip plane can be to the anchor. The low limit is useful to
     /// prevent geometry clipping when zooming in, while the high limit is useful to prevent the

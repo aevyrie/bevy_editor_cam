@@ -9,6 +9,8 @@ use bevy_app::prelude::*;
 use bevy_asset::Handle;
 use bevy_core_pipeline::{prelude::*, Skybox};
 use bevy_ecs::prelude::*;
+use bevy_image::Image;
+use bevy_math::Quat;
 use bevy_reflect::prelude::*;
 use bevy_render::{prelude::*, view::RenderLayers};
 use bevy_transform::prelude::*;
@@ -39,6 +41,8 @@ pub struct IndependentSkybox {
     pub skybox: Handle<Image>,
     /// Used to set [`Skybox::brightness`].
     pub brightness: f32,
+    /// Used to set [`Skybox::rotation`].
+    pub rotation: Quat,
     /// The [`Camera::order`] of the skybox camera, offset from the camera it is tracking. This
     /// should be lower than the order of the primary camera controller camera. the default value
     /// should be sufficient for most cases. You can override this if you have a more complex use
@@ -52,10 +56,11 @@ pub struct IndependentSkybox {
 
 impl IndependentSkybox {
     /// Create a new [`IndependentSkybox`] with default settings and the provided skybox image.
-    pub fn new(skybox: Handle<Image>, brightness: f32) -> Self {
+    pub fn new(skybox: Handle<Image>, brightness: f32, rotation: Quat) -> Self {
         Self {
             skybox,
             brightness,
+            rotation,
             ..Default::default()
         }
     }
@@ -66,6 +71,7 @@ impl Default for IndependentSkybox {
         Self {
             skybox: Default::default(),
             brightness: 500.0,
+            rotation: Quat::IDENTITY,
             skybox_cam_order_offset: -1_000,
             fov: Default::default(),
             skybox_cam: Default::default(),
@@ -102,10 +108,10 @@ impl IndependentSkyboxCamera {
     /// entity.
     pub fn spawn(
         mut commands: Commands,
-        mut editor_cams: Query<(Entity, &mut IndependentSkybox, &mut Camera)>,
+        mut editor_cams: Query<(Entity, &mut IndependentSkybox, &mut Camera, &Msaa)>,
         skybox_cams: Query<&IndependentSkyboxCamera>,
     ) {
-        for (editor_cam_entity, mut editor_without_skybox, mut camera) in
+        for (editor_cam_entity, mut editor_without_skybox, mut camera, msaa) in
             editor_cams.iter_mut().filter(|(_, config, ..)| {
                 config
                     .skybox_cam
@@ -118,30 +124,30 @@ impl IndependentSkyboxCamera {
 
             let entity = commands
                 .spawn((
-                    Camera3dBundle {
-                        camera: Camera {
-                            order: camera.order + editor_without_skybox.skybox_cam_order_offset,
-                            hdr: true,
-                            clear_color: ClearColorConfig::None,
-                            ..Default::default()
-                        },
-                        projection: Projection::Perspective(PerspectiveProjection {
-                            fov: match editor_without_skybox.fov {
-                                SkyboxFov::Auto => PerspectiveProjection::default().fov,
-                                SkyboxFov::Fixed(fov) => fov,
-                            },
-                            ..Default::default()
-                        }),
+                    Camera3d::default(),
+                    Camera {
+                        order: camera.order + editor_without_skybox.skybox_cam_order_offset,
+                        hdr: true,
+                        clear_color: ClearColorConfig::None,
                         ..Default::default()
                     },
+                    Projection::Perspective(PerspectiveProjection {
+                        fov: match editor_without_skybox.fov {
+                            SkyboxFov::Auto => PerspectiveProjection::default().fov,
+                            SkyboxFov::Fixed(fov) => fov,
+                        },
+                        ..Default::default()
+                    }),
                     RenderLayers::none(),
                     Skybox {
                         image: editor_without_skybox.skybox.clone(),
                         brightness: editor_without_skybox.brightness,
+                        rotation: editor_without_skybox.rotation,
                     },
                     IndependentSkyboxCamera {
                         driven_by: editor_cam_entity,
                     },
+                    *msaa,
                 ))
                 .id();
             editor_without_skybox.skybox_cam = Some(entity);
