@@ -1,10 +1,4 @@
-use bevy::{
-    core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
-    pbr::ScreenSpaceAmbientOcclusion,
-    prelude::*,
-};
-use bevy_color::palettes;
-use bevy_core_pipeline::smaa::Smaa;
+use bevy::{color::palettes, prelude::*};
 use bevy_editor_cam::{extensions::dolly_zoom::DollyZoomTrigger, prelude::*};
 use rand::Rng;
 
