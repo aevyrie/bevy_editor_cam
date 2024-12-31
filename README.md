@@ -8,7 +8,7 @@ A production-ready camera controller for 2D/3D editors and CAD.
 [![docs.rs](https://docs.rs/bevy_editor_cam/badge.svg)](https://docs.rs/bevy_editor_cam)
 [![crates.io](https://img.shields.io/crates/v/bevy_editor_cam)](https://crates.io/crates/bevy_editor_cam)
 
-https://github.com/aevyrie/bevy_editor_cam/assets/2632925/50e342ac-9cb3-4ab5-8577-45b3955fe423
+https://github.com/user-attachments/assets/58b270a9-7ae8-4466-9a8f-1fc8f0896590
 
 </div>
 
