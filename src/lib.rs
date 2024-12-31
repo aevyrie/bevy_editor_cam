@@ -159,10 +159,10 @@
 //! ### Pointer and Hit Test Agnostic
 //!
 //! Users of this library shouldn't be forced into using any particular hit testing method, like CPU
-//! raycasting. The controller uses [`bevy_picking_core`] to work with:
+//! raycasting. The controller uses [`bevy_picking`] to work with:
 //!
 //! - Arbitrary hit testing backends, including those written by users. See
-//!   [`bevy_picking_core::backend`] for more information.
+//!   [`bevy_picking::backend`] for more information.
 //! - Any number of pointing inputs, including touch.
 //! - Viewports and multi-pass rendering.
 

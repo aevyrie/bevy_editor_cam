@@ -31,7 +31,7 @@ use super::{
 /// # Moving the Camera
 ///
 /// The [`EditorCamPlugin`](crate::DefaultEditorCamPlugins) will automatically handle sending inputs
-/// to the camera controller using [`bevy_picking_core`] to compute pointer hit locations for mouse,
+/// to the camera controller using [`bevy_picking`] to compute pointer hit locations for mouse,
 /// touch, and pen inputs. The picking plugin allows you to specify your own picking backend, or
 /// choose from a variety of provided backends. This is important because this camera controller
 /// relies on depth information for each pointer, and using the picking plugin means it can do this
