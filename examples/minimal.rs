@@ -7,7 +7,7 @@ fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins,
-            MeshPickingPlugin,
+            MeshPickingPlugin, // Step 0: enable some picking backends for hit detection
             DefaultEditorCamPlugins, // Step 1: Add camera controller plugin
         ))
         .add_systems(Startup, setup)
