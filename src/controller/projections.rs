@@ -49,9 +49,9 @@ pub fn update_perspective(mut cameras: Query<(&EditorCam, &mut Projection)>) {
         };
         let limits = editor_cam.perspective.near_clip_limits.clone();
         let multiplier = editor_cam.perspective.near_clip_multiplier;
-        perspective.near = (editor_cam.last_anchor_depth.abs() as f32 * multiplier)
-            .clamp(limits.start, limits.end);
-        dbg!(perspective.near);
+        // perspective.near = (editor_cam.last_anchor_depth.abs() as f32 * multiplier)
+        //     .clamp(limits.start, limits.end);
+        // dbg!(perspective.near);
     }
 }
 
