@@ -391,6 +391,7 @@ impl EditorCam {
                 offset
             }
             Projection::Orthographic(ortho) => DVec2::new(-ortho.scale as f64, ortho.scale as f64),
+            _ => return,
         };
 
         let pan_translation_view_space = (pan * view_offset).extend(0.0);
@@ -449,6 +450,7 @@ impl EditorCam {
                     * 0.0015
                     * DVec3::new(1.0, 1.0, 0.0)
             }
+            _ => return,
         };
 
         // If we can zoom through objects, then scoot the anchor point forward when we hit the

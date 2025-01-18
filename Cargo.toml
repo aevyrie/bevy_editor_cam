@@ -15,25 +15,24 @@ extension_anchor_indicator = ["bevy_gizmos"]
 extension_independent_skybox = ["bevy_asset", "bevy_core_pipeline"]
 
 [dependencies]
-bevy_app = "0.15.0"
-bevy_color = "0.15.0"
-bevy_derive = "0.15.0"
-bevy_ecs = "0.15.0"
-bevy_image = "0.15.0"
-bevy_input = "0.15.0"
-bevy_log = "0.15.0"
-bevy_math = "0.15.0"
-bevy_picking = "0.15.0"
-bevy_reflect = "0.15.0"
-bevy_render = "0.15.0"
-bevy_time = "0.15.0"
-bevy_transform = "0.15.0"
-bevy_utils = "0.15.0"
-bevy_window = "0.15.0"
-# Optional
-bevy_asset = { version = "0.15.0", optional = true }
-bevy_core_pipeline = { version = "0.15.0", optional = true }
-bevy_gizmos = { version = "0.15.0", optional = true }
+bevy_app = { git = "https://github.com/ecoskey/bevy", branch = "proc_sky" }
+bevy_color = { git = "https://github.com/ecoskey/bevy", branch = "proc_sky" }
+bevy_derive = { git = "https://github.com/ecoskey/bevy", branch = "proc_sky" }
+bevy_ecs = { git = "https://github.com/ecoskey/bevy", branch = "proc_sky" }
+bevy_image = { git = "https://github.com/ecoskey/bevy", branch = "proc_sky" }
+bevy_input = { git = "https://github.com/ecoskey/bevy", branch = "proc_sky" }
+bevy_log = { git = "https://github.com/ecoskey/bevy", branch = "proc_sky" }
+bevy_math = { git = "https://github.com/ecoskey/bevy", branch = "proc_sky" }
+bevy_picking = { git = "https://github.com/ecoskey/bevy", branch = "proc_sky" }
+bevy_reflect = { git = "https://github.com/ecoskey/bevy", branch = "proc_sky" }
+bevy_render = { git = "https://github.com/ecoskey/bevy", branch = "proc_sky" }
+bevy_time = { git = "https://github.com/ecoskey/bevy", branch = "proc_sky" }
+bevy_transform = { git = "https://github.com/ecoskey/bevy", branch = "proc_sky" }
+bevy_utils = { git = "https://github.com/ecoskey/bevy", branch = "proc_sky" }
+bevy_window = { git = "https://github.com/ecoskey/bevy", branch = "proc_sky" }
+bevy_asset = { git = "https://github.com/ecoskey/bevy", branch = "proc_sky", optional = true }
+bevy_core_pipeline = { git = "https://github.com/ecoskey/bevy", branch = "proc_sky", optional = true }
+bevy_gizmos = { git = "https://github.com/ecoskey/bevy", branch = "proc_sky", optional = true }
 
 [dev-dependencies]
 bevy_framepace = "0.18"
@@ -42,10 +41,12 @@ indoc = "2.0.5"
 rand = "0.8"
 
 [dev-dependencies.bevy]
-version = "0.15.0"
+git = "https://github.com/ecoskey/bevy"
+branch = "proc_sky"
 features = [
     "bevy_gizmos",
     "bevy_gltf",
+    "bevy_mesh_picking_backend",
     "bevy_scene",
     "bevy_text",
     "bevy_ui",
@@ -60,3 +61,24 @@ features = [
 ]
 # TODO: workaround for https://github.com/bevyengine/bevy/issues/16562
 default-features = true
+
+
+[patch.crates-io]
+bevy_app = { git = "https://github.com/ecoskey/bevy", branch = "proc_sky" }
+bevy_color = { git = "https://github.com/ecoskey/bevy", branch = "proc_sky" }
+bevy_derive = { git = "https://github.com/ecoskey/bevy", branch = "proc_sky" }
+bevy_ecs = { git = "https://github.com/ecoskey/bevy", branch = "proc_sky" }
+bevy_image = { git = "https://github.com/ecoskey/bevy", branch = "proc_sky" }
+bevy_input = { git = "https://github.com/ecoskey/bevy", branch = "proc_sky" }
+bevy_log = { git = "https://github.com/ecoskey/bevy", branch = "proc_sky" }
+bevy_math = { git = "https://github.com/ecoskey/bevy", branch = "proc_sky" }
+bevy_picking = { git = "https://github.com/ecoskey/bevy", branch = "proc_sky" }
+bevy_reflect = { git = "https://github.com/ecoskey/bevy", branch = "proc_sky" }
+bevy_render = { git = "https://github.com/ecoskey/bevy", branch = "proc_sky" }
+bevy_time = { git = "https://github.com/ecoskey/bevy", branch = "proc_sky" }
+bevy_transform = { git = "https://github.com/ecoskey/bevy", branch = "proc_sky" }
+bevy_utils = { git = "https://github.com/ecoskey/bevy", branch = "proc_sky" }
+bevy_window = { git = "https://github.com/ecoskey/bevy", branch = "proc_sky" }
+bevy_asset = { git = "https://github.com/ecoskey/bevy", branch = "proc_sky" }
+bevy_core_pipeline = { git = "https://github.com/ecoskey/bevy", branch = "proc_sky" }
+bevy_gizmos = { git = "https://github.com/ecoskey/bevy", branch = "proc_sky" }

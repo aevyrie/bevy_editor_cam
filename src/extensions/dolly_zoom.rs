@@ -91,6 +91,7 @@ impl DollyZoomTrigger {
 
                     (ZERO_FOV as f32, base)
                 }
+                _ => return,
             };
 
             let perspective_start = PerspectiveProjection {
@@ -200,6 +201,7 @@ impl DollyZoom {
             let fov_end = match &*proj_end {
                 Projection::Perspective(perspective) => perspective.fov as f64,
                 Projection::Orthographic(_) => ZERO_FOV,
+                _ => return,
             };
             let progress = start.elapsed().as_secs_f32() / animation_duration.as_secs_f32();
             let progress = animation_curve.ease(progress);

@@ -344,5 +344,6 @@ fn screen_to_view_space(
             view_near_plane.y,
             controller.last_anchor_depth(),
         )),
+        _ => return None,
     }
 }

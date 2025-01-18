@@ -1,138 +1,112 @@
-use bevy::{color::palettes, prelude::*};
-use bevy_editor_cam::{extensions::dolly_zoom::DollyZoomTrigger, prelude::*};
-use rand::Rng;
+//! This example showcases pbr atmospheric scattering
+
+use std::f32::consts::PI;
+
+use bevy::{
+    core_pipeline::tonemapping::Tonemapping,
+    pbr::{Atmosphere, AtmosphereSettings, CascadeShadowConfigBuilder},
+    prelude::*,
+};
+use bevy_editor_cam::{prelude::EditorCam, DefaultEditorCamPlugins};
+use light_consts::lux;
 
 fn main() {
     App::new()
-        .add_plugins((
-            DefaultPlugins,
-            MeshPickingPlugin,
-            DefaultEditorCamPlugins,
-            bevy_framepace::FramepacePlugin,
-        ))
-        .add_systems(Startup, (setup, setup_ui))
-        .add_systems(Update, toggle_projection)
+        .add_plugins((DefaultPlugins, DefaultEditorCamPlugins, MeshPickingPlugin))
+        .add_systems(Startup, (setup_camera_fog, setup_terrain_scene))
+        .add_systems(Update, dynamic_scene)
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut matls: ResMut<Assets<StandardMaterial>>,
-) {
-    spawn_buildings(&mut commands, &mut meshes, &mut matls, 20.0);
-
-    let diffuse_map = asset_server.load("environment_maps/diffuse_rgb9e5_zstd.ktx2");
-    let specular_map = asset_server.load("environment_maps/specular_rgb9e5_zstd.ktx2");
-    let translation = Vec3::new(7.0, 7.0, 7.0);
-
+fn setup_camera_fog(mut commands: Commands) {
     commands.spawn((
+        EditorCam::default(),
         Camera3d::default(),
-        Transform::from_translation(translation).looking_at(Vec3::ZERO, Vec3::Y),
-        EnvironmentMapLight {
-            intensity: 1000.0,
-            diffuse_map: diffuse_map.clone(),
-            specular_map: specular_map.clone(),
-            rotation: default(),
-        },
-        EditorCam {
-            orbit_constraint: OrbitConstraint::Fixed {
-                up: Vec3::Y,
-                can_pass_tdc: false,
-            },
-            last_anchor_depth: -translation.length() as f64,
-            ..Default::default()
-        },
-        bevy_editor_cam::extensions::independent_skybox::IndependentSkybox::new(
-            diffuse_map,
-            1000.0,
-            default(),
-        ),
-    ));
-}
-
-fn spawn_buildings(
-    commands: &mut Commands,
-    meshes: &mut Assets<Mesh>,
-    matls: &mut Assets<StandardMaterial>,
-    half_width: f32,
-) {
-    commands.spawn((
-        Mesh3d(meshes.add(Plane3d::new(Vec3::Y, Vec2::splat(half_width * 20.0)))),
-        MeshMaterial3d(matls.add(StandardMaterial {
-            base_color: Color::Srgba(palettes::css::DARK_GRAY),
-            ..Default::default()
-        })),
-        Transform::from_xyz(0.0, 0.0, 0.0),
-    ));
-
-    let mut rng = rand::thread_rng();
-    let mesh = meshes.add(Cuboid::default());
-    let material = [
-        matls.add(Color::Srgba(palettes::css::GRAY)),
-        matls.add(Color::srgb(0.3, 0.6, 0.8)),
-        matls.add(Color::srgb(0.55, 0.4, 0.8)),
-        matls.add(Color::srgb(0.8, 0.45, 0.5)),
-    ];
-
-    let w = half_width as isize;
-    for x in -w..=w {
-        for z in -w..=w {
-            let x = x as f32 + rng.gen::<f32>() - 0.5;
-            let z = z as f32 + rng.gen::<f32>() - 0.5;
-            let y = rng.gen::<f32>() * rng.gen::<f32>() * rng.gen::<f32>() * rng.gen::<f32>();
-            let y_scale = 1.02f32.powf(100.0 * y);
-
-            commands.spawn((
-                Mesh3d(mesh.clone()),
-                MeshMaterial3d(material[rng.gen_range(0..material.len())].clone()),
-                Transform::from_xyz(x, y_scale / 2.0, z).with_scale(Vec3::new(
-                    (rng.gen::<f32>() + 0.5) * 0.3,
-                    y_scale,
-                    (rng.gen::<f32>() + 0.5) * 0.3,
-                )),
-            ));
-        }
-    }
-}
-
-fn toggle_projection(
-    keys: Res<ButtonInput<KeyCode>>,
-    mut dolly: EventWriter<DollyZoomTrigger>,
-    cam: Query<Entity, With<EditorCam>>,
-    mut toggled: Local<bool>,
-) {
-    if keys.just_pressed(KeyCode::KeyP) {
-        *toggled = !*toggled;
-        let target_projection = if *toggled {
-            Projection::Orthographic(OrthographicProjection::default_3d())
-        } else {
-            Projection::Perspective(PerspectiveProjection::default())
-        };
-        dolly.send(DollyZoomTrigger {
-            target_projection,
-            camera: cam.single(),
-        });
-    }
-}
-
-fn setup_ui(mut commands: Commands) {
-    let text = indoc::indoc! {"
-        Left Mouse  - Pan
-        Right Mouse - Orbit
-        Scroll      - Zoom
-        P           - Toggle projection       
-    "};
-    commands.spawn((
-        Text::new(text),
-        TextFont {
-            font_size: 20.0,
+        Camera {
+            hdr: true,
             ..default()
         },
-        Node {
-            margin: UiRect::all(Val::Px(20.0)),
+        Tonemapping::AcesFitted,
+        Transform::from_xyz(-1.2, 0.15, 0.0).looking_at(Vec3::Y * 0.1, Vec3::Y),
+        Atmosphere::EARTH,
+        AtmosphereSettings {
+            scene_units_to_km: 1.0,
             ..Default::default()
         },
     ));
+}
+
+#[derive(Component)]
+struct Terrain;
+
+fn setup_terrain_scene(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    asset_server: Res<AssetServer>,
+) {
+    // Configure a properly scaled cascade shadow map for this scene (defaults are too large, mesh units are in km)
+    let cascade_shadow_config = CascadeShadowConfigBuilder {
+        first_cascade_far_bound: 0.3,
+        maximum_distance: 3.0,
+        ..default()
+    }
+    .build();
+
+    // Sun
+    commands.spawn((
+        DirectionalLight {
+            color: Color::srgb(0.98, 0.95, 0.82),
+            shadows_enabled: true,
+            illuminance: lux::AMBIENT_DAYLIGHT,
+            ..default()
+        },
+        Transform::from_xyz(1.0, -1.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
+        cascade_shadow_config,
+    ));
+
+    let sphere_mesh = meshes.add(Mesh::from(Sphere { radius: 1.0 }));
+
+    // light probe spheres
+    commands.spawn((
+        Mesh3d(sphere_mesh.clone()),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: Color::WHITE,
+            metallic: 1.0,
+            perceptual_roughness: 0.0,
+            ..default()
+        })),
+        Transform::from_xyz(-0.3, 0.1, -0.1).with_scale(Vec3::splat(0.05)),
+    ));
+
+    commands.spawn((
+        Mesh3d(sphere_mesh.clone()),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: Color::WHITE,
+            metallic: 0.0,
+            perceptual_roughness: 1.0,
+            ..default()
+        })),
+        Transform::from_xyz(-0.3, 0.1, 0.1).with_scale(Vec3::splat(0.05)),
+    ));
+
+    // Terrain
+    commands.spawn((
+        Terrain,
+        SceneRoot(
+            asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/terrain/terrain.glb")),
+        ),
+        Transform::from_xyz(-1.0, 0.0, -0.5)
+            .with_scale(Vec3::splat(0.5))
+            .with_rotation(Quat::from_rotation_y(PI / 2.0)),
+    ));
+}
+
+fn dynamic_scene(mut sun: Single<&mut Transform, With<DirectionalLight>>, time: Res<Time>) {
+    let t = 1.0; //time.elapsed_secs() * 0.5;
+    let radius = 0.3;
+    let x = radius * ops::cos(t);
+    let y = radius * ops::sin(t);
+    sun.translation = Vec3::new(1.0, y + 0.15, x);
+    sun.look_at(Vec3::ZERO, Vec3::Y);
 }
