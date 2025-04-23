@@ -12,7 +12,7 @@ use bevy_reflect::prelude::*;
 use bevy_render::prelude::*;
 use bevy_time::prelude::*;
 use bevy_transform::prelude::*;
-use bevy_utils::Instant;
+use bevy_platform::time::Instant;
 use bevy_window::RequestRedraw;
 
 use super::{
@@ -350,7 +350,7 @@ impl EditorCam {
         };
 
         // If there is no motion, we will have already early-exited.
-        redraw.send(RequestRedraw);
+        redraw.write(RequestRedraw);
 
         let screen_to_view_space_at_depth =
             |perspective: &PerspectiveProjection, depth: f64| -> Option<DVec2> {
@@ -391,6 +391,7 @@ impl EditorCam {
                 offset
             }
             Projection::Orthographic(ortho) => DVec2::new(-ortho.scale as f64, ortho.scale as f64),
+            Projection::Custom(_) => todo!(),
         };
 
         let pan_translation_view_space = (pan * view_offset).extend(0.0);
@@ -449,6 +450,7 @@ impl EditorCam {
                     * 0.0015
                     * DVec3::new(1.0, 1.0, 0.0)
             }
+            Projection::Custom(_) => todo!(),
         };
 
         // If we can zoom through objects, then scoot the anchor point forward when we hit the

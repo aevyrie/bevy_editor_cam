@@ -8,7 +8,7 @@ use bevy_ecs::prelude::*;
 use bevy_math::{prelude::*, DQuat, DVec3};
 use bevy_reflect::prelude::*;
 use bevy_transform::prelude::*;
-use bevy_utils::{HashMap, Instant};
+use bevy_platform::{collections::HashMap, time::Instant};
 use bevy_window::RequestRedraw;
 
 use crate::prelude::*;
@@ -103,7 +103,7 @@ impl LookToTrigger {
             let Ok((mut controller, transform)) = cameras.get_mut(event.camera) else {
                 continue;
             };
-            redraw.send(RequestRedraw);
+            redraw.write(RequestRedraw);
 
             state
                 .map
@@ -156,7 +156,7 @@ impl Default for LookTo {
     fn default() -> Self {
         Self {
             animation_duration: Duration::from_millis(400),
-            animation_curve: CubicSegment::new_bezier((0.25, 0.0), (0.25, 1.0)),
+            animation_curve: CubicSegment::new_bezier_easing((0.25, 0.0), (0.25, 1.0)),
             map: Default::default(),
         }
     }
@@ -226,7 +226,7 @@ impl LookTo {
             if progress_t >= 1.0 {
                 *complete = true;
             }
-            redraw.send(RequestRedraw);
+            redraw.write(RequestRedraw);
         }
         state.map.retain(|_, v| !v.complete);
     }
