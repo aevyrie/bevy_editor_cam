@@ -40,6 +40,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             diffuse_map: diffuse_map.clone(),
             specular_map: specular_map.clone(),
             rotation: default(),
+            affects_lightmapped_mesh_diffuse: true,
         },
         EditorCam::default(),
         bevy_editor_cam::extensions::independent_skybox::IndependentSkybox::new(
@@ -72,6 +73,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             diffuse_map: diffuse_map.clone(),
             specular_map: specular_map.clone(),
             rotation: default(),
+            affects_lightmapped_mesh_diffuse: true,
         },
         EditorCam::default(),
         bevy_editor_cam::extensions::independent_skybox::IndependentSkybox::new(
@@ -100,7 +102,7 @@ fn set_camera_viewports(
     // A resize_event is sent when the window is first created, allowing us to reuse this system for initial setup.
     for resize_event in resize_events.read() {
         let window = windows.get(resize_event.window).unwrap();
-        let mut left_camera = left_camera.single_mut();
+        let mut left_camera = left_camera.single_mut().unwrap();
         left_camera.viewport = Some(Viewport {
             physical_position: UVec2::new(0, 0),
             physical_size: UVec2::new(
@@ -110,7 +112,7 @@ fn set_camera_viewports(
             ..default()
         });
 
-        let mut right_camera = right_camera.single_mut();
+        let mut right_camera = right_camera.single_mut().unwrap();
         right_camera.viewport = Some(Viewport {
             physical_position: UVec2::new(window.resolution.physical_width() / 2, 0),
             physical_size: UVec2::new(

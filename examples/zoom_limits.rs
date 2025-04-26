@@ -33,6 +33,7 @@ fn setup_camera(mut commands: Commands, asset_server: Res<AssetServer>) {
             diffuse_map: asset_server.load("environment_maps/diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/specular_rgb9e5_zstd.ktx2"),
             rotation: default(),
+            affects_lightmapped_mesh_diffuse: true,
         },
     ));
 }
@@ -43,9 +44,9 @@ fn toggle_zoom(
     mut text: Query<&mut Text>,
 ) {
     if keys.just_pressed(KeyCode::KeyZ) {
-        let mut editor = cam.single_mut();
+        let mut editor = cam.single_mut().unwrap();
         editor.zoom_limits.zoom_through_objects = !editor.zoom_limits.zoom_through_objects;
-        let mut text = text.single_mut();
+        let mut text = text.single_mut().unwrap();
         *text = Text::new(help_text(editor.zoom_limits.zoom_through_objects));
     }
 }
@@ -110,9 +111,9 @@ fn toggle_projection(
         } else {
             Projection::Perspective(PerspectiveProjection::default())
         };
-        dolly.send(DollyZoomTrigger {
+        dolly.write(DollyZoomTrigger {
             target_projection,
-            camera: cam.single(),
+            camera: cam.single().unwrap(),
         });
     }
 }

@@ -35,6 +35,7 @@ fn setup(
             diffuse_map: diffuse_map.clone(),
             specular_map: specular_map.clone(),
             rotation: default(),
+            affects_lightmapped_mesh_diffuse: true,
         },
         EditorCam {
             orbit_constraint: OrbitConstraint::Fixed {
@@ -110,9 +111,9 @@ fn toggle_projection(
         } else {
             Projection::Perspective(PerspectiveProjection::default())
         };
-        dolly.send(DollyZoomTrigger {
+        dolly.write(DollyZoomTrigger {
             target_projection,
-            camera: cam.single(),
+            camera: cam.single().unwrap(),
         });
     }
 }
