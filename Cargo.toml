@@ -1,6 +1,6 @@
 [package]
 name = "bevy_editor_cam"
-version = "0.5.0"
+version = "0.6.0"
 edition = "2021"
 description = "A camera controller for editors and CAD."
 license = "MIT OR Apache-2.0"
@@ -15,34 +15,35 @@ extension_anchor_indicator = ["bevy_gizmos"]
 extension_independent_skybox = ["bevy_asset", "bevy_core_pipeline"]
 
 [dependencies]
-bevy_app = "0.15.0"
-bevy_color = "0.15.0"
-bevy_derive = "0.15.0"
-bevy_ecs = "0.15.0"
-bevy_image = "0.15.0"
-bevy_input = "0.15.0"
-bevy_log = "0.15.0"
-bevy_math = "0.15.0"
-bevy_picking = "0.15.0"
-bevy_reflect = "0.15.0"
-bevy_render = "0.15.0"
-bevy_time = "0.15.0"
-bevy_transform = "0.15.0"
-bevy_utils = "0.15.0"
-bevy_window = "0.15.0"
+bevy_app = "0.16.0"
+bevy_color = "0.16.0"
+bevy_derive = "0.16.0"
+bevy_ecs = "0.16.0"
+bevy_image = "0.16.0"
+bevy_input = "0.16.0"
+bevy_log = "0.16.0"
+bevy_math = "0.16.0"
+bevy_picking = "0.16.0"
+bevy_platform = "0.16.0"
+bevy_reflect = "0.16.0"
+bevy_render = "0.16.0"
+bevy_time = "0.16.0"
+bevy_transform = "0.16.0"
+bevy_window = "0.16.0"
 # Optional
-bevy_asset = { version = "0.15.0", optional = true }
-bevy_core_pipeline = { version = "0.15.0", optional = true }
-bevy_gizmos = { version = "0.15.0", optional = true }
+bevy_asset = { version = "0.16.0", optional = true }
+bevy_core_pipeline = { version = "0.16.0", optional = true }
+bevy_gizmos = { version = "0.16.0", optional = true }
 
 [dev-dependencies]
-bevy_framepace = "0.18"
-big_space = "0.8.0"
+bevy_framepace = "0.19"
+# TODO: use big_space 0.10.0 when it lands
+big_space = { git = "https://github.com/aevyrie/big_space.git", rev = "2a6aac066620a43ff940c713d5f5b5d2d8473a00" }
 indoc = "2.0.5"
 rand = "0.8"
 
 [dev-dependencies.bevy]
-version = "0.15.0"
+version = "0.16.0"
 features = [
     "bevy_gizmos",
     "bevy_gltf",

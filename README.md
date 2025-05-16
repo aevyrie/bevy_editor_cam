@@ -17,6 +17,7 @@ https://github.com/user-attachments/assets/58b270a9-7ae8-4466-9a8f-1fc8f0896590
 
 | bevy | bevy_editor_cam  |
 | ---- | ---------------- |
+| 0.16 | 0.6              |
 | 0.15 | 0.5              |
 | 0.14 | 0.3, 0.4         |
 | 0.13 | 0.2              |

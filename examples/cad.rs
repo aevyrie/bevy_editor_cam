@@ -5,7 +5,6 @@ use bevy::{
     pbr::ScreenSpaceAmbientOcclusion,
     prelude::*,
     render::primitives::Aabb,
-    utils::Instant,
     window::RequestRedraw,
 };
 use bevy_core_pipeline::smaa::Smaa;
@@ -13,6 +12,7 @@ use bevy_editor_cam::{
     extensions::{dolly_zoom::DollyZoomTrigger, look_to::LookToTrigger},
     prelude::*,
 };
+use bevy_platform::time::Instant;
 
 fn main() {
     App::new()
@@ -90,15 +90,20 @@ fn toggle_projection(
     mut toggled: Local<bool>,
 ) {
     if keys.just_pressed(KeyCode::KeyP) {
+        let Ok(camera) = cam.single() else {
+            error_once!("Camera not found");
+            return;
+        };
+
         *toggled = !*toggled;
         let target_projection = if *toggled {
             Projection::Orthographic(OrthographicProjection::default_3d())
         } else {
             Projection::Perspective(PerspectiveProjection::default())
         };
-        dolly.send(DollyZoomTrigger {
+        dolly.write(DollyZoomTrigger {
             target_projection,
-            camera: cam.single(),
+            camera,
         });
     }
 }
@@ -109,7 +114,10 @@ fn toggle_constraint(
     mut look_to: EventWriter<LookToTrigger>,
 ) {
     if keys.just_pressed(KeyCode::KeyC) {
-        let (entity, transform, mut editor) = cam.single_mut();
+        let Ok((entity, transform, mut editor)) = cam.single_mut() else {
+            error_once!("Camera not found");
+            return;
+        };
         match editor.orbit_constraint {
             OrbitConstraint::Fixed { .. } => editor.orbit_constraint = OrbitConstraint::Free,
             OrbitConstraint::Free => {
@@ -118,7 +126,7 @@ fn toggle_constraint(
                     can_pass_tdc: false,
                 };
 
-                look_to.send(LookToTrigger::auto_snap_up_direction(
+                look_to.write(LookToTrigger::auto_snap_up_direction(
                     transform.forward(),
                     entity,
                     transform,
@@ -134,9 +142,12 @@ fn switch_direction(
     mut look_to: EventWriter<LookToTrigger>,
     cam: Query<(Entity, &Transform, &EditorCam)>,
 ) {
-    let (camera, transform, editor) = cam.single();
+    let Ok((camera, transform, editor)) = cam.single() else {
+        error_once!("Camera not found");
+        return;
+    };
     if keys.just_pressed(KeyCode::Digit1) {
-        look_to.send(LookToTrigger::auto_snap_up_direction(
+        look_to.write(LookToTrigger::auto_snap_up_direction(
             Dir3::X,
             camera,
             transform,
@@ -144,7 +155,7 @@ fn switch_direction(
         ));
     }
     if keys.just_pressed(KeyCode::Digit2) {
-        look_to.send(LookToTrigger::auto_snap_up_direction(
+        look_to.write(LookToTrigger::auto_snap_up_direction(
             Dir3::Z,
             camera,
             transform,
@@ -152,7 +163,7 @@ fn switch_direction(
         ));
     }
     if keys.just_pressed(KeyCode::Digit3) {
-        look_to.send(LookToTrigger::auto_snap_up_direction(
+        look_to.write(LookToTrigger::auto_snap_up_direction(
             Dir3::NEG_X,
             camera,
             transform,
@@ -160,7 +171,7 @@ fn switch_direction(
         ));
     }
     if keys.just_pressed(KeyCode::Digit4) {
-        look_to.send(LookToTrigger::auto_snap_up_direction(
+        look_to.write(LookToTrigger::auto_snap_up_direction(
             Dir3::NEG_Z,
             camera,
             transform,
@@ -168,7 +179,7 @@ fn switch_direction(
         ));
     }
     if keys.just_pressed(KeyCode::Digit5) {
-        look_to.send(LookToTrigger::auto_snap_up_direction(
+        look_to.write(LookToTrigger::auto_snap_up_direction(
             Dir3::Y,
             camera,
             transform,
@@ -176,7 +187,7 @@ fn switch_direction(
         ));
     }
     if keys.just_pressed(KeyCode::Digit6) {
-        look_to.send(LookToTrigger::auto_snap_up_direction(
+        look_to.write(LookToTrigger::auto_snap_up_direction(
             Dir3::NEG_Y,
             camera,
             transform,
@@ -205,7 +216,7 @@ fn setup_ui(mut commands: Commands, camera: Entity) {
             margin: UiRect::all(Val::Px(20.0)),
             ..Default::default()
         },
-        TargetCamera(camera),
+        UiTargetCamera(camera),
     ));
 }
 
@@ -234,7 +245,7 @@ fn explode(
     if let Some((toggled, start, start_amount)) = *toggle {
         let goal_amount = toggled as usize as f32;
         let t = (start.elapsed().as_secs_f32() / animation.as_secs_f32()).clamp(0.0, 1.0);
-        let progress = CubicSegment::new_bezier((0.25, 0.1), (0.25, 1.0)).ease(t);
+        let progress = CubicSegment::new_bezier_easing((0.25, 0.1), (0.25, 1.0)).ease(t);
         *explode_amount = start_amount + (goal_amount - start_amount) * progress;
         for (part, mut transform, aabb, start) in &mut parts {
             let start = if let Some(start) = start {
@@ -247,7 +258,7 @@ fn explode(
             transform.translation.y = *explode_amount * (start) * 2.0;
         }
         if t < 1.0 {
-            redraw.send(RequestRedraw);
+            redraw.write(RequestRedraw);
         }
     }
     for (_, matl) in matls.iter_mut() {

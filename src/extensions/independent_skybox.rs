@@ -25,7 +25,7 @@ impl Plugin for IndependentSkyboxPlugin {
             (
                 IndependentSkyboxCamera::spawn,
                 IndependentSkyboxCamera::despawn,
-                apply_deferred,
+                ApplyDeferred,
                 IndependentSkyboxCamera::update,
             )
                 .chain(),

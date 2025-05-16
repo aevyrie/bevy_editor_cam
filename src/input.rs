@@ -7,11 +7,12 @@ use bevy_input::{
     mouse::{MouseScrollUnit, MouseWheel},
     prelude::*,
 };
+use bevy_log::warn_once;
 use bevy_math::{prelude::*, DVec2, DVec3};
+use bevy_platform::collections::HashMap;
 use bevy_reflect::prelude::*;
 use bevy_render::{camera::CameraProjection, prelude::*};
 use bevy_transform::prelude::*;
-use bevy_utils::hashbrown::HashMap;
 use bevy_window::PrimaryWindow;
 
 use bevy_picking::pointer::{
@@ -97,7 +98,7 @@ pub fn default_camera_inputs(
         let should_zoom_end = is_in_zoom_mode && zoom_amount_abs <= zoom_stop;
 
         if mouse_input.any_just_released([orbit_start, pan_start]) || should_zoom_end {
-            controller.send(EditorCamInputEvent::End { camera });
+            controller.write(EditorCamInputEvent::End { camera });
         }
     }
 
@@ -114,13 +115,13 @@ pub fn default_camera_inputs(
                 };
 
                 if mouse_input.just_pressed(orbit_start) {
-                    controller.send(EditorCamInputEvent::Start {
+                    controller.write(EditorCamInputEvent::Start {
                         kind: MotionKind::OrbitZoom,
                         camera,
                         pointer,
                     });
                 } else if mouse_input.just_pressed(pan_start) {
-                    controller.send(EditorCamInputEvent::Start {
+                    controller.write(EditorCamInputEvent::Start {
                         kind: MotionKind::PanZoom,
                         camera,
                         pointer,
@@ -130,7 +131,7 @@ pub fn default_camera_inputs(
                     // check if the y value abs greater than zero, otherwise we get a bunch of false
                     // positives, which can cause issues with figuring out what the user is trying
                     // to do.
-                    controller.send(EditorCamInputEvent::Start {
+                    controller.write(EditorCamInputEvent::Start {
                         kind: MotionKind::Zoom,
                         camera,
                         pointer,
@@ -285,9 +286,11 @@ impl EditorCamInputEvent {
                 .iter()
                 .filter(|m| m.pointer_id.eq(pointer))
                 .filter_map(|m| match m.action {
-                    PointerAction::Moved { delta } => Some(delta),
-                    PointerAction::Pressed { .. } => None,
-                    PointerAction::Canceled => None,
+                    PointerAction::Move { delta } => Some(delta),
+                    PointerAction::Press { .. } => None,
+                    PointerAction::Release(..) => None,
+                    PointerAction::Scroll { .. } => None,
+                    PointerAction::Cancel => None,
                 })
                 .sum();
 
@@ -344,5 +347,9 @@ fn screen_to_view_space(
             view_near_plane.y,
             controller.last_anchor_depth(),
         )),
+        Projection::Custom(_) => {
+            warn_once!("Custom projection not supported");
+            None
+        }
     }
 }

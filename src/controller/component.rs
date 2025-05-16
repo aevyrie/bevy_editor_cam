@@ -8,11 +8,11 @@ use std::{
 use bevy_ecs::prelude::*;
 use bevy_log::prelude::*;
 use bevy_math::{prelude::*, DMat4, DQuat, DVec2, DVec3};
+use bevy_platform::time::Instant;
 use bevy_reflect::prelude::*;
 use bevy_render::prelude::*;
 use bevy_time::prelude::*;
 use bevy_transform::prelude::*;
-use bevy_utils::Instant;
 use bevy_window::RequestRedraw;
 
 use super::{
@@ -308,6 +308,11 @@ impl EditorCam {
         for (mut camera_controller, camera, ref mut transform, ref mut projection) in
             cameras.iter_mut()
         {
+            if matches!(**projection, Projection::Custom(_)) {
+                warn_once!("Custom projection is not supported in editor_cam.");
+                continue;
+            }
+
             let dt = time.delta();
             camera_controller
                 .update_transform_and_projection(camera, transform, projection, &mut event, dt);
@@ -350,7 +355,7 @@ impl EditorCam {
         };
 
         // If there is no motion, we will have already early-exited.
-        redraw.send(RequestRedraw);
+        redraw.write(RequestRedraw);
 
         let screen_to_view_space_at_depth =
             |perspective: &PerspectiveProjection, depth: f64| -> Option<DVec2> {
@@ -391,6 +396,7 @@ impl EditorCam {
                 offset
             }
             Projection::Orthographic(ortho) => DVec2::new(-ortho.scale as f64, ortho.scale as f64),
+            Projection::Custom(_) => unreachable!(),
         };
 
         let pan_translation_view_space = (pan * view_offset).extend(0.0);
@@ -449,6 +455,7 @@ impl EditorCam {
                     * 0.0015
                     * DVec3::new(1.0, 1.0, 0.0)
             }
+            Projection::Custom(_) => unreachable!(),
         };
 
         // If we can zoom through objects, then scoot the anchor point forward when we hit the

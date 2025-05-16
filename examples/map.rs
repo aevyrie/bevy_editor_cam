@@ -35,6 +35,7 @@ fn setup(
             diffuse_map: diffuse_map.clone(),
             specular_map: specular_map.clone(),
             rotation: default(),
+            affects_lightmapped_mesh_diffuse: true,
         },
         EditorCam {
             orbit_constraint: OrbitConstraint::Fixed {
@@ -104,15 +105,20 @@ fn toggle_projection(
     mut toggled: Local<bool>,
 ) {
     if keys.just_pressed(KeyCode::KeyP) {
+        let Ok(camera) = cam.single() else {
+            error_once!("Camera not found");
+            return;
+        };
+
         *toggled = !*toggled;
         let target_projection = if *toggled {
             Projection::Orthographic(OrthographicProjection::default_3d())
         } else {
             Projection::Perspective(PerspectiveProjection::default())
         };
-        dolly.send(DollyZoomTrigger {
+        dolly.write(DollyZoomTrigger {
             target_projection,
-            camera: cam.single(),
+            camera,
         });
     }
 }

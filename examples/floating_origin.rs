@@ -4,20 +4,14 @@ use bevy_editor_cam::{
     prelude::{projections::PerspectiveSettings, zoom::ZoomLimits},
     DefaultEditorCamPlugins,
 };
-use big_space::{
-    commands::BigSpaceCommands,
-    reference_frame::{local_origin::ReferenceFrames, ReferenceFrame},
-    world_query::{GridTransformReadOnly, GridTransformReadOnlyItem},
-    FloatingOrigin, GridCell,
-};
+use big_space::{prelude::*, world_query::GridTransformReadOnlyItem};
 
 fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins.build().disable::<TransformPlugin>(),
             MeshPickingPlugin,
-            big_space::BigSpacePlugin::<i128>::default(),
-            big_space::debug::FloatingOriginDebugPlugin::<i128>::default(),
+            BigSpacePlugin::default(),
             bevy_framepace::FramepacePlugin,
         ))
         .add_plugins(DefaultEditorCamPlugins)
@@ -25,6 +19,7 @@ fn main() {
         .insert_resource(AmbientLight {
             color: Color::WHITE,
             brightness: 20.0,
+            affects_lightmapped_meshes: true,
         })
         .add_systems(Startup, (setup, ui_setup))
         .add_systems(PreUpdate, ui_text_system)
@@ -36,7 +31,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    commands.spawn_big_space(ReferenceFrame::<i128>::default(), |root| {
+    commands.spawn_big_space(Grid::default(), |root| {
         root.spawn_spatial((
             Camera3d::default(),
             Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
@@ -129,29 +124,32 @@ fn ui_text_system(
         (&mut Text, &GlobalTransform),
         (With<BigSpaceDebugText>, Without<FunFactText>),
     >,
-    ref_frames: ReferenceFrames<i128>,
-    origin: Query<(Entity, GridTransformReadOnly<i128>), With<FloatingOrigin>>,
+    grids: Grids,
+    origin: Query<(Entity, GridTransformReadOnly), With<FloatingOrigin>>,
 ) {
-    let (origin_entity, origin_pos) = origin.single();
-    let Some(ref_frame) = ref_frames.parent_frame(origin_entity) else {
+    let Ok((origin_entity, origin_pos)) = origin.single() else {
+        error_once!("No FloatingOrigin found");
+        return;
+    };
+    let Some(grid) = grids.parent_grid(origin_entity) else {
         return;
     };
 
-    let mut debug_text = debug_text.single_mut();
-    *debug_text.0 = Text::new(ui_text(ref_frame, &origin_pos));
+    let Ok(mut debug_text) = debug_text.single_mut() else {
+        error_once!("No debug text found");
+        return;
+    };
+    *debug_text.0 = Text::new(ui_text(grid, &origin_pos));
 }
 
-fn ui_text(
-    ref_frame: &ReferenceFrame<i128>,
-    origin_pos: &GridTransformReadOnlyItem<i128>,
-) -> String {
+fn ui_text(grid: &Grid, origin_pos: &GridTransformReadOnlyItem) -> String {
     let GridCell {
         x: cx,
         y: cy,
         z: cz,
     } = origin_pos.cell;
     let [tx, ty, tz] = origin_pos.transform.translation.into();
-    let [dx, dy, dz] = ref_frame
+    let [dx, dy, dz] = grid
         .grid_position_double(origin_pos.cell, origin_pos.transform)
         .into();
     let [sx, sy, sz] = [dx as f32, dy as f32, dz as f32];
