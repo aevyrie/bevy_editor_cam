@@ -8,10 +8,10 @@ use bevy_input::{
     prelude::*,
 };
 use bevy_math::{prelude::*, DVec2, DVec3};
+use bevy_platform::collections::HashMap;
 use bevy_reflect::prelude::*;
 use bevy_render::{camera::CameraProjection, prelude::*};
 use bevy_transform::prelude::*;
-use bevy_platform::collections::HashMap;
 use bevy_window::PrimaryWindow;
 
 use bevy_picking::pointer::{
@@ -334,8 +334,8 @@ fn screen_to_view_space(
     let ndc_to_view = proj.get_clip_from_view().as_dmat4().inverse();
     let view_near_plane = ndc_to_view.project_point3(ndc.extend(1.));
     match &proj {
-        Projection::Perspective(_) => {
-            // Using EPSILON because an ndc with Z = 0 returns NaNs.
+        Projection::Perspective(_) | Projection::Custom(_) => {
+            // Using EPSILON because an NDC with Z = 0 returns NaNs.
             let view_far_plane = ndc_to_view.project_point3(ndc.extend(f64::EPSILON));
             let direction = (view_far_plane - view_near_plane).normalize();
             Some((direction / direction.z) * controller.last_anchor_depth())
@@ -345,6 +345,5 @@ fn screen_to_view_space(
             view_near_plane.y,
             controller.last_anchor_depth(),
         )),
-        Projection::Custom(_) => todo!(),
     }
 }

@@ -68,7 +68,7 @@ fn spawn_buildings(
         Transform::from_xyz(0.0, 0.0, 0.0),
     ));
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let mesh = meshes.add(Cuboid::default());
     let material = [
         matls.add(Color::Srgba(palettes::css::GRAY)),
@@ -80,18 +80,21 @@ fn spawn_buildings(
     let w = half_width as isize;
     for x in -w..=w {
         for z in -w..=w {
-            let x = x as f32 + rng.gen::<f32>() - 0.5;
-            let z = z as f32 + rng.gen::<f32>() - 0.5;
-            let y = rng.gen::<f32>() * rng.gen::<f32>() * rng.gen::<f32>() * rng.gen::<f32>();
+            let x = x as f32 + rng.random::<f32>() - 0.5;
+            let z = z as f32 + rng.random::<f32>() - 0.5;
+            let y = rng.random::<f32>()
+                * rng.random::<f32>()
+                * rng.random::<f32>()
+                * rng.random::<f32>();
             let y_scale = 1.02f32.powf(100.0 * y);
 
             commands.spawn((
                 Mesh3d(mesh.clone()),
-                MeshMaterial3d(material[rng.gen_range(0..material.len())].clone()),
+                MeshMaterial3d(material[rng.random_range(0..material.len())].clone()),
                 Transform::from_xyz(x, y_scale / 2.0, z).with_scale(Vec3::new(
-                    (rng.gen::<f32>() + 0.5) * 0.3,
+                    (rng.random::<f32>() + 0.5) * 0.3,
                     y_scale,
-                    (rng.gen::<f32>() + 0.5) * 0.3,
+                    (rng.random::<f32>() + 0.5) * 0.3,
                 )),
             ));
         }
