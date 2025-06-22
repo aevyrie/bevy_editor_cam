@@ -58,5 +58,39 @@ features = [
     "x11",
     "zstd",
 ]
-# TODO: workaround for https://github.com/bevyengine/bevy/issues/16562
-default-features = true
+
+[[example]]
+name = "cad"
+path = "examples/cad.rs"
+required-features = ["default"]
+
+[[example]]
+name = "floating_origin"
+path = "examples/floating_origin.rs"
+required-features = ["default"]
+
+[[example]]
+name = "map"
+path = "examples/map.rs"
+required-features = ["default"]
+
+[[example]]
+name = "minimal"
+path = "examples/minimal.rs"
+required-features = ["default"]
+
+[[example]]
+name = "ortho"
+path = "examples/ortho.rs"
+required-features = ["default"]
+
+[[example]]
+name = "split_screen"
+path = "examples/split_screen.rs"
+required-features = ["default"]
+
+[[example]]
+name = "zoom_limits"
+path = "examples/zoom_limits.rs"
+required-features = ["default"]
+
