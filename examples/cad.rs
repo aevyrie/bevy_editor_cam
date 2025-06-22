@@ -3,9 +3,9 @@ use std::time::Duration;
 use bevy::{
     core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
     pbr::ScreenSpaceAmbientOcclusion,
+    platform::time::Instant,
     prelude::*,
     render::primitives::Aabb,
-    platform::time::Instant,
     window::RequestRedraw,
 };
 use bevy_core_pipeline::smaa::Smaa;
