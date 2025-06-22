@@ -1,3 +1,5 @@
 /target
 Cargo.lock
 /assets/models/scene
+.idea
+.vscode
