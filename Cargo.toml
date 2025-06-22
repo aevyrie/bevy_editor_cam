@@ -15,34 +15,35 @@ extension_anchor_indicator = ["bevy_gizmos"]
 extension_independent_skybox = ["bevy_asset", "bevy_core_pipeline"]
 
 [dependencies]
-bevy_app = "0.15.0"
-bevy_color = "0.15.0"
-bevy_derive = "0.15.0"
-bevy_ecs = "0.15.0"
-bevy_image = "0.15.0"
-bevy_input = "0.15.0"
-bevy_log = "0.15.0"
-bevy_math = "0.15.0"
-bevy_picking = "0.15.0"
-bevy_reflect = "0.15.0"
-bevy_render = "0.15.0"
-bevy_time = "0.15.0"
-bevy_transform = "0.15.0"
-bevy_utils = "0.15.0"
-bevy_window = "0.15.0"
+bevy_app = "0.16.1"
+bevy_color = "0.16.1"
+bevy_derive = "0.16.1"
+bevy_ecs = "0.16.1"
+bevy_image = "0.16.1"
+bevy_input = "0.16.1"
+bevy_log = "0.16.1"
+bevy_math = "0.16.1"
+bevy_picking = "0.16.1"
+bevy_reflect = "0.16.1"
+bevy_render = "0.16.1"
+bevy_time = "0.16.1"
+bevy_transform = "0.16.1"
+bevy_utils = "0.16.1"
+bevy_window = "0.16.1"
+bevy_platform = "0.16.1"
 # Optional
-bevy_asset = { version = "0.15.0", optional = true }
-bevy_core_pipeline = { version = "0.15.0", optional = true }
-bevy_gizmos = { version = "0.15.0", optional = true }
+bevy_asset = { version = "0.16.1", optional = true }
+bevy_core_pipeline = { version = "0.16.1", optional = true }
+bevy_gizmos = { version = "0.16.1", optional = true }
 
 [dev-dependencies]
-bevy_framepace = "0.18"
-big_space = "0.8.0"
+bevy_framepace = "0.19.1"
+big_space = "0.10.0"
 indoc = "2.0.5"
-rand = "0.8"
+rand = "0.9"
 
 [dev-dependencies.bevy]
-version = "0.15.0"
+version = "0.16.0"
 features = [
     "bevy_gizmos",
     "bevy_gltf",
@@ -93,4 +94,3 @@ required-features = ["default"]
 name = "zoom_limits"
 path = "examples/zoom_limits.rs"
 required-features = ["default"]
-

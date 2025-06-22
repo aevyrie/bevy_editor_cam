@@ -1,23 +1,16 @@
 use bevy::{color::palettes, prelude::*};
-use bevy_editor_cam::{
-    controller::component::EditorCam,
-    prelude::{projections::PerspectiveSettings, zoom::ZoomLimits},
-    DefaultEditorCamPlugins,
-};
-use big_space::{
-    commands::BigSpaceCommands,
-    reference_frame::{local_origin::ReferenceFrames, ReferenceFrame},
-    world_query::{GridTransformReadOnly, GridTransformReadOnlyItem},
-    FloatingOrigin, GridCell,
-};
+use bevy_editor_cam::controller::projections::PerspectiveSettings;
+use bevy_editor_cam::controller::zoom::ZoomLimits;
+use bevy_editor_cam::prelude::*;
+use big_space::prelude::*;
+use big_space::world_query::CellTransformReadOnlyItem;
 
 fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins.build().disable::<TransformPlugin>(),
             MeshPickingPlugin,
-            big_space::BigSpacePlugin::<i128>::default(),
-            big_space::debug::FloatingOriginDebugPlugin::<i128>::default(),
+            BigSpaceDefaultPlugins,
             bevy_framepace::FramepacePlugin,
         ))
         .add_plugins(DefaultEditorCamPlugins)
@@ -25,6 +18,7 @@ fn main() {
         .insert_resource(AmbientLight {
             color: Color::WHITE,
             brightness: 20.0,
+            ..default()
         })
         .add_systems(Startup, (setup, ui_setup))
         .add_systems(PreUpdate, ui_text_system)
@@ -36,7 +30,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    commands.spawn_big_space(ReferenceFrame::<i128>::default(), |root| {
+    commands.spawn_big_space_default(|root| {
         root.spawn_spatial((
             Camera3d::default(),
             Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
@@ -129,22 +123,19 @@ fn ui_text_system(
         (&mut Text, &GlobalTransform),
         (With<BigSpaceDebugText>, Without<FunFactText>),
     >,
-    ref_frames: ReferenceFrames<i128>,
-    origin: Query<(Entity, GridTransformReadOnly<i128>), With<FloatingOrigin>>,
+    ref_frames: Grids,
+    origin: Query<(Entity, CellTransformReadOnly), With<FloatingOrigin>>,
 ) {
-    let (origin_entity, origin_pos) = origin.single();
-    let Some(ref_frame) = ref_frames.parent_frame(origin_entity) else {
+    let (origin_entity, origin_pos) = origin.single().unwrap();
+    let Some(ref_frame) = ref_frames.parent_grid(origin_entity) else {
         return;
     };
 
-    let mut debug_text = debug_text.single_mut();
+    let mut debug_text = debug_text.single_mut().unwrap();
     *debug_text.0 = Text::new(ui_text(ref_frame, &origin_pos));
 }
 
-fn ui_text(
-    ref_frame: &ReferenceFrame<i128>,
-    origin_pos: &GridTransformReadOnlyItem<i128>,
-) -> String {
+fn ui_text(ref_frame: &Grid, origin_pos: &CellTransformReadOnlyItem) -> String {
     let GridCell {
         x: cx,
         y: cy,

@@ -7,11 +7,12 @@ use std::time::Duration;
 
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
+use bevy_log::error_once;
 use bevy_math::prelude::*;
+use bevy_platform::{collections::HashMap, time::Instant};
 use bevy_reflect::prelude::*;
 use bevy_render::{camera::ScalingMode, prelude::*};
 use bevy_transform::prelude::*;
-use bevy_utils::{HashMap, Instant};
 use bevy_window::RequestRedraw;
 
 use crate::prelude::{motion::CurrentMotion, EditorCam, EnabledMotion};
@@ -58,7 +59,7 @@ impl DollyZoomTrigger {
             else {
                 continue;
             };
-            redraw.send(RequestRedraw);
+            redraw.write(RequestRedraw);
             let (fov_start, triangle_base) = match &*proj {
                 Projection::Perspective(perspective) => {
                     if let Projection::Perspective(PerspectiveProjection {
@@ -90,6 +91,10 @@ impl DollyZoomTrigger {
                     controller.last_anchor_depth += forward_dist;
 
                     (ZERO_FOV as f32, base)
+                }
+                Projection::Custom(_) => {
+                    error_once!("Custom projections are not supported.");
+                    return;
                 }
             };
 
@@ -154,7 +159,7 @@ impl Default for DollyZoom {
     fn default() -> Self {
         Self {
             animation_duration: Duration::from_millis(300),
-            animation_curve: CubicSegment::new_bezier((0.65, 0.0), (0.35, 1.0)),
+            animation_curve: CubicSegment::new_bezier_easing((0.65, 0.0), (0.35, 1.0)),
             map: Default::default(),
         }
     }
@@ -200,6 +205,10 @@ impl DollyZoom {
             let fov_end = match &*proj_end {
                 Projection::Perspective(perspective) => perspective.fov as f64,
                 Projection::Orthographic(_) => ZERO_FOV,
+                Projection::Custom(_) => {
+                    error_once!("Custom projections are not supported.");
+                    return;
+                }
             };
             let progress = start.elapsed().as_secs_f32() / animation_duration.as_secs_f32();
             let progress = animation_curve.ease(progress);
@@ -228,7 +237,7 @@ impl DollyZoom {
                 controller.enabled_motion = initial_enabled.clone();
                 *complete = true;
             }
-            redraw.send(RequestRedraw);
+            redraw.write(RequestRedraw);
         }
         state.map.retain(|_, v| !v.complete);
     }

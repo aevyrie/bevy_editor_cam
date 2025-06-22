@@ -30,6 +30,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             diffuse_map: diffuse_map.clone(),
             specular_map: specular_map.clone(),
             rotation: default(),
+            affects_lightmapped_mesh_diffuse: true,
         },
         // This component makes the camera controllable with this plugin.
         //
