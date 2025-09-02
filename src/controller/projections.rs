@@ -1,6 +1,7 @@
 //! Configurable options for the challenge of working with orthographic cameras.
 
 use bevy_ecs::prelude::*;
+use bevy_math::Vec3;
 use bevy_reflect::prelude::*;
 use bevy_render::prelude::*;
 use bevy_transform::prelude::*;
@@ -42,7 +43,7 @@ impl Default for PerspectiveSettings {
 }
 
 /// Updates perspective projection properties of editor cameras.
-pub fn update_perspective(mut cameras: Query<(&EditorCam, &mut Projection)>) {
+pub fn update_perspective(mut cameras: Query<(&EditorCam, Mut<Projection>)>) {
     for (editor_cam, mut projection) in cameras.iter_mut() {
         let Projection::Perspective(ref mut perspective) = *projection else {
             continue;
@@ -89,7 +90,7 @@ impl Default for OrthographicSettings {
 }
 
 /// Update the ortho camera projection and position based on the [`OrthographicSettings`].
-pub fn update_orthographic(mut cameras: Query<(&mut EditorCam, &mut Projection, &mut Transform)>) {
+pub fn update_orthographic(mut cameras: Query<(&mut EditorCam, Mut<Projection>, Mut<Transform>)>) {
     for (mut editor_cam, mut projection, mut cam_transform) in cameras.iter_mut() {
         let Projection::Orthographic(ref mut orthographic) = *projection else {
             continue;
@@ -104,7 +105,9 @@ pub fn update_orthographic(mut cameras: Query<(&mut EditorCam, &mut Projection, 
         let forward_amount = anchor_dist - target_dist;
         let movement = cam_transform.forward() * forward_amount;
 
-        cam_transform.translation += movement;
+        if movement != Vec3::ZERO {
+            cam_transform.translation += movement;
+        }
 
         editor_cam.last_anchor_depth += forward_amount as f64;
         if let CurrentMotion::UserControlled { ref mut anchor, .. } = editor_cam.current_motion {

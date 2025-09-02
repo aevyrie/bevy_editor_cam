@@ -165,7 +165,7 @@ impl Default for LookTo {
 impl LookTo {
     fn update(
         mut state: ResMut<Self>,
-        mut cameras: Query<(&mut Transform, &EditorCam)>,
+        mut cameras: Query<(Mut<Transform>, &EditorCam)>,
         mut redraw: EventWriter<RequestRedraw>,
     ) {
         let animation_duration = state.animation_duration;

@@ -179,7 +179,7 @@ impl IndependentSkyboxCamera {
                 Without<Self>,
             ),
         >,
-        mut skybox_cams: Query<(&mut Transform, &mut Projection, &mut Camera), With<Self>>,
+        mut skybox_cams: Query<(Mut<Transform>, Mut<Projection>, Mut<Camera>), With<Self>>,
     ) {
         for (editor_cam, editor_transform, editor_projection, camera) in &mut editor_cams {
             let Some(skybox_entity) = editor_cam.skybox_cam else {

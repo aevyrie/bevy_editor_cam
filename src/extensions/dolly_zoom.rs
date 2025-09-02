@@ -50,7 +50,7 @@ impl DollyZoomTrigger {
     fn receive(
         mut events: EventReader<Self>,
         mut state: ResMut<DollyZoom>,
-        mut cameras: Query<(&Camera, &mut Projection, &mut EditorCam, &mut Transform)>,
+        mut cameras: Query<(&Camera, Mut<Projection>, Mut<EditorCam>, Mut<Transform>)>,
         mut redraw: EventWriter<RequestRedraw>,
     ) {
         for event in events.read() {
@@ -168,7 +168,7 @@ impl Default for DollyZoom {
 impl DollyZoom {
     fn update(
         mut state: ResMut<Self>,
-        mut cameras: Query<(&Camera, &mut Projection, &mut Transform, &mut EditorCam)>,
+        mut cameras: Query<(&Camera, Mut<Projection>, Mut<Transform>, &mut EditorCam)>,
         mut redraw: EventWriter<RequestRedraw>,
     ) {
         let animation_duration = state.animation_duration;
