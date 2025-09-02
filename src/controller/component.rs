@@ -469,7 +469,7 @@ impl EditorCam {
         }
 
         // Unwrap the [`Mut`] once so we limit the number of
-        // atomic operations for the rest of the function, now we
+        // change detection operations for the rest of the function, now we
         // know we'll mutate the [`Transform`].
         let cam_transform: &mut Transform = cam_transform.into_inner();
 
