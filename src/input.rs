@@ -1,6 +1,7 @@
 //! Provides a default input plugin for the camera. See [`DefaultInputPlugin`].
 
 use bevy_app::prelude::*;
+use bevy_camera::prelude::*;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_input::{
@@ -10,7 +11,6 @@ use bevy_input::{
 use bevy_math::{prelude::*, DVec2, DVec3};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::prelude::*;
-use bevy_render::{camera::CameraProjection, prelude::*};
 use bevy_transform::prelude::*;
 use bevy_window::PrimaryWindow;
 
@@ -49,21 +49,21 @@ impl From<&MotionInputs> for MotionKind {
 pub struct DefaultInputPlugin;
 impl Plugin for DefaultInputPlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<crate::input::EditorCamInputEvent>()
+        app.add_message::<crate::input::EditorCamInputMessage>()
             .init_resource::<crate::input::CameraPointerMap>()
             .add_systems(
                 PreUpdate,
                 (
                     default_camera_inputs,
-                    EditorCamInputEvent::receive_events,
-                    EditorCamInputEvent::send_pointer_inputs,
+                    EditorCamInputMessage::receive_messages,
+                    EditorCamInputMessage::send_pointer_inputs,
                 )
                     .chain()
-                    .after(bevy_picking::PickSet::Last)
+                    .after(bevy_picking::PickingSystems::Last)
                     .before(crate::controller::component::EditorCam::update_camera_positions),
             )
             .register_type::<CameraPointerMap>()
-            .register_type::<EditorCamInputEvent>();
+            .register_type::<EditorCamInputMessage>();
     }
 }
 
@@ -71,8 +71,8 @@ impl Plugin for DefaultInputPlugin {
 pub fn default_camera_inputs(
     pointers: Query<(&PointerId, &PointerLocation)>,
     pointer_map: Res<CameraPointerMap>,
-    mut controller: EventWriter<EditorCamInputEvent>,
-    mut mouse_wheel: EventReader<MouseWheel>,
+    mut controller: MessageWriter<EditorCamInputMessage>,
+    mut mouse_wheel: MessageReader<MouseWheel>,
     mouse_input: Res<ButtonInput<MouseButton>>,
     cameras: Query<(Entity, &Camera, &EditorCam)>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
@@ -97,7 +97,7 @@ pub fn default_camera_inputs(
         let should_zoom_end = is_in_zoom_mode && zoom_amount_abs <= zoom_stop;
 
         if mouse_input.any_just_released([orbit_start, pan_start]) || should_zoom_end {
-            controller.write(EditorCamInputEvent::End { camera });
+            controller.write(EditorCamInputMessage::End { camera });
         }
     }
 
@@ -114,13 +114,13 @@ pub fn default_camera_inputs(
                 };
 
                 if mouse_input.just_pressed(orbit_start) {
-                    controller.write(EditorCamInputEvent::Start {
+                    controller.write(EditorCamInputMessage::Start {
                         kind: MotionKind::OrbitZoom,
                         camera,
                         pointer,
                     });
                 } else if mouse_input.just_pressed(pan_start) {
-                    controller.write(EditorCamInputEvent::Start {
+                    controller.write(EditorCamInputMessage::Start {
                         kind: MotionKind::PanZoom,
                         camera,
                         pointer,
@@ -130,7 +130,7 @@ pub fn default_camera_inputs(
                     // check if the y value abs greater than zero, otherwise we get a bunch of false
                     // positives, which can cause issues with figuring out what the user is trying
                     // to do.
-                    controller.write(EditorCamInputEvent::Start {
+                    controller.write(EditorCamInputMessage::Start {
                         kind: MotionKind::Zoom,
                         camera,
                         pointer,
@@ -150,15 +150,15 @@ pub fn default_camera_inputs(
 /// Maps pointers to the camera they are currently controlling.
 ///
 /// This is needed so we can automatically track pointer movements and update camera movement after
-/// a [`EditorCamInputEvent::Start`] has been received.
+/// a [`EditorCamInputMessage::Start`] has been received.
 #[derive(Debug, Clone, Default, Deref, DerefMut, Reflect, Resource)]
 pub struct CameraPointerMap(HashMap<PointerId, Entity>);
 
-/// Events used when implementing input systems for the [`EditorCam`].
-#[derive(Debug, Clone, Reflect, Event)]
-pub enum EditorCamInputEvent {
+/// Messages used when implementing input systems for the [`EditorCam`].
+#[derive(Debug, Clone, Reflect, Message)]
+pub enum EditorCamInputMessage {
     /// Send this event to start moving the camera. The anchor and inputs will be computed
-    /// automatically until the [`EditorCamInputEvent::End`] event is received.
+    /// automatically until the [`EditorCamInputMessage::End`] event is received.
     Start {
         /// The kind of camera movement that is being started.
         kind: MotionKind,
@@ -175,18 +175,18 @@ pub enum EditorCamInputEvent {
     },
 }
 
-impl EditorCamInputEvent {
+impl EditorCamInputMessage {
     /// Get the camera entity associated with this event.
     pub fn camera(&self) -> Entity {
         match self {
-            EditorCamInputEvent::Start { camera, .. } => *camera,
-            EditorCamInputEvent::End { camera } => *camera,
+            EditorCamInputMessage::Start { camera, .. } => *camera,
+            EditorCamInputMessage::End { camera } => *camera,
         }
     }
 
-    /// Receive [`EditorCamInputEvent`]s, and use these to start and end moves on the [`EditorCam`].
-    pub fn receive_events(
-        mut events: EventReader<Self>,
+    /// Receive [`EditorCamInputMessage`]s, and use these to start and end moves on the [`EditorCam`].
+    pub fn receive_messages(
+        mut events: MessageReader<Self>,
         mut controllers: Query<(&mut EditorCam, &GlobalTransform)>,
         mut camera_map: ResMut<CameraPointerMap>,
         pointer_map: Res<PointerMap>,
@@ -200,7 +200,7 @@ impl EditorCamInputEvent {
             };
 
             match event {
-                EditorCamInputEvent::Start { kind, pointer, .. } => {
+                EditorCamInputMessage::Start { kind, pointer, .. } => {
                     if controller.is_actively_controlled() {
                         continue;
                     }
@@ -212,7 +212,7 @@ impl EditorCamInputEvent {
                         .map(|world_space_hit| {
                             // Convert the world space hit to view (camera) space
                             cam_transform
-                                .compute_matrix()
+                                .to_matrix()
                                 .as_dmat4()
                                 .inverse()
                                 .transform_point3(world_space_hit.into())
@@ -252,7 +252,7 @@ impl EditorCamInputEvent {
                     }
                     camera_map.insert(*pointer, event.camera());
                 }
-                EditorCamInputEvent::End { .. } => {
+                EditorCamInputMessage::End { .. } => {
                     controller.end_move();
                     if let Some(pointer) = camera_map
                         .iter()
@@ -280,8 +280,8 @@ impl EditorCamInputEvent {
     pub fn send_pointer_inputs(
         camera_map: Res<CameraPointerMap>,
         mut camera_controllers: Query<&mut EditorCam>,
-        mut mouse_wheel: EventReader<MouseWheel>,
-        mut moves: EventReader<PointerInput>,
+        mut mouse_wheel: MessageReader<MouseWheel>,
+        mut moves: MessageReader<PointerInput>,
     ) {
         let moves_list: Vec<_> = moves.read().collect();
         for (pointer, camera) in camera_map.iter() {

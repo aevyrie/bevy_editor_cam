@@ -108,7 +108,7 @@ fn help_text(zoom_through: bool) -> String {
 
 fn toggle_projection(
     keys: Res<ButtonInput<KeyCode>>,
-    mut dolly: EventWriter<DollyZoomTrigger>,
+    mut dolly: MessageWriter<DollyZoomTrigger>,
     cam: Query<Entity, With<EditorCam>>,
     mut toggled: Local<bool>,
 ) {

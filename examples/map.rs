@@ -107,7 +107,7 @@ fn spawn_buildings(
 
 fn toggle_projection(
     keys: Res<ButtonInput<KeyCode>>,
-    mut dolly: EventWriter<DollyZoomTrigger>,
+    mut dolly: MessageWriter<DollyZoomTrigger>,
     cam: Query<Entity, With<EditorCam>>,
     mut toggled: Local<bool>,
 ) {

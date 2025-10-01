@@ -6,12 +6,12 @@
 use std::time::Duration;
 
 use bevy_app::prelude::*;
+use bevy_camera::{prelude::*, ScalingMode};
 use bevy_ecs::prelude::*;
 use bevy_log::error_once;
 use bevy_math::prelude::*;
 use bevy_platform::{collections::HashMap, time::Instant};
 use bevy_reflect::prelude::*;
-use bevy_render::{camera::ScalingMode, prelude::*};
 use bevy_transform::prelude::*;
 use bevy_window::RequestRedraw;
 
@@ -23,7 +23,7 @@ pub struct DollyZoomPlugin;
 impl Plugin for DollyZoomPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<DollyZoom>()
-            .add_event::<DollyZoomTrigger>()
+            .add_message::<DollyZoomTrigger>()
             .add_systems(
                 PreUpdate,
                 DollyZoom::update
@@ -38,7 +38,7 @@ impl Plugin for DollyZoomPlugin {
 const ZERO_FOV: f64 = 1e-3;
 
 /// Triggers a dolly zoom on the specified camera.
-#[derive(Debug, Event)]
+#[derive(Debug, Message)]
 pub struct DollyZoomTrigger {
     /// The new projection.
     pub target_projection: Projection,
@@ -48,10 +48,10 @@ pub struct DollyZoomTrigger {
 
 impl DollyZoomTrigger {
     fn receive(
-        mut events: EventReader<Self>,
+        mut events: MessageReader<Self>,
         mut state: ResMut<DollyZoom>,
         mut cameras: Query<(&Camera, Mut<Projection>, Mut<EditorCam>, Mut<Transform>)>,
-        mut redraw: EventWriter<RequestRedraw>,
+        mut redraw: MessageWriter<RequestRedraw>,
     ) {
         for event in events.read() {
             let Ok((camera, mut proj, mut controller, mut transform)) =
@@ -169,7 +169,7 @@ impl DollyZoom {
     fn update(
         mut state: ResMut<Self>,
         mut cameras: Query<(&Camera, Mut<Projection>, Mut<Transform>, &mut EditorCam)>,
-        mut redraw: EventWriter<RequestRedraw>,
+        mut redraw: MessageWriter<RequestRedraw>,
     ) {
         let animation_duration = state.animation_duration;
         let animation_curve = state.animation_curve;
