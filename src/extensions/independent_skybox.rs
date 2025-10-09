@@ -3,7 +3,8 @@
 //! camera FOVs, or even orthographic projections, while keeping the appearance of the skybox
 //! unchanged.
 //!
-//! To use it, add a [`IndependentSkybox`] component to a camera.
+//! To use it, add a [`IndependentSkybox`] component to a camera,
+//! and add the [`IndependentSkyboxPlugin`] to your app.
 
 use bevy_app::prelude::*;
 use bevy_asset::Handle;
@@ -34,7 +35,23 @@ impl Plugin for IndependentSkyboxPlugin {
     }
 }
 
-/// Add this to a camera to enable rendering a skybox with these parameters.
+/// When working with orthographic or very narrow field of view cameras, the skybox can appear
+/// distorted. This component allows you to add a skybox to a camera that is rendered by
+/// a separate camera with its own field of view.
+///
+/// There are two camera entities involved when using this setup:
+///
+/// 1. The camera you add the [`IndependentSkybox`] component to. This should be a camera controller, and can use any
+///   projection you like.
+/// 2. A separate camera that is created automatically to render the skybox. This camera will
+///   copy the position and orientation of the first camera, but will use its own field of
+///  view, as specified by the [`IndependentSkybox::fov`] setting. This camera will have the
+///  [`IndependentSkyboxCamera`] component.
+///
+/// This struct controls the parameters used to render the skybox.
+/// [`IndependentSkyboxPlugin`] adds systems to manage the lifecycle of the skybox camera
+/// automatically. You just need to add this component to a camera, and a separate linked skybox camera
+/// will be created, updated, and destroyed as needed.
 #[derive(Debug, Clone, Reflect, Component)]
 pub struct IndependentSkybox {
     /// The image to render as a skybox.
