@@ -29,8 +29,7 @@ impl Plugin for DollyZoomPlugin {
                 DollyZoom::update
                     .before(crate::controller::component::EditorCam::update_camera_positions),
             )
-            .add_systems(Last, DollyZoomTrigger::receive) // This mutates camera components, so we want to be sure it runs *after* rendering has happened. We place it in Last to ensure that we wake the next frame if needed. If we run this in PostUpdate, this can result in rendering artifacts because this will mutate projections right before rendering.
-            .register_type::<DollyZoom>();
+            .add_systems(Last, DollyZoomTrigger::receive); // This mutates camera components, so we want to be sure it runs *after* rendering has happened. We place it in Last to ensure that we wake the next frame if needed. If we run this in PostUpdate, this can result in rendering artifacts because this will mutate projections right before rendering.
     }
 }
 
