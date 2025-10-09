@@ -1,4 +1,12 @@
 //! A minimal example showing the steps needed to get started with the plugin.
+//!
+//! Controls:
+//! - Pan: Left mouse button + drag
+//! - Orbit: Right mouse button + drag
+//! - Zoom: Mouse wheel
+//!
+//! This controller relies on picking to determine what point to orbit around and zoom towards:
+//! your motion will be relative to the point under the mouse cursor.
 
 use bevy::prelude::*;
 use bevy_editor_cam::prelude::*;

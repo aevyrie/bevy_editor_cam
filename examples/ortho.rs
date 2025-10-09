@@ -1,3 +1,8 @@
+//! Demonstrates the use of an orthographic camera with the pan-orbit-zoom controller.
+//!
+//! While this is supported, there are some special considerations when using an orthographic camera.
+//! See comments in the code below!
+
 use bevy::prelude::*;
 use bevy_editor_cam::prelude::*;
 

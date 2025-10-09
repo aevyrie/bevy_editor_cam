@@ -1,4 +1,12 @@
-//! Renders two cameras to the same window to accomplish "split screen".
+//! This camera controller supports multiple distinct viewports.
+//!
+//! We create a "split screen" effect by rendering two cameras to the same window,
+//! then spawn one camera for each half of the screen, each with their own controller.
+//!
+//! Because this plugin relies on mouse picking to determine what point to orbit around and zoom towards,
+//! each camera will only respond to mouse input when the mouse is over its viewport.
+//!
+//! The anchor indicator is rendered in world space, so it will be visible in both viewports!
 
 use bevy::{
     core_pipeline::tonemapping::Tonemapping, prelude::*, render::camera::Viewport,
