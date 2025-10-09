@@ -60,6 +60,9 @@ features = [
     "zstd",
 ]
 
+[lints.clippy]
+type_complexity = "allow"
+
 [[example]]
 name = "cad"
 path = "examples/cad.rs"

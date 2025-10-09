@@ -117,7 +117,6 @@ fn ui_setup(mut commands: Commands) {
     ));
 }
 
-#[allow(clippy::type_complexity)]
 fn ui_text_system(
     mut debug_text: Query<
         (&mut Text, &GlobalTransform),
