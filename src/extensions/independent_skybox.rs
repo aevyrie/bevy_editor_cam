@@ -187,7 +187,6 @@ impl IndependentSkyboxCamera {
 
     /// Update the position and projection of this [`IndependentSkyboxCamera`] to copy the camera it
     /// is following.
-    #[allow(clippy::type_complexity)]
     pub fn update(
         mut editor_cams: Query<
             (&IndependentSkybox, &Transform, &Projection, &Camera),

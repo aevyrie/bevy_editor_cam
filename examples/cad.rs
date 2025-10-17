@@ -213,7 +213,6 @@ fn setup_ui(mut commands: Commands, camera: Entity) {
 #[derive(Component)]
 struct StartPos(f32);
 
-#[allow(clippy::type_complexity)]
 fn explode(
     mut commands: Commands,
     keys: Res<ButtonInput<KeyCode>>,
