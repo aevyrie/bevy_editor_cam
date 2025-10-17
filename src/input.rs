@@ -217,6 +217,13 @@ impl EditorCamInputEvent {
                                 .inverse()
                                 .transform_point3(world_space_hit.into())
                         })
+                        .filter(|p| {
+                            #[cfg(debug_assertions)]
+                            if !p.is_finite() {
+                                bevy_log::warn!("Non-finite input fed to camera controller: {p:?}")
+                            }
+                            p.is_finite()
+                        })
                         .or_else(|| {
                             let camera = cameras.get(event.camera()).ok();
                             let pointer_location = pointer_map
@@ -235,7 +242,8 @@ impl EditorCamInputEvent {
                             } else {
                                 None
                             }
-                        });
+                        })
+                        .filter(|p| p.is_finite());
 
                     match kind {
                         MotionKind::OrbitZoom => controller.start_orbit(anchor),
