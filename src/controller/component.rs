@@ -112,7 +112,7 @@ impl EditorCam {
             smoothing: smoothness,
             sensitivity,
             momentum,
-            last_anchor_depth: initial_anchor_depth.abs() * -1.0, // ensure depth is correct sign
+            last_anchor_depth: -initial_anchor_depth.abs(), // ensure depth is correct sign
             ..Default::default()
         }
     }
@@ -120,7 +120,7 @@ impl EditorCam {
     /// Set the initial anchor depth of the camera controller.
     pub fn with_initial_anchor_depth(self, initial_anchor_depth: f64) -> Self {
         Self {
-            last_anchor_depth: initial_anchor_depth.abs() * -1.0, // ensure depth is correct sign
+            last_anchor_depth: -initial_anchor_depth.abs(), // ensure depth is correct sign
             ..self
         }
     }
@@ -143,7 +143,7 @@ impl EditorCam {
         let validate_anchor =
             |anchor: &DVec3| anchor.length() >= f32::EPSILON as f64 && anchor.is_finite();
 
-        let z_last = self.last_anchor_depth.abs() * -1.0;
+        let z_last = -self.last_anchor_depth.abs();
         let fallback = anchor
             .filter(|a| a.is_finite())
             .map(|mut anchor| {
@@ -580,7 +580,7 @@ impl EditorCam {
 
     /// The last known anchor depth. This value will always be negative.
     pub fn last_anchor_depth(&self) -> f64 {
-        self.last_anchor_depth.abs() * -1.0
+        -self.last_anchor_depth.abs()
     }
 }
 

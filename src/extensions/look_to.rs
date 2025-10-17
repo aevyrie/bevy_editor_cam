@@ -5,7 +5,7 @@ use std::{f32::consts::PI, time::Duration};
 
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
-use bevy_math::{prelude::*, DQuat, DVec3};
+use bevy_math::{prelude::*, DVec3};
 use bevy_platform::{collections::HashMap, time::Instant};
 use bevy_reflect::prelude::*;
 use bevy_transform::prelude::*;
