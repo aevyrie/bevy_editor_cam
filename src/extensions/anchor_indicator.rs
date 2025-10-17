@@ -5,12 +5,12 @@
 use crate::prelude::*;
 
 use bevy_app::prelude::*;
+use bevy_camera::prelude::*;
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
 use bevy_gizmos::prelude::*;
 use bevy_math::prelude::*;
 use bevy_reflect::prelude::*;
-use bevy_render::prelude::*;
 use bevy_transform::prelude::*;
 
 /// See the [module](self) docs.
@@ -21,10 +21,9 @@ impl Plugin for AnchorIndicatorPlugin {
         app.add_systems(
             PostUpdate,
             draw_anchor
-                .after(bevy_transform::TransformSystem::TransformPropagate)
-                .after(bevy_render::camera::CameraUpdateSystem),
-        )
-        .register_type::<AnchorIndicator>();
+                .after(bevy_transform::TransformSystems::Propagate)
+                .after(bevy_camera::CameraUpdateSystems),
+        );
     }
 }
 
