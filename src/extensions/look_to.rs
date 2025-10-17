@@ -190,15 +190,6 @@ impl LookTo {
                 (start.elapsed().as_secs_f32() / animation_duration.as_secs_f32()).clamp(0.0, 1.0);
             let progress = animation_curve.ease(progress_t);
 
-            let rotate_around = |transform: &mut Transform, point: DVec3, rotation: DQuat| {
-                // Following lines are f64 versions of Transform::rotate_around
-                transform.translation =
-                    (point + rotation * (transform.translation.as_dvec3() - point)).as_vec3();
-                transform.rotation = (rotation * transform.rotation.as_dquat())
-                    .as_quat()
-                    .normalize();
-            };
-
             let anchor_view_space = controller.anchor_view_space().unwrap_or(DVec3::new(
                 0.0,
                 0.0,

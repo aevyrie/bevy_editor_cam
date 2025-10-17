@@ -138,5 +138,6 @@ fn setup_ui(mut commands: Commands) {
             margin: UiRect::all(Val::Px(20.0)),
             ..Default::default()
         },
+        Pickable::IGNORE,
     ));
 }

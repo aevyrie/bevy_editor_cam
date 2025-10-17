@@ -136,11 +136,25 @@ impl EditorCam {
 
     /// Returns the best guess at an anchor point if none is provided.
     ///
-    /// Updates the fallback value with the latest hit to ensure that if the camera starts orbiting
-    /// again, but has no hit to anchor onto, the anchor doesn't suddenly change distance, which is
-    /// what would happen if we used a fixed value.
+    /// Updates the fallback value with the latest hit. Ensures that if the camera starts orbiting
+    /// again and the pointer is not hitting anything, the anchor doesn't suddenly change distance.
+    /// This is what would happen if we used a fixed value.
     fn maybe_update_anchor(&mut self, anchor: Option<DVec3>) -> DVec3 {
-        let anchor = anchor.unwrap_or(DVec3::new(0.0, 0.0, self.last_anchor_depth.abs() * -1.0));
+        let validate_anchor =
+            |anchor: &DVec3| anchor.length() >= f32::EPSILON as f64 && anchor.is_finite();
+
+        let z_last = self.last_anchor_depth.abs() * -1.0;
+        let fallback = anchor
+            .filter(|a| a.is_finite())
+            .map(|mut anchor| {
+                anchor.z = z_last;
+                anchor
+            })
+            .filter(validate_anchor)
+            .unwrap_or(DVec3::new(0.0, 0.0, z_last));
+
+        let anchor = anchor.filter(validate_anchor).unwrap_or(fallback);
+
         self.last_anchor_depth = anchor.z;
         anchor
     }
@@ -169,12 +183,12 @@ impl EditorCam {
         })
     }
 
-    /// Should the camera controller prevent new motions from starting, because the user is actively
+    /// Should the camera controller prevent new motions from starting because the user is actively
     /// operating the camera?
     ///
     /// This does not consider zooming as "actively controlled". This is needed because scroll input
-    /// devices often have their own momentum, and can continue to provide inputs even when the user
-    /// is not actively providing inputs, like a scroll wheel that keeps spinning, or a trackpad
+    /// devices often have their own momentum and can continue to provide values even when the user
+    /// is not actively providing inputs. Like a scroll wheel that keeps spinning or a trackpad
     /// with smooth scrolling. Without this, the controller will feel unresponsive, as a user will
     /// be unable to initiate a new motion even though they are not technically providing an input.
     pub fn is_actively_controlled(&self) -> bool {
@@ -202,7 +216,7 @@ impl EditorCam {
         }
     }
 
-    /// Call this to start an panning motion with the optionally supplied anchor position in view
+    /// Call this to start a panning motion with the optionally supplied anchor position in view
     /// space. See [`EditorCam`] for usage.
     pub fn start_pan(&mut self, anchor: Option<DVec3>) {
         if !self.enabled_motion.pan {
@@ -355,11 +369,11 @@ impl EditorCam {
         let screen_to_view_space_at_depth =
             |perspective: &PerspectiveProjection, depth: f64| -> Option<DVec2> {
                 let target_size = camera.logical_viewport_size()?.as_dvec2();
-                // This is a strange looking, but key part of the otherwise normal looking
+                // This is a strange-looking, but key part of the otherwise normal-looking
                 // screen-to-view transformation. What we are trying to do here is answer "if we
                 // move by one pixel in x and y, how much distance do we cover in the world at the
                 // specified depth?" Because the viewport position's origin is in the corner, we
-                // need to halve the target size, and subtract one pixel. This gets us a viewport
+                // need to halve the target size and subtract one pixel. This gets us a viewport
                 // position one pixel diagonal offset from the center of the screen.
                 let mut viewport_position = target_size / 2.0 - 1.0;
                 // Flip the y-coordinate origin from the top to the bottom.
@@ -373,13 +387,18 @@ impl EditorCam {
                 .inverse(); // f64 version replaced .get_projection_matrix().as_dmat4().inverse();
 
                 let view_near_plane = ndc_to_view.project_point3(ndc.extend(1.));
-                // Using EPSILON because an ndc with Z = 0 returns NaNs.
+                // Using EPSILON because an NDC with Z = 0 returns NaNs.
                 let view_far_plane = ndc_to_view.project_point3(ndc.extend(f64::EPSILON));
                 let direction = view_far_plane - view_near_plane;
                 let depth_normalized_direction = direction / direction.z;
-                let view_pos = depth_normalized_direction * depth;
-                debug_assert_eq!(view_pos.z, depth);
-                Some(view_pos.truncate())
+                let view_pos3 = depth_normalized_direction * depth;
+                let view_pos = view_pos3.truncate();
+                if !view_pos.is_finite() || view_pos3.z != depth {
+                    #[cfg(debug_assertions)]
+                    error!("Invalid view position {view_pos:?} from depth {depth}");
+                    return None;
+                }
+                Some(view_pos)
             };
 
         let view_offset = match projection {
@@ -434,17 +453,17 @@ impl EditorCam {
                     zoom * size_at_anchor.clamp(
                         self.zoom_limits.min_size_per_pixel,
                         self.zoom_limits.max_size_per_pixel,
-                    ) as f64
+                    )
                 } else {
                     // If we cannot zoom through objects, use the bounded input
-                    zoom_bounded * size_at_anchor as f64
+                    zoom_bounded * size_at_anchor
                 };
-                // Scale this with the perspective FOV, so zoom speed feels the same regardless.
+                // Scale this with the perspective FOV, so the zoom speed feels the same regardless.
                 anchor.normalize() * zoom_amount / perspective.fov as f64
             }
             Projection::Orthographic(ref mut ortho) => {
-                // Constants are hand tuned to feel equivalent between perspective and ortho. Might
-                // be a better way to do this correctly, if it matters.
+                // Constants are hand-tuned to feel equivalent between perspective and ortho. Might
+                // be a better way to do this correctly if it matters.
                 ortho.scale *= 1.0 - zoom_bounded as f32 * 0.0015;
                 // We don't move the camera in z, as this is managed by another ortho system.
                 anchor.normalize()
@@ -487,15 +506,6 @@ impl EditorCam {
             .as_dquat()
             .mul_vec3(orbit_dir.cross(DVec3::NEG_Z).normalize())
             .normalize();
-
-        let rotate_around = |transform: &mut Transform, point: DVec3, rotation: DQuat| {
-            // Following lines are f64 versions of Transform::rotate_around
-            transform.translation =
-                (point + rotation * (transform.translation.as_dvec3() - point)).as_vec3();
-            transform.rotation = (rotation * transform.rotation.as_dquat())
-                .as_quat()
-                .normalize();
-        };
 
         let orbit_multiplier = 0.005;
         if orbit.is_finite() && orbit.length() != 0.0 {
@@ -561,7 +571,7 @@ impl EditorCam {
     /// Camera distance is not directly related to how large something is on screen - that depends
     /// on the camera projection.
     ///
-    /// This function correctly accounts for camera projection, and is particularly useful when
+    /// This function correctly accounts for camera projection and is particularly useful when
     /// doing zoom and scale calculations.
     pub fn length_per_pixel_at_anchor(&self, camera: &Camera) -> Option<f64> {
         let anchor_view = self.anchor_view_space()?;
@@ -572,6 +582,15 @@ impl EditorCam {
     pub fn last_anchor_depth(&self) -> f64 {
         self.last_anchor_depth.abs() * -1.0
     }
+}
+
+/// A 64-bit version of Transform::rotate_around
+pub fn rotate_around(transform: &mut Transform, point: DVec3, rotation: DQuat) {
+    transform.translation =
+        (point + rotation * (transform.translation.as_dvec3() - point)).as_vec3();
+    transform.rotation = (rotation * transform.rotation.as_dquat())
+        .as_quat()
+        .normalize();
 }
 
 /// Settings that define how camera orbit behaves.
