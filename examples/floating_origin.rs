@@ -91,6 +91,7 @@ pub struct FunFactText;
 fn ui_setup(mut commands: Commands) {
     commands.spawn((
         Text::new(""),
+        Pickable::IGNORE,
         TextFont {
             font_size: 18.0,
             ..default()
@@ -104,6 +105,7 @@ fn ui_setup(mut commands: Commands) {
     ));
     commands.spawn((
         Text::new(""),
+        Pickable::IGNORE,
         TextFont {
             font_size: 52.0,
             ..default()
