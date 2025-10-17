@@ -213,6 +213,7 @@ fn setup_ui(mut commands: Commands, camera: Entity) {
             margin: UiRect::all(Val::Px(20.0)),
             ..Default::default()
         },
+        Pickable::IGNORE,
         UiTargetCamera(camera),
     ));
 }
