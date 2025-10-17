@@ -1,11 +1,10 @@
 //! Demonstrates the use of this camera controller in a very large world.
 //!
-//! This works by integrating with the `big_space` crate, which provides a "floating origin" solution.
-//! Floating origins works by moving the entire world relative to the camera,
-//! so that the camera is always near the origin.
+//! This works by integrating with the `big_space` crate, which provides a grid-based 
+//! "floating origin" transform system for supporting worlds larger than 64bit.
 //!
-//! This allows for very large worlds (bigger than f64 can represent)
-//! without floating point precision issues.
+//! This demonstrates that the camera controller can handle being teleported between grid 
+//! cells, resetting the `Transform`, without disrupting smoothed user inputs or momentum.
 
 use bevy::{color::palettes, prelude::*};
 use bevy_editor_cam::controller::projections::PerspectiveSettings;
