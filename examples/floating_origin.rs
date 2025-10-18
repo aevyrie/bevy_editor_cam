@@ -1,9 +1,9 @@
 //! Demonstrates the use of this camera controller in a very large world.
 //!
-//! This works by integrating with the `big_space` crate, which provides a grid-based 
+//! This works by integrating with the `big_space` crate, which provides a grid-based
 //! "floating origin" transform system for supporting worlds larger than 64bit.
 //!
-//! This demonstrates that the camera controller can handle being teleported between grid 
+//! This demonstrates that the camera controller can handle being teleported between grid
 //! cells, resetting the `Transform`, without disrupting smoothed user inputs or momentum.
 
 use bevy::{color::palettes, prelude::*};

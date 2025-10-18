@@ -1,6 +1,6 @@
 //! Demonstrates the use of this camera controller in a 3D city-like environment.
 //!
-//! This example is intended to showcase using the controller like those commonly seen 
+//! This example is intended to showcase using the controller like those commonly seen
 //! in 2d maps, with momentum and pixel-perfect panning, when used with ortho.
 use bevy::{color::palettes, prelude::*};
 use bevy_editor_cam::{extensions::dolly_zoom::DollyZoomTrigger, prelude::*};
