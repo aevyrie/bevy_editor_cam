@@ -189,12 +189,12 @@ use bevy_app::{prelude::*, PluginGroupBuilder};
 ///
 /// To be more precise, this plugin group adds the following plugins:
 ///
-/// - [`controller::MinimalEditorCamPlugin`](crate::controller::MinimalEditorCamPlugin)
-/// - [`input::DefaultInputPlugin`](crate::input::DefaultInputPlugin)
-/// - [`extensions::dolly_zoom::DollyZoomPlugin`](crate::extensions::dolly_zoom::DollyZoomPlugin)
-/// - [`extensions::look_to::LookToPlugin`](crate::extensions::look_to::LookToPlugin)
-/// - [`extensions::anchor_indicator::AnchorIndicatorPlugin`](crate::extensions::anchor_indicator::AnchorIndicatorPlugin) (if the `extension_anchor_indicator` feature is enabled)
-/// - [`extensions::independent_skybox::IndependentSkyboxPlugin`](crate::extensions::independent_skybox::IndependentSkyboxPlugin) (if the `extension_independent_skybox` feature is enabled)
+/// - [`controller::MinimalEditorCamPlugin`]
+/// - [`input::DefaultInputPlugin`]
+/// - [`extensions::dolly_zoom::DollyZoomPlugin`]
+/// - [`extensions::look_to::LookToPlugin`]
+/// - [`extensions::anchor_indicator::AnchorIndicatorPlugin`] (if the `extension_anchor_indicator` feature is enabled)
+/// - [`extensions::independent_skybox::IndependentSkyboxPlugin`] (if the `extension_independent_skybox` feature is enabled)
 pub struct DefaultEditorCamPlugins;
 
 impl PluginGroup for DefaultEditorCamPlugins {
