@@ -42,11 +42,11 @@ impl Plugin for IndependentSkyboxPlugin {
 /// There are two camera entities involved when using this setup:
 ///
 /// 1. The camera you add the [`IndependentSkybox`] component to. This should be a camera controller, and can use any
-/// projection you like.
+///    projection you like.
 /// 2. A separate camera that is created automatically to render the skybox. This camera will
-/// copy the position and orientation of the first camera, but will use its own field of
-/// view, as specified by the [`IndependentSkybox::fov`] setting. This camera will have the
-/// [`IndependentSkyboxCamera`] component.
+///    copy the position and orientation of the first camera, but will use its own field of
+///    view, as specified by the [`IndependentSkybox::fov`] setting. This camera will have the
+///    [`IndependentSkyboxCamera`] component.
 ///
 /// This struct controls the parameters used to render the skybox.
 /// [`IndependentSkyboxPlugin`] adds systems to manage the lifecycle of the skybox camera
