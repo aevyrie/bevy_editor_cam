@@ -399,9 +399,9 @@ impl EditorCam {
                 Some(view_pos)
             };
 
-        let view_offset = match &*projection {
+        let view_offset = match projection.as_ref() {
             Projection::Perspective(perspective) => {
-                let Some(offset) = screen_to_view_space_at_depth(&perspective, anchor.z) else {
+                let Some(offset) = screen_to_view_space_at_depth(perspective, anchor.z) else {
                     error!("Malformed camera");
                     return;
                 };
