@@ -183,6 +183,18 @@ pub mod prelude {
 use bevy_app::{prelude::*, PluginGroupBuilder};
 
 /// Adds [`bevy_editor_cam`](crate) functionality with all extensions and the default input plugin.
+///
+/// This is intended for a quick and easy setup. You can add the individual plugins yourself if you
+/// want more control over the setup.
+///
+/// To be more precise, this plugin group adds the following plugins:
+///
+/// - [`controller::MinimalEditorCamPlugin`]
+/// - [`input::DefaultInputPlugin`]
+/// - [`extensions::dolly_zoom::DollyZoomPlugin`]
+/// - [`extensions::look_to::LookToPlugin`]
+/// - [`extensions::anchor_indicator::AnchorIndicatorPlugin`] (if the `extension_anchor_indicator` feature is enabled)
+/// - [`extensions::independent_skybox::IndependentSkyboxPlugin`] (if the `extension_independent_skybox` feature is enabled)
 pub struct DefaultEditorCamPlugins;
 
 impl PluginGroup for DefaultEditorCamPlugins {
