@@ -315,13 +315,11 @@ impl EditorCam {
 
     /// Called once every frame to compute motions and update the transforms of all [`EditorCam`]s
     pub fn update_camera_positions(
-        mut cameras: Query<(&mut EditorCam, &Camera, &mut Transform, &mut Projection)>,
+        mut cameras: Query<(&mut EditorCam, &Camera, Mut<Transform>, Mut<Projection>)>,
         mut event: EventWriter<RequestRedraw>,
         time: Res<Time>,
     ) {
-        for (mut camera_controller, camera, ref mut transform, ref mut projection) in
-            cameras.iter_mut()
-        {
+        for (mut camera_controller, camera, transform, projection) in cameras.iter_mut() {
             let dt = time.delta();
             camera_controller
                 .update_transform_and_projection(camera, transform, projection, &mut event, dt);
@@ -332,8 +330,8 @@ impl EditorCam {
     pub fn update_transform_and_projection(
         &mut self,
         camera: &Camera,
-        cam_transform: &mut Transform,
-        projection: &mut Projection,
+        cam_transform: Mut<Transform>,
+        mut projection: Mut<Projection>,
         redraw: &mut EventWriter<RequestRedraw>,
         delta_time: Duration,
     ) {
@@ -401,7 +399,7 @@ impl EditorCam {
                 Some(view_pos)
             };
 
-        let view_offset = match projection {
+        let view_offset = match projection.as_ref() {
             Projection::Perspective(perspective) => {
                 let Some(offset) = screen_to_view_space_at_depth(perspective, anchor.z) else {
                     error!("Malformed camera");
@@ -446,7 +444,7 @@ impl EditorCam {
             zoom
         };
 
-        let zoom_translation_view_space = match projection {
+        let zoom_translation_view_space = match &mut *projection {
             Projection::Perspective(perspective) => {
                 let zoom_amount = if self.zoom_limits.zoom_through_objects {
                     // Clamp the zoom speed at the limits
@@ -483,11 +481,16 @@ impl EditorCam {
         // distance, or worse, zooming past the anchor.
         if self.zoom_limits.zoom_through_objects
             && size_at_anchor < self.zoom_limits.min_size_per_pixel
-            && matches!(projection, Projection::Perspective(_))
+            && matches!(*projection, Projection::Perspective(_))
             && zoom > 0.0
         {
             *anchor += zoom_translation_view_space;
         }
+
+        // Unwrap the [`Mut`] once so we limit the number of
+        // change detection operations for the rest of the function, now we
+        // know we'll mutate the [`Transform`].
+        let cam_transform: &mut Transform = cam_transform.into_inner();
 
         cam_transform.translation += (cam_transform.rotation.as_dquat()
             * (pan_translation_view_space + zoom_translation_view_space))
