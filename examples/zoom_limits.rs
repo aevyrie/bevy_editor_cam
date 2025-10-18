@@ -1,4 +1,12 @@
 //! A minimal example demonstrating setting zoom limits and zooming through objects.
+//!
+//! Zoom limits prevent the camera from zooming in too far or too far out,
+//! preventing the user from getting lost.
+//!
+//! You may want to allow zooming through objects, so that the user can always
+//! zoom in to see what they want, even if there are obstacles in the way.
+//! However, this can be disorienting if the user accidentally zooms through something
+//! they didn't intend to. This example shows how to toggle this setting at runtime (Z).
 
 use bevy::prelude::*;
 use bevy_editor_cam::{extensions::dolly_zoom::DollyZoomTrigger, prelude::*};

@@ -1,3 +1,11 @@
+//! Showcases how a pan-orbit-zoom camera can be used to inspect a CAD model.
+//!
+//! Features:
+//! - Smoothly between perspective and orthographic projection (P)
+//! - Toggle between free and constrained orbit (should the camera always be "facing up"?) (C)
+//! - Snap to 6 axis-aligned views (1-6)
+//! - Explode the model, separating its parts for inspection (E)
+
 use std::time::Duration;
 
 use bevy::{
