@@ -58,6 +58,7 @@ impl LookToTrigger {
         const EPSILON: f32 = 0.01;
         let constraint = match cam_editor.orbit_constraint {
             OrbitConstraint::Fixed { up, .. } => Some(up),
+            OrbitConstraint::Dynamic { .. } => None,
             OrbitConstraint::Free => None,
         }
         .filter(|up| {

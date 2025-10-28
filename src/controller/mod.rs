@@ -2,6 +2,7 @@
 
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
+use bevy_transform::TransformSystem;
 
 pub mod component;
 pub mod inputs;
@@ -26,7 +27,8 @@ impl Plugin for MinimalEditorCamPlugin {
                 crate::controller::projections::update_perspective,
             )
                 .chain()
-                .after(bevy_picking::PickSet::Last),
+                .after(bevy_picking::PickSet::Last)
+                .after(TransformSystem::TransformPropagate),
         )
         .register_type::<component::EditorCam>();
     }
