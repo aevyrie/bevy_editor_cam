@@ -57,6 +57,7 @@ use super::{
 /// ```
 #[derive(Component, Clone)]
 pub struct DynamicUpCalculator {
+    /// Function that computes the up vector from the camera's world position.
     pub compute_up: Arc<dyn Fn(DVec3) -> Vec3 + Send + Sync>,
     /// For floating origin systems, update this before the camera controller runs.
     /// Falls back to GlobalTransform if not set.
@@ -67,6 +68,7 @@ pub struct DynamicUpCalculator {
 }
 
 impl DynamicUpCalculator {
+    /// Create a new dynamic up calculator with the given compute function.
     pub fn new<F>(f: F) -> Self
     where
         F: Fn(DVec3) -> Vec3 + Send + Sync + 'static,
@@ -78,6 +80,7 @@ impl DynamicUpCalculator {
         }
     }
 
+    /// Add a post-motion callback for custom roll correction after camera motion.
     #[must_use = "with_post_motion returns a modified DynamicUpCalculator"]
     pub fn with_post_motion<F>(mut self, f: F) -> Self
     where
@@ -87,10 +90,12 @@ impl DynamicUpCalculator {
         self
     }
 
+    /// Set the world position for floating origin systems.
     pub fn set_world_position(&mut self, pos: DVec3) {
         self.world_position = Some(pos);
     }
 
+    /// Get the current world position, if set.
     pub fn world_position(&self) -> Option<DVec3> {
         self.world_position
     }
@@ -402,6 +407,7 @@ impl EditorCam {
         };
     }
 
+    /// Update transforms and projections for all cameras. Called once per frame.
     pub fn update_camera_positions(
         mut cameras: Query<(
             &mut EditorCam,
@@ -436,8 +442,10 @@ impl EditorCam {
         }
     }
 
-    /// Backward compatibility wrapper. For Dynamic constraints with floating origin systems,
-    /// prefer the system function which has access to the actual GlobalTransform component.
+    /// Update this [`EditorCam`]'s transform and projection.
+    ///
+    /// Note: For Dynamic constraints with floating origin systems, prefer the system function
+    /// which has access to the actual GlobalTransform component.
     pub fn update_transform_and_projection(
         &mut self,
         camera: &Camera,
@@ -446,6 +454,7 @@ impl EditorCam {
         redraw: &mut EventWriter<RequestRedraw>,
         delta_time: Duration,
     ) {
+        // Unwrap Mut<T> for optimization - batch change detection
         let cam_transform: &mut Transform = cam_transform.into_inner();
         let projection: &mut Projection = projection.into_inner();
         let global_transform = GlobalTransform::from(*cam_transform);
@@ -505,8 +514,14 @@ impl EditorCam {
         let screen_to_view_space_at_depth =
             |perspective: &PerspectiveProjection, depth: f64| -> Option<DVec2> {
                 let target_size = camera.logical_viewport_size()?.as_dvec2();
-                // One pixel offset from center to measure world space size per pixel
+                // This is a strange-looking, but key part of the otherwise normal-looking
+                // screen-to-view transformation. What we are trying to do here is answer "if we
+                // move by one pixel in x and y, how much distance do we cover in the world at the
+                // specified depth?" Because the viewport position's origin is in the corner, we
+                // need to halve the target size and subtract one pixel. This gets us a viewport
+                // position one pixel diagonal offset from the center of the screen.
                 let mut viewport_position = target_size / 2.0 - 1.0;
+                // Flip the y-coordinate origin from the top to the bottom.
                 viewport_position.y = target_size.y - viewport_position.y;
                 let ndc = viewport_position * 2. / target_size - DVec2::ONE;
                 let ndc_to_view = DMat4::perspective_infinite_reverse_rh(
@@ -517,6 +532,7 @@ impl EditorCam {
                 .inverse();
 
                 let view_near_plane = ndc_to_view.project_point3(ndc.extend(1.));
+                // Using EPSILON because an NDC with Z = 0 returns NaNs.
                 let view_far_plane = ndc_to_view.project_point3(ndc.extend(f64::EPSILON));
                 let direction = view_far_plane - view_near_plane;
                 let depth_normalized_direction = direction / direction.z;
@@ -550,10 +566,11 @@ impl EditorCam {
         let size_at_anchor =
             super::zoom::length_per_pixel_at_view_space_pos(camera, *anchor).unwrap_or(0.0);
 
+        // The zoom input, bounded to prevent zooming past the limits.
         let zoom_bounded = if size_at_anchor <= self.zoom_limits.min_size_per_pixel {
-            zoom.min(0.0)
+            zoom.min(0.0) // Prevent zooming in further
         } else if size_at_anchor >= self.zoom_limits.max_size_per_pixel {
-            zoom.max(0.0)
+            zoom.max(0.0) // Prevent zooming out further
         } else {
             zoom
         };
@@ -705,16 +722,19 @@ impl EditorCam {
         self.last_anchor_depth = anchor.z;
     }
 
+    /// Compute the world space size of a pixel at the anchor.
     pub fn length_per_pixel_at_anchor(&self, camera: &Camera) -> Option<f64> {
         let anchor_view = self.anchor_view_space()?;
         super::zoom::length_per_pixel_at_view_space_pos(camera, anchor_view)
     }
 
+    /// The last known anchor depth. This value will always be negative.
     pub fn last_anchor_depth(&self) -> f64 {
         -self.last_anchor_depth.abs()
     }
 }
 
+/// Rotates a transform around a point. 64-bit version of [`Transform::rotate_around`].
 pub fn rotate_around(transform: &mut Transform, point: DVec3, rotation: DQuat) {
     transform.translation =
         (point + rotation * (transform.translation.as_dvec3() - point)).as_vec3();
@@ -723,16 +743,20 @@ pub fn rotate_around(transform: &mut Transform, point: DVec3, rotation: DQuat) {
         .normalize();
 }
 
+/// Defines how camera orbit behaves with respect to the up direction.
 #[derive(Debug, Clone, Copy, Reflect)]
 #[non_exhaustive]
 pub enum OrbitConstraint {
     /// Fixed up direction
     Fixed {
+        /// The camera's up direction must always be parallel with this unit vector.
         up: Vec3,
+        /// Can the camera pass over top dead center (become upside down)?
         can_pass_tdc: bool,
     },
     /// Up vector computed dynamically from camera world position via DynamicUpCalculator
     Dynamic {
+        /// Can the camera pass over top dead center (become upside down)?
         can_pass_tdc: bool,
     },
     /// Free rotation, no up constraint
@@ -748,9 +772,12 @@ impl Default for OrbitConstraint {
     }
 }
 
+/// The sensitivity of the camera controller to inputs.
 #[derive(Debug, Clone, Copy, Reflect)]
 pub struct Sensitivity {
+    /// X/Y sensitivity of orbit inputs, multiplied.
     pub orbit: Vec2,
+    /// Sensitivity of zoom inputs, multiplied.
     pub zoom: f32,
 }
 
@@ -763,10 +790,14 @@ impl Default for Sensitivity {
     }
 }
 
+/// Controls what kinds of motions are allowed to initiate. Does not affect momentum.
 #[derive(Debug, Clone, Reflect)]
 pub struct EnabledMotion {
+    /// Should pan be enabled?
     pub pan: bool,
+    /// Should orbit be enabled?
     pub orbit: bool,
+    /// Should zoom be enabled?
     pub zoom: bool,
 }
 
