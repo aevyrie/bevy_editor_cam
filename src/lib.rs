@@ -178,6 +178,8 @@ pub mod prelude {
         controller::{component::*, *},
         DefaultEditorCamPlugins,
     };
+    // Re-export DynamicUpCalculator explicitly for clarity
+    pub use crate::controller::component::DynamicUpCalculator;
 }
 
 use bevy_app::{prelude::*, PluginGroupBuilder};

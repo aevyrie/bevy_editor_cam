@@ -133,6 +133,8 @@ fn toggle_constraint(
                     editor.as_ref(),
                 ));
             }
+            OrbitConstraint::Dynamic { .. } => {}
+            _ => {}
         };
     }
 }
