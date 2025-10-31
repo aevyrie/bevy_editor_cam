@@ -316,7 +316,6 @@ impl EditorCam {
     /// Called once every frame to compute motions and update the transforms of all [`EditorCam`]s
     pub fn update_camera_positions(
         mut cameras: Query<(&mut EditorCam, &Camera, Mut<Transform>, Mut<Projection>)>,
-        mut event: EventWriter<RequestRedraw>,
         mut event: MessageWriter<RequestRedraw>,
         time: Res<Time>,
     ) {
