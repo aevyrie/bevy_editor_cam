@@ -3,8 +3,6 @@ description: Common setup for Rust CI jobs (checkout, toolchain, cache, system d
 runs:
   using: composite
   steps:
-    - name: Checkout
-      uses: actions/checkout@v4
     - name: Install Rust toolchain
       uses: dtolnay/rust-toolchain@stable
     - name: Setup rust-cache

@@ -8,6 +8,7 @@ jobs:
   format:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-rust
       - run: rustup component add rustfmt
       - run: cargo fmt --all -- --check
@@ -15,18 +16,21 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-rust
       - run: cargo check --all-features --all-targets
 
   check-no-defaults:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-rust
       - run: cargo check --no-default-features --all-targets
 
   clippy:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-rust
       - run: rustup component add clippy
       - run: cargo clippy --all-features --all-targets -- -D warnings
@@ -34,6 +38,7 @@ jobs:
   doc:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-rust
       - run: cargo doc --all-features --no-deps
         env:
@@ -42,11 +47,13 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-rust
       - run: cargo test --all-features
 
   doctest:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-rust
       - run: cargo test --all-features --doc
