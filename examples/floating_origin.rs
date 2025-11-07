@@ -145,7 +145,7 @@ fn ui_text_system(
 }
 
 fn ui_text(ref_frame: &Grid, origin_pos: &CellTransformReadOnlyItem) -> String {
-    let GridCell {
+    let CellCoord {
         x: cx,
         y: cy,
         z: cz,
@@ -157,7 +157,7 @@ fn ui_text(ref_frame: &Grid, origin_pos: &CellTransformReadOnlyItem) -> String {
     let [sx, sy, sz] = [dx as f32, dy as f32, dz as f32];
 
     indoc::formatdoc! {"
-        GridCell: {cx}x, {cy}y, {cz}z
+        CellCoord: {cx}x, {cy}y, {cz}z
         Transform: {tx}x, {ty}y, {tz}z
         Combined (f64): {dx}x, {dy}y, {dz}z
         Combined (f32): {sx}x, {sy}y, {sz}z

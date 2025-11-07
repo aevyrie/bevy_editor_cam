@@ -19,20 +19,19 @@ pub struct LookToPlugin;
 impl Plugin for LookToPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<LookTo>()
-            .add_event::<LookToTrigger>()
+            .add_message::<LookToTrigger>()
             .add_systems(
                 PreUpdate,
                 LookTo::update
                     .before(crate::controller::component::EditorCam::update_camera_positions),
             )
-            .add_systems(PostUpdate, LookToTrigger::receive) // In PostUpdate so we don't miss users sending this in Update. LookTo::update will catch the changes next frame.
-            .register_type::<LookTo>();
+            .add_systems(PostUpdate, LookToTrigger::receive); // In PostUpdate so we don't miss users sending this in Update. LookTo::update will catch the changes next frame.
     }
 }
 
 /// Send this event to rotate the camera about its anchor until it is looking in the given direction
 /// with the given up direction. Animation speed is configured with the [`LookTo`] resource.
-#[derive(Debug, Event)]
+#[derive(Debug, Message)]
 pub struct LookToTrigger {
     /// The new direction to face.
     pub target_facing_direction: Dir3,
@@ -94,10 +93,10 @@ impl LookToTrigger {
 
 impl LookToTrigger {
     fn receive(
-        mut events: EventReader<Self>,
+        mut events: MessageReader<Self>,
         mut state: ResMut<LookTo>,
         mut cameras: Query<(&mut EditorCam, &Transform)>,
-        mut redraw: EventWriter<RequestRedraw>,
+        mut redraw: MessageWriter<RequestRedraw>,
     ) {
         for event in events.read() {
             let Ok((mut controller, transform)) = cameras.get_mut(event.camera) else {
@@ -166,7 +165,7 @@ impl LookTo {
     fn update(
         mut state: ResMut<Self>,
         mut cameras: Query<(Mut<Transform>, &EditorCam)>,
-        mut redraw: EventWriter<RequestRedraw>,
+        mut redraw: MessageWriter<RequestRedraw>,
     ) {
         let animation_duration = state.animation_duration;
         let animation_curve = state.animation_curve;

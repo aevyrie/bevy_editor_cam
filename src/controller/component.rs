@@ -5,12 +5,12 @@ use std::{
     time::Duration,
 };
 
+use bevy_camera::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_log::prelude::*;
 use bevy_math::{prelude::*, DMat4, DQuat, DVec2, DVec3};
 use bevy_platform::time::Instant;
 use bevy_reflect::prelude::*;
-use bevy_render::prelude::*;
 use bevy_time::prelude::*;
 use bevy_transform::prelude::*;
 use bevy_window::RequestRedraw;
@@ -172,7 +172,7 @@ impl EditorCam {
     pub fn anchor_world_space(&self, camera_transform: &GlobalTransform) -> Option<DVec3> {
         self.anchor_view_space().map(|anchor_view_space| {
             camera_transform
-                .compute_matrix()
+                .to_matrix()
                 .as_dmat4()
                 .transform_point3(anchor_view_space)
         });
@@ -316,7 +316,7 @@ impl EditorCam {
     /// Called once every frame to compute motions and update the transforms of all [`EditorCam`]s
     pub fn update_camera_positions(
         mut cameras: Query<(&mut EditorCam, &Camera, Mut<Transform>, Mut<Projection>)>,
-        mut event: EventWriter<RequestRedraw>,
+        mut event: MessageWriter<RequestRedraw>,
         time: Res<Time>,
     ) {
         for (mut camera_controller, camera, transform, projection) in cameras.iter_mut() {
@@ -332,7 +332,7 @@ impl EditorCam {
         camera: &Camera,
         cam_transform: Mut<Transform>,
         mut projection: Mut<Projection>,
-        redraw: &mut EventWriter<RequestRedraw>,
+        redraw: &mut MessageWriter<RequestRedraw>,
         delta_time: Duration,
     ) {
         let (anchor, orbit, pan, zoom) = match &mut self.current_motion {
@@ -500,7 +500,7 @@ impl EditorCam {
 
         let orbit = orbit * DVec2::new(-1.0, 1.0);
         let anchor_world = cam_transform
-            .compute_matrix()
+            .to_matrix()
             .as_dmat4()
             .transform_point3(*anchor);
         let orbit_dir = orbit.normalize().extend(0.0);

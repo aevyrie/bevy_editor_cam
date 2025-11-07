@@ -1,8 +1,8 @@
 //! Provides [`ZoomLimits`] settings.
 
+use bevy_camera::prelude::*;
 use bevy_math::{DVec2, DVec3};
 use bevy_reflect::Reflect;
-use bevy_render::prelude::*;
 
 /// Bound zooming scale, and define behavior at the limits of zoom.
 #[derive(Debug, Clone, Reflect)]
