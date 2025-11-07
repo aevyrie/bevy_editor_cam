@@ -135,13 +135,18 @@ fn ui_text_system(
     ref_frames: Grids,
     origin: Query<(Entity, CellTransformReadOnly), With<FloatingOrigin>>,
 ) {
-    let (origin_entity, origin_pos) = origin.single().unwrap();
-    let Some(ref_frame) = ref_frames.parent_grid(origin_entity) else {
-        return;
-    };
-
-    let mut debug_text = debug_text.single_mut().unwrap();
-    *debug_text.0 = Text::new(ui_text(ref_frame, &origin_pos));
+    // Bevy's error handler is global, I don't want this function to panic, and I don't want
+    // to override the user's handler, so, here we are.
+    (|| -> Result {
+        let (origin_entity, origin_pos) = origin.single()?;
+        let ref_frame = ref_frames
+            .parent_grid(origin_entity)
+            .ok_or("Origin not in a reference frame")?;
+        let (mut debug_text, _) = debug_text.single_mut()?;
+        *debug_text = Text::new(ui_text(ref_frame, &origin_pos));
+        Ok(())
+    })()
+    .ok();
 }
 
 fn ui_text(ref_frame: &Grid, origin_pos: &CellTransformReadOnlyItem) -> String {
