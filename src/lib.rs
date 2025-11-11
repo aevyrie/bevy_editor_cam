@@ -181,9 +181,14 @@ pub mod prelude {
 }
 
 use bevy_app::{prelude::*, PluginGroupBuilder};
+use bevy_ecs::prelude::SystemSet;
 
 /// Adds [`bevy_editor_cam`](crate) functionality with all extensions and the default input plugin.
 pub struct DefaultEditorCamPlugins;
+
+/// This system set may alter the camera position in the `PreUpdate` schedule.
+#[derive(SystemSet, Default, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct SyncCameraPosition;
 
 impl PluginGroup for DefaultEditorCamPlugins {
     #[allow(clippy::let_and_return)] // Needed for conditional compilation
