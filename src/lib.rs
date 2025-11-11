@@ -181,6 +181,7 @@ pub mod prelude {
 }
 
 use bevy_app::{prelude::*, PluginGroupBuilder};
+use bevy_ecs::prelude::SystemSet;
 
 /// Adds [`bevy_editor_cam`](crate) functionality with all extensions and the default input plugin.
 ///
@@ -196,6 +197,10 @@ use bevy_app::{prelude::*, PluginGroupBuilder};
 /// - [`extensions::anchor_indicator::AnchorIndicatorPlugin`] (if the `extension_anchor_indicator` feature is enabled)
 /// - [`extensions::independent_skybox::IndependentSkyboxPlugin`] (if the `extension_independent_skybox` feature is enabled)
 pub struct DefaultEditorCamPlugins;
+
+/// This system set may alter the camera position in the `PreUpdate` schedule.
+#[derive(SystemSet, Default, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct SyncCameraPosition;
 
 impl PluginGroup for DefaultEditorCamPlugins {
     #[allow(clippy::let_and_return)] // Needed for conditional compilation
