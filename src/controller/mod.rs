@@ -23,10 +23,14 @@ impl Plugin for MinimalEditorCamPlugin {
             (
                 crate::controller::component::EditorCam::update_camera_positions,
                 crate::controller::projections::update_orthographic,
+                // Technically `update_perspective` does not alter the camera
+                // position, but the other two systems above do, so I'm putting
+                // them all in the SyncCameraPosition group.
                 crate::controller::projections::update_perspective,
             )
                 .chain()
-                .after(bevy_picking::PickingSystems::Last),
+                .after(bevy_picking::PickingSystems::Last)
+                .in_set(crate::SyncCameraPosition),
         );
     }
 }
