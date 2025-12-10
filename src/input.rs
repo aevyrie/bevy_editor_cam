@@ -12,7 +12,7 @@ use bevy_math::{prelude::*, DVec2, DVec3};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::prelude::*;
 use bevy_transform::prelude::*;
-use bevy_window::PrimaryWindow;
+use bevy_window::{PrimaryWindow, Window};
 
 use bevy_picking::pointer::{
     PointerAction, PointerId, PointerInput, PointerInteraction, PointerLocation, PointerMap,
@@ -191,6 +191,7 @@ impl EditorCamInputMessage {
         pointer_interactions: Query<&PointerInteraction>,
         pointer_locations: Query<&PointerLocation>,
         cameras: Query<(&Camera, &Projection)>,
+        windows: Query<&Window>,
     ) {
         for event in events.read() {
             let Ok((mut controller, cam_transform)) = controllers.get_mut(event.camera()) else {
@@ -206,6 +207,11 @@ impl EditorCamInputMessage {
                         .get_entity(*pointer)
                         .and_then(|entity| pointer_interactions.get(entity).ok())
                         .and_then(|interaction| interaction.get_nearest_hit())
+                        // Since `bevy` 0.17.3:
+                        //
+                        // If the current hit is on a window, we cannot use the `hit.position` as an anchor
+                        // as the `hit.position` is in viewport coordinates.
+                        .filter(|(entity, _hit)| !windows.contains(*entity))
                         .and_then(|(_, hit)| hit.position)
                         .map(|world_space_hit| {
                             // Convert the world space hit to view (camera) space
