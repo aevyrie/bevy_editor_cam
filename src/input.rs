@@ -8,7 +8,7 @@ use bevy_input::{
     mouse::{MouseScrollUnit, MouseWheel},
     prelude::*,
 };
-use bevy_math::{dvec2, i64vec2, prelude::*, DVec2, DVec3};
+use bevy_math::{prelude::*, DVec2, DVec3};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::prelude::*;
 use bevy_transform::prelude::*;
@@ -186,7 +186,6 @@ impl EditorCamInputMessage {
         mut camera_map: ResMut<CameraPointerMap>,
         pointer_map: Res<PointerMap>,
         pointer_interactions: Query<&PointerInteraction>,
-        pointer_locations: Query<&PointerLocation>,
         cameras: Query<(&Camera, &Projection)>,
         windows: Query<&Window>,
     ) {
@@ -218,8 +217,7 @@ impl EditorCamInputMessage {
                                 if windows.contains(*entity) {
                                     // hit is already in screen space
                                     let camera = cameras.get(event.camera()).ok();
-                                    return if let Some((camera, proj)) = camera
-                                    {
+                                    return if let Some((camera, proj)) = camera {
                                         screen_to_view_space(
                                             camera,
                                             proj,
@@ -228,7 +226,7 @@ impl EditorCamInputMessage {
                                         )
                                     } else {
                                         None
-                                    }
+                                    };
                                 }
                                 return Some(
                                     cam_transform
