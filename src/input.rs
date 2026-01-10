@@ -8,11 +8,11 @@ use bevy_input::{
     mouse::{MouseScrollUnit, MouseWheel},
     prelude::*,
 };
-use bevy_math::{prelude::*, DVec2, DVec3};
+use bevy_math::{dvec2, i64vec2, prelude::*, DVec2, DVec3};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::prelude::*;
 use bevy_transform::prelude::*;
-use bevy_window::PrimaryWindow;
+use bevy_window::{PrimaryWindow, Window};
 
 use bevy_picking::pointer::{
     PointerAction, PointerId, PointerInput, PointerInteraction, PointerLocation, PointerMap,
@@ -80,22 +80,19 @@ pub fn default_camera_inputs(
     let zoom_stop = 0.0;
 
     if let Some(&camera) = pointer_map.get(&PointerId::Mouse) {
-        let camera_query = cameras.get(camera).ok();
-        let is_in_zoom_mode = camera_query
-            .map(|(.., editor_cam)| editor_cam.current_motion.is_zooming_only())
-            .unwrap_or_default();
-        let zoom_amount_abs = camera_query
-            .and_then(|(.., editor_cam)| {
+        if let Ok((.., editor_cam)) = cameras.get(camera) {
+            let is_in_zoom_mode = editor_cam.current_motion.is_zooming_only();
+            let should_zoom_end = is_in_zoom_mode && {
                 editor_cam
                     .current_motion
                     .inputs()
                     .map(|inputs| inputs.zoom_velocity_abs(editor_cam.smoothing.zoom.mul_f32(2.0)))
-            })
-            .unwrap_or(0.0);
-        let should_zoom_end = is_in_zoom_mode && zoom_amount_abs <= zoom_stop;
-
-        if mouse_input.any_just_released([orbit_start, pan_start]) || should_zoom_end {
-            controller.write(EditorCamInputMessage::End { camera });
+                    .unwrap_or(0.0)
+                    <= zoom_stop
+            };
+            if mouse_input.any_just_released([orbit_start, pan_start]) || should_zoom_end {
+                controller.write(EditorCamInputMessage::End { camera });
+            }
         }
     }
 
@@ -191,6 +188,7 @@ impl EditorCamInputMessage {
         pointer_interactions: Query<&PointerInteraction>,
         pointer_locations: Query<&PointerLocation>,
         cameras: Query<(&Camera, &Projection)>,
+        windows: Query<&Window>,
     ) {
         for event in events.read() {
             let Ok((mut controller, cam_transform)) = controllers.get_mut(event.camera()) else {
@@ -206,40 +204,41 @@ impl EditorCamInputMessage {
                         .get_entity(*pointer)
                         .and_then(|entity| pointer_interactions.get(entity).ok())
                         .and_then(|interaction| interaction.get_nearest_hit())
-                        .and_then(|(_, hit)| hit.position)
-                        .map(|world_space_hit| {
-                            // Convert the world space hit to view (camera) space
-                            cam_transform
-                                .to_matrix()
-                                .as_dmat4()
-                                .inverse()
-                                .transform_point3(world_space_hit.into())
-                        })
-                        .filter(|p| {
-                            #[cfg(debug_assertions)]
-                            if !p.is_finite() {
-                                bevy_log::warn!("Non-finite input fed to camera controller: {p:?}")
+                        .and_then(|(entity, hit)| {
+                            if let Some(p) = hit.position {
+                                #[cfg(debug_assertions)]
+                                if !p.is_finite() {
+                                    bevy_log::warn!(
+                                        "Non-finite input fed to camera controller: {p:?}"
+                                    )
+                                }
+                                if !p.is_finite() {
+                                    return None;
+                                }
+                                if windows.contains(*entity) {
+                                    // hit is already in screen space
+                                    let camera = cameras.get(event.camera()).ok();
+                                    return if let Some((camera, proj)) = camera
+                                    {
+                                        screen_to_view_space(
+                                            camera,
+                                            proj,
+                                            &controller,
+                                            vec2(p.x, p.y),
+                                        )
+                                    } else {
+                                        None
+                                    }
+                                }
+                                return Some(
+                                    cam_transform
+                                        .to_matrix()
+                                        .as_dmat4()
+                                        .inverse()
+                                        .transform_point3(p.into()),
+                                );
                             }
-                            p.is_finite()
-                        })
-                        .or_else(|| {
-                            let camera = cameras.get(event.camera()).ok();
-                            let pointer_location = pointer_map
-                                .get_entity(*pointer)
-                                .and_then(|entity| pointer_locations.get(entity).ok())
-                                .and_then(|l| l.location());
-                            if let Some(((camera, proj), pointer_location)) =
-                                camera.zip(pointer_location)
-                            {
-                                screen_to_view_space(
-                                    camera,
-                                    proj,
-                                    &controller,
-                                    pointer_location.position,
-                                )
-                            } else {
-                                None
-                            }
+                            None
                         })
                         .filter(|p| p.is_finite());
 
