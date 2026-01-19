@@ -183,6 +183,7 @@ impl EditorCamInputMessage {
     }
 
     /// Receive [`EditorCamInputMessage`]s, and use these to start and end moves on the [`EditorCam`].
+    #[allow(clippy::too_many_arguments)]
     pub fn receive_messages(
         mut events: MessageReader<Self>,
         mut controllers: Query<(&mut EditorCam, &GlobalTransform)>,
