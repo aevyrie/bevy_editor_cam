@@ -1,6 +1,6 @@
 [package]
 name = "bevy_editor_cam"
-version = "0.7.0"
+version = "0.7.1"
 edition = "2021"
 description = "A camera controller for editors and CAD."
 license = "MIT OR Apache-2.0"
@@ -46,19 +46,19 @@ rand = "0.9"
 [dev-dependencies.bevy]
 version = "0.17.3"
 features = [
-    "bevy_gizmos",
-    "bevy_gltf",
-    "bevy_scene",
-    "bevy_text",
-    "bevy_ui",
-    "bevy_winit",
-    "default_font",
-    "multi_threaded",
-    "jpeg",
-    "ktx2",
-    "tonemapping_luts",
-    "x11",
-    # "zstd",
+  "bevy_gizmos",
+  "bevy_gltf",
+  "bevy_scene",
+  "bevy_text",
+  "bevy_ui",
+  "bevy_winit",
+  "default_font",
+  "multi_threaded",
+  "jpeg",
+  "ktx2",
+  "tonemapping_luts",
+  "x11",
+  # "zstd",
 ]
 
 [lints.clippy]
