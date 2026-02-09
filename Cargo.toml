@@ -29,7 +29,6 @@ bevy_camera = "0.18"
 bevy_render = "0.18"
 bevy_time = "0.18"
 bevy_transform = "0.18"
-bevy_utils = "0.18"
 bevy_window = "0.18"
 bevy_platform = "0.18"
 # Optional
@@ -38,27 +37,27 @@ bevy_core_pipeline = { version = "0.18", optional = true }
 bevy_gizmos = { version = "0.18", optional = true }
 
 [dev-dependencies]
-bevy_framepace = "0.20"
-big_space = "0.11.0"
+bevy_framepace = "0.21"
+big_space = "0.12.0"
 indoc = "2.0.5"
-rand = "0.9"
+rand = "0.10"
 
 [dev-dependencies.bevy]
 version = "0.18.0-rc.2"
 features = [
-    "bevy_gizmos",
-    "bevy_gltf",
-    "bevy_scene",
-    "bevy_text",
-    "bevy_ui",
-    "bevy_winit",
-    "default_font",
-    "multi_threaded",
-    "jpeg",
-    "ktx2",
-    "tonemapping_luts",
-    "x11",
-    # "zstd",
+  "bevy_gizmos",
+  "bevy_gltf",
+  "bevy_scene",
+  "bevy_text",
+  "bevy_ui",
+  "bevy_winit",
+  "default_font",
+  "multi_threaded",
+  "jpeg",
+  "ktx2",
+  "tonemapping_luts",
+  "x11",
+  # "zstd",
 ]
 
 [lints.clippy]

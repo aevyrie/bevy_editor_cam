@@ -23,7 +23,7 @@ fn main() {
         ))
         .add_plugins(DefaultEditorCamPlugins)
         .insert_resource(ClearColor(Color::BLACK))
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             color: Color::WHITE,
             brightness: 20.0,
             ..default()
