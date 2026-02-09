@@ -29,7 +29,7 @@ fn main() {
         ))
         // The camera controller works with reactive rendering:
         // .insert_resource(bevy::winit::WinitSettings::desktop_app())
-        .insert_resource(AmbientLight::NONE)
+        .insert_resource(GlobalAmbientLight::NONE)
         .add_systems(Startup, setup)
         .add_systems(
             Update,
