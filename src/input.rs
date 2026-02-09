@@ -1,7 +1,7 @@
 //! Provides a default input plugin for the camera. See [`DefaultInputPlugin`].
 
 use bevy_app::prelude::*;
-use bevy_camera::prelude::*;
+use bevy_camera::{prelude::*, RenderTarget};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_input::{
@@ -72,7 +72,7 @@ pub fn default_camera_inputs(
     mut controller: MessageWriter<EditorCamInputMessage>,
     mut mouse_wheel: MessageReader<MouseWheel>,
     mouse_input: Res<ButtonInput<MouseButton>>,
-    cameras: Query<(Entity, &Camera, &EditorCam)>,
+    cameras: Query<(Entity, &Camera, &RenderTarget, &EditorCam)>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
 ) {
     let orbit_start = MouseButton::Right;
@@ -105,8 +105,8 @@ pub fn default_camera_inputs(
     {
         match pointer {
             PointerId::Mouse => {
-                let Some((camera, ..)) = cameras.iter().find(|(_, camera, _)| {
-                    pointer_location.is_in_viewport(camera, &primary_window)
+                let Some((camera, ..)) = cameras.iter().find(|(_, camera, render_target, _)| {
+                    pointer_location.is_in_viewport(camera, render_target, &primary_window)
                 }) else {
                     continue; // Pointer must be in viewport to start a motion.
                 };
