@@ -8,7 +8,7 @@ use std::{
 use bevy_camera::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_log::prelude::*;
-use bevy_math::{prelude::*, DMat4, DQuat, DVec2, DVec3};
+use bevy_math::{prelude::*, DAffine3, DMat3, DMat4, DQuat, DVec2, DVec3};
 use bevy_platform::time::Instant;
 use bevy_reflect::prelude::*;
 use bevy_time::prelude::*;
@@ -80,6 +80,16 @@ pub struct EditorCam {
     pub current_motion: CurrentMotion,
 }
 
+/// Optional resource that holds a function for how ['EditorCam'] applies its transform changes.
+/// The intended usage is for situations where a different transform system than Bevy's ['Transform'] component is being used
+/// When this resource is not present, the behavior falls back to a default that uses Bevy's ['Transform'].
+#[derive(Resource)]
+pub struct CustomReadWrite {
+    /// Function for reading transform info from an entity.
+    pub custom_read_transform: Box<dyn Fn(&EntityRef) -> Option<(DVec3, DQuat)> + Send + Sync>,
+    /// Function for applying a delta to an entity's transform.
+    pub custom_apply_delta: Box<dyn Fn(&mut EntityMut, DVec3, DQuat) + Send + Sync>,
+}
 impl Default for EditorCam {
     fn default() -> Self {
         EditorCam {
@@ -315,28 +325,71 @@ impl EditorCam {
 
     /// Called once every frame to compute motions and update the transforms of all [`EditorCam`]s
     pub fn update_camera_positions(
-        mut cameras: Query<(&mut EditorCam, &Camera, Mut<Transform>, Mut<Projection>)>,
+        mut camera_set: ParamSet<(
+            Query<EntityRef, With<EditorCam>>,
+            Query<(&mut EditorCam, &Camera, Mut<Projection>)>,
+            Query<EntityMut, With<EditorCam>>,
+        )>,
+        read_write: Option<Res<CustomReadWrite>>,
         mut event: MessageWriter<RequestRedraw>,
         time: Res<Time>,
     ) {
-        for (mut camera_controller, camera, transform, projection) in cameras.iter_mut() {
-            let dt = time.delta();
-            camera_controller
-                .update_transform_and_projection(camera, transform, projection, &mut event, dt);
-        }
+        camera_set
+            .p0()
+            .iter()
+            .filter_map(|entity_ref| {
+                EditorCam::read_transform(&entity_ref, &read_write)
+                    .map(|transform| (entity_ref.id(), transform))
+            })
+            .collect::<Vec<_>>()
+            .iter()
+            .filter_map(|(entity, (original_translation, original_rotation))| {
+                camera_set
+                    .p1()
+                    .get_mut(*entity)
+                    .ok()
+                    .map(|(mut camera_controller, camera, ref mut projection)| {
+                        let dt = time.delta();
+                        camera_controller.update_transform_and_projection(
+                            camera,
+                            original_translation,
+                            original_rotation,
+                            projection,
+                            &mut event,
+                            dt,
+                        )
+                    })
+                    .flatten()
+                    .map(|transform| (entity.clone(), transform))
+            })
+            .collect::<Vec<_>>()
+            .iter()
+            .for_each(|(entity, (delta_translation, delta_rotation))| {
+                if let Ok(mut entity_mut) = camera_set.p2().get_mut(*entity) {
+                    EditorCam::apply_delta(
+                        &mut entity_mut,
+                        delta_translation,
+                        delta_rotation,
+                        &read_write,
+                    );
+                }
+            });
     }
 
     /// Update this [`EditorCam`]'s transform and projection.
     pub fn update_transform_and_projection(
         &mut self,
         camera: &Camera,
-        cam_transform: Mut<Transform>,
+        original_translation: &DVec3,
+        original_rotation: &DQuat,
         mut projection: Mut<Projection>,
         redraw: &mut MessageWriter<RequestRedraw>,
         delta_time: Duration,
-    ) {
+    ) -> Option<(DVec3, DQuat)> {
+        let mut new_translation = *original_translation;
+        let mut new_rotation = *original_rotation;
         let (anchor, orbit, pan, zoom) = match &mut self.current_motion {
-            CurrentMotion::Stationary => return,
+            CurrentMotion::Stationary => return None,
             CurrentMotion::Momentum {
                 ref mut velocity, ..
             } => {
@@ -344,7 +397,7 @@ impl EditorCam {
                 match velocity {
                     Velocity::None => {
                         self.current_motion = CurrentMotion::Stationary;
-                        return;
+                        return None;
                     }
                     Velocity::Orbit { anchor, velocity } => (anchor, *velocity, DVec2::ZERO, 0.0),
                     Velocity::Pan { anchor, velocity } => (anchor, DVec2::ZERO, *velocity, 0.0),
@@ -403,14 +456,14 @@ impl EditorCam {
             Projection::Perspective(perspective) => {
                 let Some(offset) = screen_to_view_space_at_depth(perspective, anchor.z) else {
                     error!("Malformed camera");
-                    return;
+                    return None;
                 };
                 offset
             }
             Projection::Orthographic(ortho) => DVec2::new(-ortho.scale as f64, ortho.scale as f64),
             Projection::Custom(_) => {
                 error_once!("Custom projections are not supported.");
-                return;
+                return None;
             }
         };
 
@@ -472,7 +525,7 @@ impl EditorCam {
             }
             Projection::Custom(_) => {
                 error_once!("Custom projections are not supported.");
-                return;
+                return None;
             }
         };
 
@@ -487,28 +540,42 @@ impl EditorCam {
             *anchor += zoom_translation_view_space;
         }
 
-        // Unwrap the [`Mut`] once so we limit the number of
-        // change detection operations for the rest of the function, now we
-        // know we'll mutate the [`Transform`].
-        let cam_transform: &mut Transform = cam_transform.into_inner();
-
-        cam_transform.translation += (cam_transform.rotation.as_dquat()
-            * (pan_translation_view_space + zoom_translation_view_space))
-            .as_vec3();
+        new_translation +=
+            new_rotation * (pan_translation_view_space + zoom_translation_view_space);
 
         *anchor -= pan_translation_view_space + zoom_translation_view_space;
 
         let orbit = orbit * DVec2::new(-1.0, 1.0);
-        let anchor_world = cam_transform
-            .to_matrix()
-            .as_dmat4()
+        let anchor_world = DMat4::from_rotation_translation(new_rotation, new_translation)
             .transform_point3(*anchor);
         let orbit_dir = orbit.normalize().extend(0.0);
-        let orbit_axis_world = cam_transform
-            .rotation
-            .as_dquat()
+        let orbit_axis_world = new_rotation
             .mul_vec3(orbit_dir.cross(DVec3::NEG_Z).normalize())
             .normalize();
+
+        let rotate_around = |cam_translation: &mut DVec3,
+                             cam_rotation: &mut DQuat,
+                             point: DVec3,
+                             rotation: DQuat| {
+            // Following lines are f64 versions of Transform::rotate_around
+            *cam_translation = point + rotation * (*cam_translation - point);
+            *cam_rotation = (rotation * *cam_rotation).normalize();
+        };
+
+        let look_to = |cam_rotation: &mut DQuat, direction: DVec3, up: DVec3| {
+            // Following lines are f64 versions of Transform::look_to
+            let back = -direction;
+            let right = up
+                .cross(back)
+                .try_normalize()
+                .unwrap_or_else(|| up.any_orthogonal_vector());
+            let up = back.cross(right);
+            *cam_rotation = DQuat::from_mat3(&DMat3::from_cols(right, up, back))
+        };
+
+        let cam_forward = |cam_rotation: DQuat| -> DVec3 { cam_rotation * DVec3::NEG_Z };
+        let cam_left = |cam_rotation: DQuat| -> DVec3 { cam_rotation * DVec3::NEG_X };
+        let cam_up = |cam_rotation: DQuat| -> DVec3 { cam_rotation * DVec3::Y };
 
         let orbit_multiplier = 0.005;
         if orbit.is_finite() && orbit.length() != 0.0 {
@@ -516,9 +583,8 @@ impl EditorCam {
                 OrbitConstraint::Fixed { up, can_pass_tdc } => {
                     let epsilon = 1e-3;
                     let motion_threshold = 1e-5;
-
-                    let angle_to_bdc = cam_transform.forward().angle_between(up) as f64;
-                    let angle_to_tdc = cam_transform.forward().angle_between(-up) as f64;
+                    let angle_to_bdc = cam_forward(new_rotation).angle_between(up);
+                    let angle_to_tdc = cam_forward(new_rotation).angle_between(-up);
                     let pitch_angle = {
                         let desired_rotation = orbit.y * orbit_multiplier;
                         if can_pass_tdc {
@@ -532,40 +598,67 @@ impl EditorCam {
                     let pitch = if pitch_angle.abs() <= motion_threshold {
                         DQuat::IDENTITY
                     } else {
-                        DQuat::from_axis_angle(cam_transform.left().as_dvec3(), pitch_angle)
+                        DQuat::from_axis_angle(cam_left(new_rotation), pitch_angle)
                     };
 
                     let yaw_angle = orbit.x * orbit_multiplier;
                     let yaw = if yaw_angle.abs() <= motion_threshold {
                         DQuat::IDENTITY
                     } else {
-                        DQuat::from_axis_angle(up.as_dvec3(), yaw_angle)
+                        DQuat::from_axis_angle(up, yaw_angle)
                     };
 
                     match [pitch == DQuat::IDENTITY, yaw == DQuat::IDENTITY] {
                         [true, true] => (),
-                        [true, false] => rotate_around(cam_transform, anchor_world, yaw),
-                        [false, true] => rotate_around(cam_transform, anchor_world, pitch),
-                        [false, false] => rotate_around(cam_transform, anchor_world, yaw * pitch),
+                        [true, false] => rotate_around(
+                            &mut new_translation,
+                            &mut new_rotation,
+                            anchor_world,
+                            yaw,
+                        ),
+                        [false, true] => rotate_around(
+                            &mut new_translation,
+                            &mut new_rotation,
+                            anchor_world,
+                            pitch,
+                        ),
+                        [false, false] => rotate_around(
+                            &mut new_translation,
+                            &mut new_rotation,
+                            anchor_world,
+                            yaw * pitch,
+                        ),
                     };
-
-                    let how_upright = cam_transform.up().angle_between(up).abs();
+                    let how_upright = cam_up(new_rotation).angle_between(up).abs() as f32;
                     // Orient the camera so up always points up (roll).
+                    let forward = cam_forward(new_rotation);
                     if how_upright > epsilon && how_upright < FRAC_PI_2 - epsilon {
-                        cam_transform.look_to(cam_transform.forward(), up);
+                        look_to(&mut new_rotation, forward, up);
                     } else if how_upright > FRAC_PI_2 + epsilon && how_upright < PI - epsilon {
-                        cam_transform.look_to(cam_transform.forward(), -up);
+                        look_to(&mut new_rotation, forward, -up);
                     }
                 }
                 OrbitConstraint::Free => {
                     let rotation =
                         DQuat::from_axis_angle(orbit_axis_world, orbit.length() * orbit_multiplier);
-                    rotate_around(cam_transform, anchor_world, rotation);
+                    rotate_around(
+                        &mut new_translation,
+                        &mut new_rotation,
+                        anchor_world,
+                        rotation,
+                    );
                 }
             }
         }
 
         self.last_anchor_depth = anchor.z;
+        let (_, delta_rotation, delta_translation) = {
+            let original =
+                DAffine3::from_rotation_translation(*original_rotation, *original_translation);
+            let new = DAffine3::from_rotation_translation(new_rotation, new_translation);
+            (original.inverse() * new).to_scale_rotation_translation()
+        };
+        Some((delta_translation, delta_rotation))
     }
 
     /// Compute the world space size of a pixel at the anchor.
@@ -585,6 +678,77 @@ impl EditorCam {
     pub fn last_anchor_depth(&self) -> f64 {
         -self.last_anchor_depth.abs()
     }
+
+    /// Applies a difference transform onto an entity, using a custom function if it is available via
+    /// ['CustomReadWrite'], or using a default if there isn't one available.
+    pub fn apply_delta(
+        entity: &mut EntityMut,
+        delta_translation: &DVec3,
+        delta_rotation: &DQuat,
+        read_write: &Option<Res<CustomReadWrite>>,
+    ) {
+        if let Some(ref read_write) = read_write {
+            let CustomReadWrite {
+                custom_apply_delta, ..
+            } = &**read_write;
+            custom_apply_delta(entity, *delta_translation, *delta_rotation);
+        } else {
+            Self::default_apply_delta(entity, *delta_translation, *delta_rotation);
+        }
+    }
+
+    /// Retrieves an entity's tranform information, using a custom function if it is available via
+    /// ['CustomReadWrite'], or using a default if there isn't one available.
+    pub fn read_transform(
+        entity: &EntityRef,
+        read_write: &Option<Res<CustomReadWrite>>,
+    ) -> Option<(DVec3, DQuat)> {
+        if let Some(ref read_write) = read_write {
+            let CustomReadWrite {
+                custom_read_transform: read_transform,
+                ..
+            } = &**read_write;
+            read_transform(entity)
+        } else {
+            Self::default_read_transform(entity)
+        }
+    }
+    /// Default fallback for applying transform deltas onto the [`EditorCam`]'s entity.
+    /// Uses Bevy's base ['Transform'] type.
+    fn default_apply_delta(
+        entity: &mut EntityMut,
+        delta_translation: DVec3,
+        delta_rotation: DQuat,
+    ) {
+        let Some(mut cam_transform) = entity.get_mut::<Transform>() else {
+            error!("Unable to retrieve Transform from EditorCam entity.");
+            return;
+        };
+        let delta_transform = Transform::from_translation(delta_translation.as_vec3())
+            .with_rotation(delta_rotation.as_quat());
+        *cam_transform = cam_transform.mul_transform(delta_transform);
+    }
+    /// Default fallback for reading transform information from the [`EditorCam`]'s entity.
+    /// Uses Bevy's base ['Transform'] type.
+    fn default_read_transform(entity: &EntityRef) -> Option<(DVec3, DQuat)> {
+        let Some(cam_transform) = entity.get::<Transform>() else {
+            error!("Unable to retrieve Transform from EditorCam entity.");
+            return None;
+        };
+        Some((
+            cam_transform.translation.as_dvec3(),
+            cam_transform.rotation.as_dquat(),
+        ))
+    }
+}
+
+/// A 64-bit version of Transform::rotate_around
+pub fn rotate_around(transform: &mut Transform, point: DVec3, rotation: DQuat) {
+    transform.translation =
+        (point + rotation * (transform.translation.as_dvec3() - point)).as_vec3();
+    transform.rotation = (rotation * transform.rotation.as_dquat())
+        .as_quat()
+        .normalize();
 }
 
 /// A 64-bit version of Transform::rotate_around
@@ -602,7 +766,7 @@ pub enum OrbitConstraint {
     /// The camera's up direction is fixed.
     Fixed {
         /// The camera's up direction must always be parallel with this unit vector.
-        up: Vec3,
+        up: DVec3,
         /// Should the camera be allowed to pass over top dead center (TDC), making the camera
         /// upside down compared to the up direction?
         can_pass_tdc: bool,
@@ -614,7 +778,7 @@ pub enum OrbitConstraint {
 impl Default for OrbitConstraint {
     fn default() -> Self {
         Self::Fixed {
-            up: Vec3::Y,
+            up: DVec3::Y,
             can_pass_tdc: false,
         }
     }
