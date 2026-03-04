@@ -9,13 +9,12 @@ use bevy_app::prelude::*;
 use bevy_camera::{prelude::*, ScalingMode};
 use bevy_ecs::prelude::*;
 use bevy_log::error_once;
-use bevy_math::prelude::*;
+use bevy_math::{prelude::*, DQuat, DVec3};
 use bevy_platform::{collections::HashMap, time::Instant};
 use bevy_reflect::prelude::*;
-use bevy_transform::prelude::*;
 use bevy_window::RequestRedraw;
 
-use crate::prelude::{motion::CurrentMotion, EditorCam, EnabledMotion};
+use crate::prelude::{motion::CurrentMotion, CustomReadWrite, EditorCam, EnabledMotion};
 
 /// See the [module](self) docs.
 pub struct DollyZoomPlugin;
@@ -49,15 +48,19 @@ impl DollyZoomTrigger {
     fn receive(
         mut events: MessageReader<Self>,
         mut state: ResMut<DollyZoom>,
-        mut cameras: Query<(&Camera, Mut<Projection>, Mut<EditorCam>, Mut<Transform>)>,
+        mut camera_set: ParamSet<(
+            Query<(&Camera, Mut<Projection>, &mut EditorCam)>,
+            Query<EntityMut, With<EditorCam>>,
+        )>,
+        read_write: Option<Res<CustomReadWrite>>,
         mut redraw: MessageWriter<RequestRedraw>,
     ) {
         for event in events.read() {
-            let Ok((camera, mut proj, mut controller, mut transform)) =
-                cameras.get_mut(event.camera)
-            else {
+            let mut cameras = camera_set.p0();
+            let Ok((camera, mut proj, mut controller)) = cameras.get_mut(event.camera) else {
                 continue;
             };
+            let mut delta_translation = DVec3::ZERO;
             redraw.write(RequestRedraw);
             let (fov_start, triangle_base) = match &*proj {
                 Projection::Perspective(perspective) => {
@@ -84,9 +87,10 @@ impl DollyZoomTrigger {
                     let base = ortho.scale as f64 / ortho_tri_base_to_scale_factor(camera, ortho);
                     let new_anchor_dist = base / (ZERO_FOV / 2.0).tan();
                     let forward_dist = controller.last_anchor_depth.abs() - new_anchor_dist;
-                    let next_translation = transform.forward().as_dvec3() * forward_dist;
+                    let cam_forward = DVec3::NEG_Z;
+                    let next_translation = cam_forward * forward_dist;
 
-                    transform.translation += next_translation.as_vec3();
+                    delta_translation += next_translation;
                     controller.last_anchor_depth += forward_dist;
 
                     (ZERO_FOV as f32, base)
@@ -129,6 +133,15 @@ impl DollyZoomTrigger {
                 orbit: false,
                 zoom: false,
             };
+
+            let mut camera_muts = camera_set.p1();
+            let mut camera_mut = camera_muts.get_mut(event.camera).unwrap();
+            EditorCam::apply_delta(
+                &mut camera_mut,
+                &delta_translation,
+                &DQuat::IDENTITY,
+                &read_write,
+            );
         }
     }
 }
@@ -167,13 +180,17 @@ impl Default for DollyZoom {
 impl DollyZoom {
     fn update(
         mut state: ResMut<Self>,
-        mut cameras: Query<(&Camera, Mut<Projection>, Mut<Transform>, &mut EditorCam)>,
+        mut camera_set: ParamSet<(
+            Query<(&Camera, Mut<Projection>, &mut EditorCam)>,
+            Query<EntityMut, With<EditorCam>>,
+        )>,
+        read_write: Option<Res<CustomReadWrite>>,
         mut redraw: MessageWriter<RequestRedraw>,
     ) {
         let animation_duration = state.animation_duration;
         let animation_curve = state.animation_curve;
         for (
-            camera,
+            camera_entity,
             ZoomEntry {
                 perspective_start,
                 proj_end,
@@ -184,19 +201,20 @@ impl DollyZoom {
             },
         ) in state.map.iter_mut()
         {
-            let Ok((camera, mut projection, mut transform, mut controller)) =
-                cameras.get_mut(*camera)
+            let mut cameras = camera_set.p0();
+            let Ok((camera, mut projection, mut controller)) = cameras.get_mut(*camera_entity)
             else {
                 *complete = true;
                 continue;
             };
-
             let Projection::Perspective(last_perspective) = projection.clone() else {
                 *projection = proj_end.clone();
                 controller.enabled_motion = initial_enabled.clone();
                 *complete = true;
                 continue;
             };
+
+            let mut delta_translation = DVec3::ZERO;
 
             let last_fov = last_perspective.fov as f64;
             let fov_start = perspective_start.fov as f64;
@@ -216,9 +234,10 @@ impl DollyZoom {
             let last_dist = *triangle_base / (last_fov / 2.0).tan();
             let next_dist = *triangle_base / (next_fov / 2.0).tan();
             let forward_dist = last_dist - next_dist;
-            let next_translation = transform.forward().as_dvec3() * forward_dist;
+            let cam_forward = DVec3::NEG_Z;
+            let next_translation = cam_forward * forward_dist;
 
-            transform.translation += next_translation.as_vec3();
+            delta_translation += next_translation;
             controller.last_anchor_depth += forward_dist;
 
             if progress < 1.0 {
@@ -237,6 +256,15 @@ impl DollyZoom {
                 *complete = true;
             }
             redraw.write(RequestRedraw);
+
+            let mut camera_muts = camera_set.p1();
+            let mut camera_mut = camera_muts.get_mut(*camera_entity).unwrap();
+            EditorCam::apply_delta(
+                &mut camera_mut,
+                &delta_translation,
+                &DQuat::IDENTITY,
+                &read_write,
+            );
         }
         state.map.retain(|_, v| !v.complete);
     }
