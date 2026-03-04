@@ -113,7 +113,7 @@ pub fn update_orthographic(
                 let cam_forward = DVec3::NEG_Z;
                 let movement = cam_forward * forward_amount as f64;
 
-                if movement != Vec3::ZERO {
+                if movement != DVec3::ZERO {
                     delta_translation += movement;
                 }
 
