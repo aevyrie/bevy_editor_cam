@@ -4,8 +4,8 @@
 //! in 2d maps, with momentum and pixel-perfect panning, when used with ortho.
 use bevy::{color::palettes, prelude::*};
 use bevy_editor_cam::{extensions::dolly_zoom::DollyZoomTrigger, prelude::*};
-use rand::RngExt;
 use bevy_math::DVec3;
+use rand::RngExt;
 
 fn main() {
     App::new()
