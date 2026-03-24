@@ -341,7 +341,7 @@ impl EditorCam {
                     .p1()
                     .get_mut(*entity)
                     .ok()
-                    .map(|(mut camera_controller, camera, projection)| {
+                    .and_then(|(mut camera_controller, camera, projection)| {
                         let dt = time.delta();
                         camera_controller.update_transform_and_projection(
                             camera,
@@ -352,8 +352,7 @@ impl EditorCam {
                             dt,
                         )
                     })
-                    .flatten()
-                    .map(|transform| (entity.clone(), transform))
+                    .map(|transform| (*entity, transform))
             })
             .collect::<Vec<_>>()
             .iter()
