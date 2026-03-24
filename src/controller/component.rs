@@ -13,6 +13,8 @@ use bevy_platform::time::Instant;
 use bevy_reflect::prelude::*;
 use bevy_time::prelude::*;
 use bevy_transform::prelude::*;
+
+use super::transform_adapter::TransformAdapter;
 use bevy_window::RequestRedraw;
 
 use super::{
@@ -80,16 +82,6 @@ pub struct EditorCam {
     pub current_motion: CurrentMotion,
 }
 
-/// Optional resource that holds a function for how ['EditorCam'] applies its transform changes.
-/// The intended usage is for situations where a different transform system than Bevy's ['Transform'] component is being used
-/// When this resource is not present, the behavior falls back to a default that uses Bevy's ['Transform'].
-#[derive(Resource)]
-pub struct CustomReadWrite {
-    /// Function for reading transform info from an entity.
-    pub custom_read_transform: Box<dyn Fn(&EntityRef) -> Option<(DVec3, DQuat)> + Send + Sync>,
-    /// Function for applying a delta to an entity's transform.
-    pub custom_apply_delta: Box<dyn Fn(&mut EntityMut, DVec3, DQuat) + Send + Sync>,
-}
 impl Default for EditorCam {
     fn default() -> Self {
         EditorCam {
@@ -330,7 +322,7 @@ impl EditorCam {
             Query<(&mut EditorCam, &Camera, Mut<Projection>)>,
             Query<EntityMut, With<EditorCam>>,
         )>,
-        read_write: Option<Res<CustomReadWrite>>,
+        transform_adapter: Res<TransformAdapter>,
         mut event: MessageWriter<RequestRedraw>,
         time: Res<Time>,
     ) {
@@ -338,7 +330,8 @@ impl EditorCam {
             .p0()
             .iter()
             .filter_map(|entity_ref| {
-                EditorCam::read_transform(&entity_ref, &read_write)
+                transform_adapter
+                    .read(&entity_ref)
                     .map(|transform| (entity_ref.id(), transform))
             })
             .collect::<Vec<_>>()
@@ -366,11 +359,10 @@ impl EditorCam {
             .iter()
             .for_each(|(entity, (delta_translation, delta_rotation))| {
                 if let Ok(mut entity_mut) = camera_set.p2().get_mut(*entity) {
-                    EditorCam::apply_delta(
+                    transform_adapter.apply_delta(
                         &mut entity_mut,
-                        delta_translation,
-                        delta_rotation,
-                        &read_write,
+                        *delta_translation,
+                        *delta_rotation,
                     );
                 }
             });
@@ -608,9 +600,9 @@ impl EditorCam {
                     // Orient the camera so up always points up (roll).
                     let forward = cam_forward(new_rotation);
                     if how_upright > epsilon && how_upright < FRAC_PI_2 - epsilon {
-                        look_to(&mut new_rotation, forward, up);
+                        new_rotation = look_to(forward, up);
                     } else if how_upright > FRAC_PI_2 + epsilon && how_upright < PI - epsilon {
-                        look_to(&mut new_rotation, forward, -up);
+                        new_rotation = look_to(forward, -up);
                     }
                 }
                 OrbitConstraint::Free => {
@@ -652,68 +644,6 @@ impl EditorCam {
     pub fn last_anchor_depth(&self) -> f64 {
         -self.last_anchor_depth.abs()
     }
-
-    /// Applies a difference transform onto an entity, using a custom function if it is available via
-    /// ['CustomReadWrite'], or using a default if there isn't one available.
-    pub fn apply_delta(
-        entity: &mut EntityMut,
-        delta_translation: &DVec3,
-        delta_rotation: &DQuat,
-        read_write: &Option<Res<CustomReadWrite>>,
-    ) {
-        if let Some(ref read_write) = read_write {
-            let CustomReadWrite {
-                custom_apply_delta, ..
-            } = &**read_write;
-            custom_apply_delta(entity, *delta_translation, *delta_rotation);
-        } else {
-            Self::default_apply_delta(entity, *delta_translation, *delta_rotation);
-        }
-    }
-
-    /// Retrieves an entity's tranform information, using a custom function if it is available via
-    /// ['CustomReadWrite'], or using a default if there isn't one available.
-    pub fn read_transform(
-        entity: &EntityRef,
-        read_write: &Option<Res<CustomReadWrite>>,
-    ) -> Option<(DVec3, DQuat)> {
-        if let Some(ref read_write) = read_write {
-            let CustomReadWrite {
-                custom_read_transform: read_transform,
-                ..
-            } = &**read_write;
-            read_transform(entity)
-        } else {
-            Self::default_read_transform(entity)
-        }
-    }
-    /// Default fallback for applying transform deltas onto the [`EditorCam`]'s entity.
-    /// Uses Bevy's base ['Transform'] type.
-    fn default_apply_delta(
-        entity: &mut EntityMut,
-        delta_translation: DVec3,
-        delta_rotation: DQuat,
-    ) {
-        let Some(mut cam_transform) = entity.get_mut::<Transform>() else {
-            error!("Unable to retrieve Transform from EditorCam entity.");
-            return;
-        };
-        let delta_transform = Transform::from_translation(delta_translation.as_vec3())
-            .with_rotation(delta_rotation.as_quat());
-        *cam_transform = cam_transform.mul_transform(delta_transform);
-    }
-    /// Default fallback for reading transform information from the [`EditorCam`]'s entity.
-    /// Uses Bevy's base ['Transform'] type.
-    fn default_read_transform(entity: &EntityRef) -> Option<(DVec3, DQuat)> {
-        let Some(cam_transform) = entity.get::<Transform>() else {
-            error!("Unable to retrieve Transform from EditorCam entity.");
-            return None;
-        };
-        Some((
-            cam_transform.translation.as_dvec3(),
-            cam_transform.rotation.as_dquat(),
-        ))
-    }
 }
 
 /// A 64-bit version of Transform::rotate_around
@@ -722,15 +652,16 @@ pub fn rotate_around(transform: (&mut DVec3, &mut DQuat), point: DVec3, rotation
     *transform.1 = (rotation * *transform.1).normalize();
 }
 
-/// A 64-bit version of Transform::look_to
-pub fn look_to(cam_rotation: &mut DQuat, direction: DVec3, up: DVec3) {
+/// A 64-bit version of Transform::look_to. Returns the rotation quaternion for the given
+/// facing direction and up vector.
+pub fn look_to(direction: DVec3, up: DVec3) -> DQuat {
     let back = -direction;
     let right = up
         .cross(back)
         .try_normalize()
         .unwrap_or_else(|| up.any_orthogonal_vector());
     let up = back.cross(right);
-    *cam_rotation = DQuat::from_mat3(&DMat3::from_cols(right, up, back))
+    DQuat::from_mat3(&DMat3::from_cols(right, up, back))
 }
 
 /// Helper method for getting a local forward vector

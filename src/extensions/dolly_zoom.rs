@@ -14,7 +14,7 @@ use bevy_platform::{collections::HashMap, time::Instant};
 use bevy_reflect::prelude::*;
 use bevy_window::RequestRedraw;
 
-use crate::prelude::{motion::CurrentMotion, CustomReadWrite, EditorCam, EnabledMotion};
+use crate::prelude::{motion::CurrentMotion, EditorCam, EnabledMotion, TransformAdapter};
 
 /// See the [module](self) docs.
 pub struct DollyZoomPlugin;
@@ -52,7 +52,7 @@ impl DollyZoomTrigger {
             Query<(&Camera, Mut<Projection>, &mut EditorCam)>,
             Query<EntityMut, With<EditorCam>>,
         )>,
-        read_write: Option<Res<CustomReadWrite>>,
+        transform_adapter: Res<TransformAdapter>,
         mut redraw: MessageWriter<RequestRedraw>,
     ) {
         for event in events.read() {
@@ -136,12 +136,7 @@ impl DollyZoomTrigger {
 
             let mut camera_muts = camera_set.p1();
             let mut camera_mut = camera_muts.get_mut(event.camera).unwrap();
-            EditorCam::apply_delta(
-                &mut camera_mut,
-                &delta_translation,
-                &DQuat::IDENTITY,
-                &read_write,
-            );
+            transform_adapter.apply_delta(&mut camera_mut, delta_translation, DQuat::IDENTITY);
         }
     }
 }
@@ -184,7 +179,7 @@ impl DollyZoom {
             Query<(&Camera, Mut<Projection>, &mut EditorCam)>,
             Query<EntityMut, With<EditorCam>>,
         )>,
-        read_write: Option<Res<CustomReadWrite>>,
+        transform_adapter: Res<TransformAdapter>,
         mut redraw: MessageWriter<RequestRedraw>,
     ) {
         let animation_duration = state.animation_duration;
@@ -259,12 +254,7 @@ impl DollyZoom {
 
             let mut camera_muts = camera_set.p1();
             let mut camera_mut = camera_muts.get_mut(*camera_entity).unwrap();
-            EditorCam::apply_delta(
-                &mut camera_mut,
-                &delta_translation,
-                &DQuat::IDENTITY,
-                &read_write,
-            );
+            transform_adapter.apply_delta(&mut camera_mut, delta_translation, DQuat::IDENTITY);
         }
         state.map.retain(|_, v| !v.complete);
     }

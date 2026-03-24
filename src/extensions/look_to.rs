@@ -5,7 +5,7 @@ use std::{f64::consts::PI, time::Duration};
 
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
-use bevy_math::{prelude::*, DAffine3, DMat3, DQuat, DVec3};
+use bevy_math::{prelude::*, DAffine3, DQuat, DVec3};
 use bevy_platform::{collections::HashMap, time::Instant};
 use bevy_reflect::prelude::*;
 use bevy_window::RequestRedraw;
@@ -63,17 +63,6 @@ impl LookToTrigger {
             angle > EPSILON && angle < PI - EPSILON
         });
 
-        let looking_to = |direction: DVec3, up: DVec3| -> DQuat {
-            // Following lines are f64 versions of Transform::look_to
-            let back = -direction;
-            let right = up
-                .cross(back)
-                .try_normalize()
-                .unwrap_or_else(|| up.any_orthogonal_vector());
-            let up = back.cross(right);
-            DQuat::from_mat3(&DMat3::from_cols(right, up, back))
-        };
-
         let up = constraint.unwrap_or_else(|| {
             let current = cam_rotation;
             let options = [
@@ -86,7 +75,7 @@ impl LookToTrigger {
             ];
             *options
                 .iter()
-                .map(|d| (d, looking_to(facing, *d)))
+                .map(|d| (d, look_to(facing, *d)))
                 .map(|(d, rot)| (d, rot.angle_between(*current).abs()))
                 .reduce(|acc, this| if this.1 < acc.1 { this } else { acc })
                 .map(|nearest| nearest.0)
@@ -107,15 +96,14 @@ impl LookToTrigger {
         mut state: ResMut<LookTo>,
         mut camera_set: ParamSet<(Query<&mut EditorCam>, Query<EntityRef, With<EditorCam>>)>,
         mut redraw: MessageWriter<RequestRedraw>,
-        read_write: Option<Res<CustomReadWrite>>,
+        transform_adapter: Res<TransformAdapter>,
     ) {
         for event in events.read() {
             let camera_refs = camera_set.p1();
             let Ok(camera_ref) = camera_refs.get(event.camera) else {
                 continue;
             };
-            let Some((_, camera_rotation)) = EditorCam::read_transform(&camera_ref, &read_write)
-            else {
+            let Some((_, camera_rotation)) = transform_adapter.read(&camera_ref) else {
                 continue;
             };
             let mut cameras = camera_set.p0();
@@ -191,7 +179,7 @@ impl LookTo {
             Query<EntityMut, With<EditorCam>>,
         )>,
         mut redraw: MessageWriter<RequestRedraw>,
-        read_write: Option<Res<CustomReadWrite>>,
+        transform_adapter: Res<TransformAdapter>,
     ) {
         let animation_duration = state.animation_duration;
         let animation_curve = state.animation_curve;
@@ -212,7 +200,7 @@ impl LookTo {
                 continue;
             };
             let Some((mut camera_translation, mut camera_rotation)) =
-                EditorCam::read_transform(&camera_ref, &read_write)
+                transform_adapter.read(&camera_ref)
             else {
                 continue;
             };
@@ -225,15 +213,6 @@ impl LookTo {
                 (start.elapsed().as_secs_f32() / animation_duration.as_secs_f32()).clamp(0.0, 1.0);
             let progress = animation_curve.ease(progress_t);
 
-            let rotate_around = |trans_translation: &mut DVec3,
-                                 trans_rotation: &mut DQuat,
-                                 point: DVec3,
-                                 rotation: DQuat| {
-                // Following lines are f64 versions of Transform::rotate_around
-                *trans_translation = point + rotation * (*trans_translation - point);
-                *trans_rotation = (rotation * *trans_rotation).normalize();
-            };
-
             let anchor_view_space = controller.anchor_view_space().unwrap_or(DVec3::new(
                 0.0,
                 0.0,
@@ -245,19 +224,8 @@ impl LookTo {
                 r * anchor_view_space + t
             };
 
-            let looking_to = |direction: DVec3, up: DVec3| -> DQuat {
-                // Following lines are f64 versions of Transform::look_to
-                let back = -direction;
-                let right = up
-                    .cross(back)
-                    .try_normalize()
-                    .unwrap_or_else(|| up.any_orthogonal_vector());
-                let up = back.cross(right);
-                DQuat::from_mat3(&DMat3::from_cols(right, up, back))
-            };
-
-            let rot_init = looking_to(*initial_facing_direction, *initial_up_direction);
-            let rot_target = looking_to(*target_facing_direction, *target_up_direction);
+            let rot_init = look_to(*initial_facing_direction, *initial_up_direction);
+            let rot_target = look_to(*target_facing_direction, *target_up_direction);
 
             let rot_next = rot_init.slerp(rot_target, progress as f64);
             let rot_last = camera_rotation;
@@ -266,8 +234,7 @@ impl LookTo {
             let original_translation = camera_translation;
             let original_rotation = camera_rotation;
             rotate_around(
-                &mut camera_translation,
-                &mut camera_rotation,
+                (&mut camera_translation, &mut camera_rotation),
                 anchor_world,
                 rot_delta,
             );
@@ -280,12 +247,7 @@ impl LookTo {
 
             let mut camera_muts = camera_set.p2();
             let mut camera_mut = camera_muts.get_mut(*camera).unwrap();
-            EditorCam::apply_delta(
-                &mut camera_mut,
-                &delta_translation,
-                &delta_rotation,
-                &read_write,
-            );
+            transform_adapter.apply_delta(&mut camera_mut, delta_translation, delta_rotation);
             if progress_t >= 1.0 {
                 *complete = true;
             }

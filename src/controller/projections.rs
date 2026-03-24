@@ -94,7 +94,7 @@ pub fn update_orthographic(
         Query<(Entity, &mut EditorCam, Mut<Projection>)>,
         Query<EntityMut, With<EditorCam>>,
     )>,
-    read_write: Option<Res<CustomReadWrite>>,
+    transform_adapter: Res<TransformAdapter>,
 ) {
     camera_set
         .p0()
@@ -136,12 +136,7 @@ pub fn update_orthographic(
         .iter()
         .for_each(|(entity, delta_translation)| {
             if let Ok(mut entity_mut) = camera_set.p1().get_mut(*entity) {
-                EditorCam::apply_delta(
-                    &mut entity_mut,
-                    delta_translation,
-                    &DQuat::IDENTITY,
-                    &read_write,
-                );
+                transform_adapter.apply_delta(&mut entity_mut, *delta_translation, DQuat::IDENTITY);
             }
         });
 }

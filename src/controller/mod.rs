@@ -9,6 +9,7 @@ pub mod momentum;
 pub mod motion;
 pub mod projections;
 pub mod smoothing;
+pub mod transform_adapter;
 pub mod zoom;
 
 /// Adds [`bevy_editor_cam`](crate) functionality without an input plugin or any extensions. This
@@ -18,18 +19,19 @@ pub struct MinimalEditorCamPlugin;
 
 impl Plugin for MinimalEditorCamPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            PreUpdate,
-            (
-                crate::controller::component::EditorCam::update_camera_positions,
-                crate::controller::projections::update_orthographic,
-                // Technically `update_perspective` does not alter the camera
-                // position, but the other two systems above do, so I'm putting
-                // them all in the SyncCameraPosition group.
-                crate::controller::projections::update_perspective,
-            )
-                .chain()
-                .after(bevy_picking::PickingSystems::Last),
-        );
+        app.init_resource::<transform_adapter::TransformAdapter>()
+            .add_systems(
+                PreUpdate,
+                (
+                    component::EditorCam::update_camera_positions,
+                    projections::update_orthographic,
+                    // Technically `update_perspective` does not alter the camera
+                    // position, but the other two systems above do, so I'm putting
+                    // them all in the SyncCameraPosition group.
+                    projections::update_perspective,
+                )
+                    .chain()
+                    .after(bevy_picking::PickingSystems::Last),
+            );
     }
 }
