@@ -33,6 +33,6 @@ impl Plugin for MinimalEditorCamPlugin {
                     .chain()
                     .after(bevy_picking::PickingSystems::Last)
                     .in_set(crate::SyncCameraPosition),
-        );
+            );
     }
 }
