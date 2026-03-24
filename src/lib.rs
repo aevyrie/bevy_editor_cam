@@ -175,7 +175,7 @@ pub mod input;
 /// Common imports.
 pub mod prelude {
     pub use crate::{
-        controller::{component::*, *},
+        controller::{component::*, transform_adapter::*, *},
         DefaultEditorCamPlugins,
     };
 }
