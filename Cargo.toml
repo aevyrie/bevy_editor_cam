@@ -1,6 +1,6 @@
 [package]
 name = "bevy_editor_cam"
-version = "0.7.0"
+version = "0.7.2"
 edition = "2021"
 description = "A camera controller for editors and CAD."
 license = "MIT OR Apache-2.0"
@@ -15,27 +15,27 @@ extension_anchor_indicator = ["bevy_gizmos"]
 extension_independent_skybox = ["bevy_asset", "bevy_core_pipeline"]
 
 [dependencies]
-bevy_app = "0.17.1"
-bevy_color = "0.17.1"
-bevy_derive = "0.17.1"
-bevy_ecs = "0.17.1"
-bevy_image = "0.17.1"
-bevy_input = "0.17.1"
-bevy_log = "0.17.1"
-bevy_math = "0.17.1"
-bevy_picking = "0.17.1"
-bevy_reflect = "0.17.1"
-bevy_camera = "0.17.1"
-bevy_render = "0.17.1"
-bevy_time = "0.17.1"
-bevy_transform = "0.17.1"
-bevy_utils = "0.17.1"
-bevy_window = "0.17.1"
-bevy_platform = "0.17.1"
+bevy_app = "0.17.3"
+bevy_color = "0.17.3"
+bevy_derive = "0.17.3"
+bevy_ecs = "0.17.3"
+bevy_image = "0.17.3"
+bevy_input = "0.17.3"
+bevy_log = "0.17.3"
+bevy_math = "0.17.3"
+bevy_picking = "0.17.3"
+bevy_reflect = "0.17.3"
+bevy_camera = "0.17.3"
+bevy_render = "0.17.3"
+bevy_time = "0.17.3"
+bevy_transform = "0.17.3"
+bevy_utils = "0.17.3"
+bevy_window = "0.17.3"
+bevy_platform = "0.17.3"
 # Optional
-bevy_asset = { version = "0.17.1", optional = true }
-bevy_core_pipeline = { version = "0.17.1", optional = true }
-bevy_gizmos = { version = "0.17.1", optional = true }
+bevy_asset = { version = "0.17.3", optional = true }
+bevy_core_pipeline = { version = "0.17.3", optional = true }
+bevy_gizmos = { version = "0.17.3", optional = true }
 
 [dev-dependencies]
 bevy_framepace = "0.20"
