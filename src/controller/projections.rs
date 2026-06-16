@@ -2,7 +2,7 @@
 
 use bevy_camera::prelude::*;
 use bevy_ecs::prelude::*;
-use bevy_math::{DQuat, DVec3};
+use bevy_math::{DQuat, DVec3, Vec4};
 use bevy_reflect::prelude::*;
 
 use crate::prelude::*;
@@ -51,6 +51,16 @@ pub fn update_perspective(mut cameras: Query<(&EditorCam, Mut<Projection>)>) {
         let multiplier = editor_cam.perspective.near_clip_multiplier;
         perspective.near = (editor_cam.last_anchor_depth.abs() as f32 * multiplier)
             .clamp(limits.start, limits.end);
+        // Keep `near_clip_plane` matched to `near`. `PerspectiveProjection::get_clip_from_view`
+        // applies an oblique near-clip-plane adjustment whenever
+        // `near_clip_plane != vec4(0, 0, -1, -near)`. Because we change `near` every frame, leaving
+        // `near_clip_plane` at its default (which matches the *default* `near`, 0.1) silently turns
+        // on that oblique adjustment, rewriting the projection's z-row and corrupting the depth
+        // buffer for every camera the controller drives. That breaks depth-dependent rendering
+        // (eye-dome lighting, SSAO, etc.) even though geometry positions look correct. Re-matching
+        // the plane keeps the adjustment a no-op. (The controller is incompatible with a genuine
+        // oblique near plane anyway, since it overwrites `near` continuously.)
+        perspective.near_clip_plane = Vec4::new(0.0, 0.0, -1.0, -perspective.near);
     }
 }
 
