@@ -11,8 +11,8 @@
 use bevy::{
     camera::Viewport, core_pipeline::tonemapping::Tonemapping, prelude::*, window::WindowResized,
 };
+use bevy_camera::Hdr;
 use bevy_editor_cam::prelude::*;
-use bevy_render::view::Hdr;
 
 fn main() {
     App::new()
@@ -140,7 +140,7 @@ fn spawn_helmets(n: usize, asset_server: &AssetServer, commands: &mut Commands) 
         for y in width.clone() {
             for z in width.clone() {
                 commands.spawn((
-                    SceneRoot(scene.clone()),
+                    WorldAssetRoot(scene.clone()),
                     Transform::from_translation(IVec3::new(x, y, z).as_vec3() * 2.0)
                         .with_scale(Vec3::splat(1.)),
                 ));

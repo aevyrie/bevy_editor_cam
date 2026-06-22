@@ -131,12 +131,12 @@ fn setup_ui(mut commands: Commands) {
         Left Mouse  - Pan
         Right Mouse - Orbit
         Scroll      - Zoom
-        P           - Toggle projection       
+        P           - Toggle projection
     "};
     commands.spawn((
         Text::new(text),
         TextFont {
-            font_size: 20.0,
+            font_size: FontSize::Px(20.0),
             ..default()
         },
         Node {

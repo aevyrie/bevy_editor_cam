@@ -2,6 +2,7 @@
 
 use bevy_camera::prelude::*;
 use bevy_ecs::prelude::*;
+use bevy_ecs::resource::IsResource;
 use bevy_math::{DQuat, DVec3, Vec3};
 use bevy_reflect::prelude::*;
 
@@ -99,7 +100,7 @@ impl Default for OrthographicSettings {
 pub fn update_orthographic(
     mut camera_set: ParamSet<(
         Query<(Entity, &mut EditorCam, Mut<Projection>)>,
-        Query<EntityMut, With<EditorCam>>,
+        Query<EntityMut, (With<EditorCam>, Without<IsResource>)>,
     )>,
     transform_adapter: Res<TransformAdapter>,
 ) {
