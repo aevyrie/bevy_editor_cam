@@ -8,6 +8,7 @@ use std::time::Duration;
 use bevy_app::prelude::*;
 use bevy_camera::{prelude::*, ScalingMode};
 use bevy_ecs::prelude::*;
+use bevy_ecs::resource::IsResource;
 use bevy_log::error_once;
 use bevy_math::{prelude::*, DQuat, DVec3};
 use bevy_platform::{collections::HashMap, time::Instant};
@@ -50,7 +51,7 @@ impl DollyZoomTrigger {
         mut state: ResMut<DollyZoom>,
         mut camera_set: ParamSet<(
             Query<(&Camera, Mut<Projection>, &mut EditorCam)>,
-            Query<EntityMut, With<EditorCam>>,
+            Query<EntityMut, (With<EditorCam>, Without<IsResource>)>,
         )>,
         transform_adapter: Res<TransformAdapter>,
         mut redraw: MessageWriter<RequestRedraw>,
@@ -177,7 +178,7 @@ impl DollyZoom {
         mut state: ResMut<Self>,
         mut camera_set: ParamSet<(
             Query<(&Camera, Mut<Projection>, &mut EditorCam)>,
-            Query<EntityMut, With<EditorCam>>,
+            Query<EntityMut, (With<EditorCam>, Without<IsResource>)>,
         )>,
         transform_adapter: Res<TransformAdapter>,
         mut redraw: MessageWriter<RequestRedraw>,

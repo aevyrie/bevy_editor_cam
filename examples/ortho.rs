@@ -73,7 +73,7 @@ fn spawn_helmets(n: usize, asset_server: &AssetServer, commands: &mut Commands) 
         for y in width.clone() {
             for z in width.clone() {
                 commands.spawn((
-                    SceneRoot(scene.clone()),
+                    WorldAssetRoot(scene.clone()),
                     Transform::from_translation(IVec3::new(x, y, z).as_vec3() * 2.0)
                         .with_scale(Vec3::splat(1.)),
                 ));
@@ -91,7 +91,7 @@ fn setup_ui(mut commands: Commands) {
     commands.spawn((
         Text::new(text),
         TextFont {
-            font_size: 20.0,
+            font_size: FontSize::Px(20.0),
             ..default()
         },
         Node {
