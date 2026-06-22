@@ -5,6 +5,7 @@ use std::{f64::consts::PI, time::Duration};
 
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
+use bevy_ecs::resource::IsResource;
 use bevy_math::{prelude::*, DAffine3, DQuat, DVec3};
 use bevy_platform::{collections::HashMap, time::Instant};
 use bevy_reflect::prelude::*;
@@ -94,7 +95,10 @@ impl LookToTrigger {
     fn receive(
         mut events: MessageReader<Self>,
         mut state: ResMut<LookTo>,
-        mut camera_set: ParamSet<(Query<&mut EditorCam>, Query<EntityRef, With<EditorCam>>)>,
+        mut camera_set: ParamSet<(
+            Query<&mut EditorCam>,
+            Query<EntityRef, (With<EditorCam>, Without<IsResource>)>,
+        )>,
         mut redraw: MessageWriter<RequestRedraw>,
         transform_adapter: Res<TransformAdapter>,
     ) {
@@ -175,8 +179,8 @@ impl LookTo {
         mut state: ResMut<Self>,
         mut camera_set: ParamSet<(
             Query<&mut EditorCam>,
-            Query<EntityRef, With<EditorCam>>,
-            Query<EntityMut, With<EditorCam>>,
+            Query<EntityRef, (With<EditorCam>, Without<IsResource>)>,
+            Query<EntityMut, (With<EditorCam>, Without<IsResource>)>,
         )>,
         mut redraw: MessageWriter<RequestRedraw>,
         transform_adapter: Res<TransformAdapter>,

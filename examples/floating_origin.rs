@@ -101,7 +101,7 @@ fn ui_setup(mut commands: Commands) {
         Text::new(""),
         Pickable::IGNORE,
         TextFont {
-            font_size: 18.0,
+            font_size: FontSize::Px(18.0),
             ..default()
         },
         Node {
@@ -115,7 +115,7 @@ fn ui_setup(mut commands: Commands) {
         Text::new(""),
         Pickable::IGNORE,
         TextFont {
-            font_size: 52.0,
+            font_size: FontSize::Px(52.0),
             ..default()
         },
         Node {

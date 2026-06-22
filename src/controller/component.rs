@@ -15,6 +15,7 @@ use bevy_time::prelude::*;
 use bevy_transform::prelude::*;
 
 use super::transform_adapter::TransformAdapter;
+use bevy_ecs::resource::IsResource;
 use bevy_window::RequestRedraw;
 
 use super::{
@@ -318,9 +319,9 @@ impl EditorCam {
     /// Called once every frame to compute motions and update the transforms of all [`EditorCam`]s
     pub fn update_camera_positions(
         mut camera_set: ParamSet<(
-            Query<EntityRef, With<EditorCam>>,
+            Query<EntityRef, (With<EditorCam>, Without<IsResource>)>,
             Query<(&mut EditorCam, &Camera, Mut<Projection>)>,
-            Query<EntityMut, With<EditorCam>>,
+            Query<EntityMut, (With<EditorCam>, Without<IsResource>)>,
         )>,
         transform_adapter: Res<TransformAdapter>,
         mut event: MessageWriter<RequestRedraw>,
