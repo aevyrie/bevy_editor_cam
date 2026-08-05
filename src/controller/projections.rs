@@ -2,7 +2,7 @@
 
 use bevy_camera::prelude::*;
 use bevy_ecs::prelude::*;
-use bevy_math::{DQuat, DVec3};
+use bevy_math::{DQuat, DVec3, Vec3};
 use bevy_reflect::prelude::*;
 
 use crate::prelude::*;
@@ -51,6 +51,13 @@ pub fn update_perspective(mut cameras: Query<(&EditorCam, Mut<Projection>)>) {
         let multiplier = editor_cam.perspective.near_clip_multiplier;
         perspective.near = (editor_cam.last_anchor_depth.abs() as f32 * multiplier)
             .clamp(limits.start, limits.end);
+        // Bevy 0.18 applies an oblique clip-plane transform unless `near_clip_plane` exactly
+        // matches `near`, which discards the near plane written above. Bevy 0.19 relaxes that
+        // check to the normal alone (bevyengine/bevy#23279), so this can go when the crate moves
+        // to 0.19. A user-supplied oblique plane for a portal or mirror must be left alone.
+        if perspective.near_clip_plane.truncate() == Vec3::NEG_Z {
+            perspective.near_clip_plane.w = -perspective.near;
+        }
     }
 }
 
