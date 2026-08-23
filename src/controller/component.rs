@@ -247,7 +247,7 @@ impl EditorCam {
             CurrentMotion::UserControlled {
                 ref mut motion_inputs,
                 ..
-            } => InputQueue(motion_inputs.zoom_inputs_mut().0.drain(..).collect()),
+            } => InputQueue(std::mem::take(&mut motion_inputs.zoom_inputs_mut().0)),
         };
         self.current_motion = CurrentMotion::UserControlled {
             anchor,
