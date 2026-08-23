@@ -36,7 +36,9 @@ impl TransformAdapter {
         (self.read_fn)(entity)
     }
 
-    /// Apply a movement delta to an entity.
+    /// Apply a movement delta to an entity. The delta is in the entity's local space, as produced
+    /// by [`transform_delta`]; implementations should compose it onto the current transform, not
+    /// overwrite it, and should keep the resulting rotation normalized.
     pub fn apply_delta(
         &self,
         entity: &mut EntityMut,
@@ -45,6 +47,19 @@ impl TransformAdapter {
     ) {
         (self.apply_delta_fn)(entity, delta_translation, delta_rotation)
     }
+}
+
+/// Compute the entity-local delta that takes a transform from `original` to `new`, in the form
+/// expected by [`TransformAdapter::apply_delta`]. Both inputs are `(translation, rotation)`.
+pub fn transform_delta(
+    (original_translation, original_rotation): (DVec3, DQuat),
+    (new_translation, new_rotation): (DVec3, DQuat),
+) -> (DVec3, DQuat) {
+    let inverse = original_rotation.inverse();
+    (
+        inverse * (new_translation - original_translation),
+        inverse * new_rotation,
+    )
 }
 
 impl Default for TransformAdapter {
@@ -65,9 +80,17 @@ impl Default for TransformAdapter {
                     error_once!("Unable to retrieve Transform from EditorCam entity.");
                     return;
                 };
-                let delta_transform = Transform::from_translation(delta_translation.as_vec3())
-                    .with_rotation(delta_rotation.as_quat());
-                *cam_transform = cam_transform.mul_transform(delta_transform);
+                // The delta is composed in 64-bit and only rounded to the stored 32-bit
+                // `Transform` once. Composing with `Transform::mul_transform` instead would do
+                // the quaternion product in 32-bit and leave the result un-normalized, which
+                // accumulates a systematic error every frame. That is invisible with the camera
+                // close to the anchor, but a dolly zoom into ortho parks the camera thousands of
+                // units away to maximize depth precision, where the same angular error is enough
+                // to visibly slide the anchor out from under the pointer while orbiting.
+                let rotation = cam_transform.rotation.as_dquat();
+                let translation = cam_transform.translation.as_dvec3();
+                cam_transform.translation = (translation + rotation * delta_translation).as_vec3();
+                cam_transform.rotation = (rotation * delta_rotation).normalize().as_quat();
             },
         )
     }
