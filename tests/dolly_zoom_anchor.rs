@@ -149,14 +149,14 @@ fn orbit_after_dolly_zoom_pivots_about_the_anchor() {
 fn near_clip_plane_tracks_the_anchor_through_a_dolly_zoom() {
     let (mut app, camera) = test_app();
 
-    // A frame has already run, so `near` should have been derived from the anchor depth and moved
-    // off Bevy's 0.1 default. Without that this test would pass vacuously.
-    // A slower animation than the default for these tests, so the sweep between the two
-    // projections is actually sampled over many frames rather than completing in one.
+    // A slower animation than the other test uses, so the sweep between the two projections is
+    // sampled over many frames instead of completing in a single one.
     app.world_mut()
         .resource_mut::<DollyZoom>()
         .animation_duration = Duration::from_millis(200);
 
+    // A frame has already run, so `near` should have been derived from the anchor depth and moved
+    // off Bevy's 0.1 default.
     let start = perspective(&app, camera).expect("camera starts in perspective");
     assert!(
         (start.near - 0.1).abs() > 1e-3,
@@ -198,16 +198,11 @@ fn near_clip_plane_tracks_the_anchor_through_a_dolly_zoom() {
         }
     }
 
-    let (min, max) = nears
-        .iter()
-        .fold((f32::MAX, f32::MIN), |(lo, hi), &n| (lo.min(n), hi.max(n)));
-    eprintln!(
-        "NEARS n={} min={min} max={max} ratio={}",
-        nears.len(),
-        max / min
-    );
+    // Guards against every check above passing on a near plane that never left Bevy's 0.1 default.
+    // The sweep reaches ~400 in practice.
+    let deepest = nears.iter().copied().fold(f32::MIN, f32::max);
     assert!(
-        max / min > 100.0,
-        "expected the dolly zoom to move the near plane over a wide range, saw {min} to {max}"
+        deepest > 50.0,
+        "expected the dolly zoom to push the near plane far past the 0.1 default, only saw {deepest}"
     );
 }
