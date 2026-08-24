@@ -8,13 +8,13 @@ use std::{
 use bevy_camera::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_log::prelude::*;
-use bevy_math::{prelude::*, DAffine3, DMat3, DMat4, DQuat, DVec2, DVec3};
+use bevy_math::{prelude::*, DMat3, DMat4, DQuat, DVec2, DVec3};
 use bevy_platform::time::Instant;
 use bevy_reflect::prelude::*;
 use bevy_time::prelude::*;
 use bevy_transform::prelude::*;
 
-use super::transform_adapter::TransformAdapter;
+use super::transform_adapter::{transform_delta, TransformAdapter};
 use bevy_window::RequestRedraw;
 
 use super::{
@@ -617,13 +617,10 @@ impl EditorCam {
         }
 
         self.last_anchor_depth = anchor.z;
-        let (_, delta_rotation, delta_translation) = {
-            let original =
-                DAffine3::from_rotation_translation(*original_rotation, *original_translation);
-            let new = DAffine3::from_rotation_translation(new_rotation, new_translation);
-            (original.inverse() * new).to_scale_rotation_translation()
-        };
-        Some((delta_translation, delta_rotation))
+        Some(transform_delta(
+            (*original_translation, *original_rotation),
+            (new_translation, new_rotation),
+        ))
     }
 
     /// Compute the world space size of a pixel at the anchor.

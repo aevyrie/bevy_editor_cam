@@ -5,7 +5,7 @@ use std::{f64::consts::PI, time::Duration};
 
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
-use bevy_math::{prelude::*, DAffine3, DQuat, DVec3};
+use bevy_math::{prelude::*, DQuat, DVec3};
 use bevy_platform::{collections::HashMap, time::Instant};
 use bevy_reflect::prelude::*;
 use bevy_window::RequestRedraw;
@@ -238,12 +238,10 @@ impl LookTo {
                 anchor_world,
                 rot_delta,
             );
-            let (_, delta_rotation, delta_translation) = {
-                let original =
-                    DAffine3::from_rotation_translation(original_rotation, original_translation);
-                let new = DAffine3::from_rotation_translation(camera_rotation, camera_translation);
-                (original.inverse() * new).to_scale_rotation_translation()
-            };
+            let (delta_translation, delta_rotation) = transform_delta(
+                (original_translation, original_rotation),
+                (camera_translation, camera_rotation),
+            );
 
             let mut camera_muts = camera_set.p2();
             let mut camera_mut = camera_muts.get_mut(*camera).unwrap();
