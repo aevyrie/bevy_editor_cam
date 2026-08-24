@@ -1,7 +1,8 @@
 //! Configurable options for the challenge of working with orthographic cameras.
 
-use bevy_camera::prelude::*;
+use bevy_camera::{prelude::*, ScalingMode};
 use bevy_ecs::prelude::*;
+use bevy_log::warn;
 use bevy_math::{DQuat, DVec3, Vec3};
 use bevy_reflect::prelude::*;
 
@@ -98,7 +99,7 @@ impl Default for OrthographicSettings {
 /// Update the ortho camera projection and position based on the [`OrthographicSettings`].
 pub fn update_orthographic(
     mut camera_set: ParamSet<(
-        Query<(Entity, &mut EditorCam, Mut<Projection>)>,
+        Query<(Entity, &Camera, &mut EditorCam, Mut<Projection>)>,
         Query<EntityMut, With<EditorCam>>,
     )>,
     transform_adapter: Res<TransformAdapter>,
@@ -106,11 +107,34 @@ pub fn update_orthographic(
     camera_set
         .p0()
         .iter_mut()
-        .filter_map(|(entity, mut editor_cam, mut projection)| {
+        .filter_map(|(entity, camera, mut editor_cam, mut projection)| {
             if let Projection::Orthographic(ref mut orthographic) = *projection {
                 let mut delta_translation = DVec3::ZERO;
                 let anchor_dist = editor_cam.last_anchor_depth().abs() as f32;
-                let target_dist = (editor_cam.orthographic.scale_to_near_clip * orthographic.scale)
+
+                let viewport_size = camera.logical_viewport_size()?;
+                let scaling_mode_scale = match orthographic.scaling_mode {
+                    ScalingMode::WindowSize => 1.0,
+                    ScalingMode::Fixed { width: _, height } => height / viewport_size.y,
+                    ScalingMode::AutoMin { .. } => {
+                        warn!("ScalingMode::AutoMin isn't supported.");
+                        1.0
+                    }
+                    ScalingMode::AutoMax { .. } => {
+                        warn!("ScalingMode::AutoMin isn't supported.");
+                        1.0
+                    }
+                    ScalingMode::FixedVertical { viewport_height } => {
+                        viewport_height / viewport_size.y
+                    }
+                    ScalingMode::FixedHorizontal { viewport_width } => {
+                        viewport_width / viewport_size.x
+                    }
+                };
+
+                let target_dist = (editor_cam.orthographic.scale_to_near_clip
+                    * scaling_mode_scale
+                    * orthographic.scale)
                     .clamp(
                         editor_cam.orthographic.near_clip_limits.start,
                         editor_cam.orthographic.near_clip_limits.end,

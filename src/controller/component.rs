@@ -5,7 +5,7 @@ use std::{
     time::Duration,
 };
 
-use bevy_camera::prelude::*;
+use bevy_camera::{prelude::*, ScalingMode};
 use bevy_ecs::prelude::*;
 use bevy_log::prelude::*;
 use bevy_math::{prelude::*, DMat3, DMat4, DQuat, DVec2, DVec3};
@@ -451,7 +451,37 @@ impl EditorCam {
                 };
                 offset
             }
-            Projection::Orthographic(ortho) => DVec2::new(-ortho.scale as f64, ortho.scale as f64),
+            Projection::Orthographic(ortho) => {
+                let Some(viewport_size) = camera.logical_viewport_size() else {
+                    error!("Malformed camera");
+                    return None;
+                };
+
+                let scaling_mode_scale = match ortho.scaling_mode {
+                    ScalingMode::WindowSize => DVec2::ONE,
+                    ScalingMode::Fixed { width, height } => {
+                        DVec2::new(width as f64, height as f64) / viewport_size.as_dvec2()
+                    }
+                    ScalingMode::AutoMin { .. } => {
+                        warn!("ScalingMode::AutoMin isn't supported.");
+                        DVec2::ONE
+                    }
+                    ScalingMode::AutoMax { .. } => {
+                        warn!("ScalingMode::AutoMin isn't supported.");
+                        DVec2::ONE
+                    }
+                    ScalingMode::FixedVertical { viewport_height } => {
+                        DVec2::splat(viewport_height as f64 / viewport_size.y as f64)
+                    }
+                    ScalingMode::FixedHorizontal { viewport_width } => {
+                        DVec2::splat(viewport_width as f64 / viewport_size.x as f64)
+                    }
+                };
+
+                let ortho_scale = DVec2::new(-ortho.scale as f64, ortho.scale as f64);
+
+                scaling_mode_scale * ortho_scale
+            }
             Projection::Custom(_) => {
                 error_once!("Custom projections are not supported.");
                 return None;

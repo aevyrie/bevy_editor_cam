@@ -4,6 +4,7 @@
 //! See comments in the code below!
 
 use bevy::prelude::*;
+use bevy_camera::ScalingMode;
 use bevy_editor_cam::prelude::*;
 
 fn main() {
@@ -28,6 +29,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Transform::from_translation(translation).looking_at(Vec3::ZERO, Vec3::Y),
         Projection::Orthographic(OrthographicProjection {
             scale: 0.01,
+            scaling_mode: ScalingMode::FixedVertical {
+                viewport_height: 20.0,
+            },
             ..OrthographicProjection::default_3d()
         }),
         EnvironmentMapLight {
