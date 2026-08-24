@@ -463,11 +463,11 @@ impl EditorCam {
                         DVec2::new(width as f64, height as f64) / viewport_size.as_dvec2()
                     }
                     ScalingMode::AutoMin { .. } => {
-                        warn!("ScalingMode::AutoMin isn't supported.");
+                        warn_once!("ScalingMode::AutoMin isn't supported.");
                         DVec2::ONE
                     }
                     ScalingMode::AutoMax { .. } => {
-                        warn!("ScalingMode::AutoMin isn't supported.");
+                        warn_once!("ScalingMode::AutoMin isn't supported.");
                         DVec2::ONE
                     }
                     ScalingMode::FixedVertical { viewport_height } => {

@@ -2,7 +2,7 @@
 
 use bevy_camera::{prelude::*, ScalingMode};
 use bevy_ecs::prelude::*;
-use bevy_log::warn;
+use bevy_log::warn_once;
 use bevy_math::{DQuat, DVec3, Vec3};
 use bevy_reflect::prelude::*;
 
@@ -117,11 +117,11 @@ pub fn update_orthographic(
                     ScalingMode::WindowSize => 1.0,
                     ScalingMode::Fixed { width: _, height } => height / viewport_size.y,
                     ScalingMode::AutoMin { .. } => {
-                        warn!("ScalingMode::AutoMin isn't supported.");
+                        warn_once!("ScalingMode::AutoMin isn't supported.");
                         1.0
                     }
                     ScalingMode::AutoMax { .. } => {
-                        warn!("ScalingMode::AutoMin isn't supported.");
+                        warn_once!("ScalingMode::AutoMin isn't supported.");
                         1.0
                     }
                     ScalingMode::FixedVertical { viewport_height } => {
