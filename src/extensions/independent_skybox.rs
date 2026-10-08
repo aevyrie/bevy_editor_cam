@@ -8,13 +8,13 @@
 
 use bevy_app::prelude::*;
 use bevy_asset::Handle;
-use bevy_camera::{prelude::*, visibility::RenderLayers};
+use bevy_camera::{prelude::*, visibility::RenderLayers, Hdr};
 use bevy_core_pipeline::Skybox;
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
 use bevy_math::Quat;
 use bevy_reflect::prelude::*;
-use bevy_render::view::{Hdr, Msaa};
+use bevy_render::view::Msaa;
 use bevy_transform::prelude::*;
 
 /// See the [module](self) docs.
@@ -157,7 +157,7 @@ impl IndependentSkyboxCamera {
                     }),
                     RenderLayers::none(),
                     Skybox {
-                        image: editor_without_skybox.skybox.clone(),
+                        image: Some(editor_without_skybox.skybox.clone()),
                         brightness: editor_without_skybox.brightness,
                         rotation: editor_without_skybox.rotation,
                     },

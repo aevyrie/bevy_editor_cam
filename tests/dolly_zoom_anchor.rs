@@ -15,7 +15,10 @@ use bevy_window::RequestRedraw;
 
 use bevy_editor_cam::{
     controller::MinimalEditorCamPlugin,
-    extensions::dolly_zoom::{DollyZoom, DollyZoomPlugin, DollyZoomTrigger},
+    extensions::{
+        dolly_zoom::{DollyZoom, DollyZoomPlugin, DollyZoomTrigger},
+        look_to::{LookTo, LookToPlugin, LookToTrigger},
+    },
     prelude::*,
 };
 
@@ -28,6 +31,7 @@ fn test_app() -> (App, Entity) {
         bevy_time::TimePlugin,
         MinimalEditorCamPlugin,
         DollyZoomPlugin,
+        LookToPlugin,
     ))
     .add_message::<RequestRedraw>();
 
@@ -35,6 +39,7 @@ fn test_app() -> (App, Entity) {
     app.world_mut()
         .resource_mut::<DollyZoom>()
         .animation_duration = Duration::from_millis(1);
+    app.world_mut().resource_mut::<LookTo>().animation_duration = Duration::from_millis(1);
 
     let viewport = Viewport {
         physical_size: UVec2::new(1920, 1080),
@@ -139,12 +144,6 @@ fn orbit_after_dolly_zoom_pivots_about_the_anchor() {
     );
 }
 
-/// The controller rewrites `near` every frame from the anchor depth, to keep whatever the user is
-/// zooming into inside the frustum. On Bevy 0.18 that only reaches the projection matrix if
-/// `near_clip_plane` is kept in step, because `get_clip_from_view` applies an oblique clip plane
-/// transform whenever the two disagree, which discards the near plane and swaps the infinite
-/// reverse-Z far plane for a finite oblique one. Depth then reads wrong for anything downstream,
-/// SSAO and eye dome lighting among them.
 #[test]
 fn near_clip_plane_tracks_the_anchor_through_a_dolly_zoom() {
     let (mut app, camera) = test_app();
@@ -205,4 +204,47 @@ fn near_clip_plane_tracks_the_anchor_through_a_dolly_zoom() {
         deepest > 50.0,
         "expected the dolly zoom to push the near plane far past the 0.1 default, only saw {deepest}"
     );
+}
+
+#[test]
+fn oblique_clip_plane_survives_anchor_updates() {
+    let (mut app, camera) = test_app();
+    let clip_plane = Vec3::new(0.0, 1.0, -1.0).normalize().extend(-2.0);
+    {
+        let mut entity = app.world_mut().entity_mut(camera);
+        let mut projection = entity.get_mut::<Projection>().unwrap();
+        let Projection::Perspective(perspective) = &mut *projection else {
+            panic!("camera starts in perspective");
+        };
+        perspective.near_clip_plane = clip_plane;
+        entity.get_mut::<EditorCam>().unwrap().last_anchor_depth = -20.0;
+    }
+
+    app.update();
+
+    let perspective = perspective(&app, camera).unwrap();
+    assert_eq!(perspective.near_clip_plane, clip_plane);
+    assert!((perspective.near - 1.0).abs() < 1e-6);
+    let plain = Mat4::perspective_infinite_reverse_rh(
+        perspective.fov,
+        perspective.aspect_ratio,
+        perspective.near,
+    );
+    assert!(!perspective.get_clip_from_view().abs_diff_eq(plain, 1e-6));
+}
+
+#[test]
+fn look_to_preserves_the_anchor() {
+    let (mut app, camera) = test_app();
+    app.world_mut().write_message(LookToTrigger {
+        target_facing_direction: DVec3::X,
+        target_up_direction: DVec3::Y,
+        camera,
+    });
+    settle(&mut app);
+
+    let transform = app.world().entity(camera).get::<Transform>().unwrap();
+    let facing = transform.rotation * Vec3::NEG_Z;
+    assert!(facing.abs_diff_eq(Vec3::X, 1e-6));
+    assert!(anchor_in_view_space(&app, camera).abs_diff_eq(DVec3::new(0.0, 0.0, -10.0), 1e-5));
 }

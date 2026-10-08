@@ -13,12 +13,12 @@ use bevy::{
     pbr::ScreenSpaceAmbientOcclusion, platform::time::Instant, post_process::bloom::Bloom,
     prelude::*, window::RequestRedraw,
 };
+use bevy_camera::Hdr;
 use bevy_editor_cam::{
     extensions::{dolly_zoom::DollyZoomTrigger, look_to::LookToTrigger},
     prelude::*,
 };
 use bevy_math::DVec3;
-use bevy_render::view::Hdr;
 
 fn main() {
     App::new()
@@ -50,7 +50,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let specular_map = asset_server.load("environment_maps/specular_rgb9e5_zstd.ktx2");
 
     commands.spawn((
-        SceneRoot(asset_server.load("models/PlaneEngine/scene.gltf#Scene0")),
+        WorldAssetRoot(asset_server.load("models/PlaneEngine/scene.gltf#Scene0")),
         Transform::from_scale(Vec3::splat(2.0)),
     ));
 
@@ -202,7 +202,7 @@ fn setup_ui(mut commands: Commands, camera: Entity) {
     commands.spawn((
         Text::new(text),
         TextFont {
-            font_size: 20.0,
+            font_size: FontSize::Px(20.0),
             ..default()
         },
         Node {
