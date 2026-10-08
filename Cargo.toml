@@ -7,7 +7,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["controller", "camera", "bevy", "CAD"]
 repository = "https://github.com/aevyrie/bevy_editor_cam"
 documentation = "https://docs.rs/crate/bevy_editor_cam/latest"
-exclude = ["assets/", "tests/environment_maps.rs"]
+exclude = ["assets/"]
 
 [features]
 default = ["extension_anchor_indicator", "extension_independent_skybox"]
