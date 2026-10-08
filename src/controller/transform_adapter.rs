@@ -51,14 +51,18 @@ impl TransformAdapter {
 
 /// Compute the entity-local delta that takes a transform from `original` to `new`, in the form
 /// expected by [`TransformAdapter::apply_delta`]. Both inputs are `(translation, rotation)`.
+/// Rotations must be finite and nonzero. Their lengths do not affect the delta, and the returned
+/// rotation is normalized.
 pub fn transform_delta(
     (original_translation, original_rotation): (DVec3, DQuat),
     (new_translation, new_rotation): (DVec3, DQuat),
 ) -> (DVec3, DQuat) {
-    let inverse = original_rotation.inverse();
+    // Inverse assumes a unit quaternion. Stored rotations can contain roundoff, and composing a
+    // non-unit delta feeds that error back into the next update.
+    let inverse = original_rotation.normalize().inverse();
     (
         inverse * (new_translation - original_translation),
-        inverse * new_rotation,
+        (inverse * new_rotation).normalize(),
     )
 }
 
@@ -93,5 +97,62 @@ impl Default for TransformAdapter {
                 cam_transform.rotation = (rotation * delta_rotation).normalize().as_quat();
             },
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::transform_delta;
+    use bevy_math::{DQuat, DVec3};
+
+    #[test]
+    fn repeated_orbit_deltas_preserve_rotation_length() {
+        let mut rotation = DQuat::from_rotation_z(0.7);
+        rotation.w *= 1.0 + 1e-12;
+        let initial_length = rotation.length_squared();
+        let orbit = DQuat::from_rotation_z(0.01);
+
+        for _ in 0..1_000 {
+            let target = orbit * rotation;
+            let (_, delta) = transform_delta((DVec3::ZERO, rotation), (DVec3::ZERO, target));
+            rotation *= delta;
+            assert!(rotation.is_finite());
+            assert!((rotation.length_squared() - initial_length).abs() < 1e-12);
+            assert!(rotation.normalize().dot(target.normalize()).abs() > 1.0 - 1e-14);
+        }
+    }
+
+    #[test]
+    fn scaled_rotations_produce_unit_deltas() {
+        let original = DQuat::from_rotation_y(0.4) * 1.001;
+        let target = DQuat::from_rotation_x(-0.3) * 0.999;
+        let (_, delta) = transform_delta((DVec3::ZERO, original), (DVec3::ZERO, target));
+
+        assert!((delta.length_squared() - 1.0).abs() < 1e-14);
+        let result = original.normalize() * delta;
+        assert!(result.dot(target.normalize()).abs() > 1.0 - 1e-14);
+    }
+
+    #[test]
+    fn translation_delta_uses_rotation_without_scale() {
+        let rotation = DQuat::from_rotation_z(0.7) * 1.001;
+        let original = DVec3::new(20.0, 10.0, 15.0);
+        let target = DVec3::new(-2.0, 13.0, 7.0);
+        let (translation, _) = transform_delta((original, rotation), (target, rotation));
+
+        let result = original + rotation.normalize() * translation;
+        assert!(result.abs_diff_eq(target, 1e-12));
+    }
+
+    #[test]
+    fn unit_transform_delta_reconstructs_target() {
+        let rotation = DQuat::from_euler(bevy_math::EulerRot::XYZ, 0.2, -0.5, 0.7);
+        let new_rotation = DQuat::from_euler(bevy_math::EulerRot::XYZ, -0.3, 0.4, -0.1);
+        let original = DVec3::new(20.0, 10.0, 15.0);
+        let target = DVec3::new(-2.0, 13.0, 7.0);
+        let (translation, delta) = transform_delta((original, rotation), (target, new_rotation));
+
+        assert!((original + rotation * translation).abs_diff_eq(target, 1e-12));
+        assert!((rotation * delta).dot(new_rotation).abs() > 1.0 - 1e-14);
     }
 }
