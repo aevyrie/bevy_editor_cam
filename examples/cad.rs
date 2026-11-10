@@ -68,23 +68,38 @@ const FRAME_RATE_CAPS: [f64; 3] = [30.0, 60.0, 120.0];
 #[derive(Component)]
 struct FrameRateCapText;
 
+/// The frame times of the current second, and the summary of the last whole second.
+#[derive(Default)]
+struct LastSecond {
+    elapsed: f32,
+    frames: Vec<f32>,
+    summary: String,
+}
+
 /// Starts the cap at 60 fps, moves to the next cap each time F is pressed, and shows the cap with
-/// the number of frames in the last second.
+/// the frame rate and frame times of the last second.
 fn cycle_frame_rate_cap(
     keys: Res<ButtonInput<KeyCode>>,
     time: Res<Time<Real>>,
     mut settings: ResMut<FramepaceSettings>,
     mut cap: Local<Option<usize>>,
-    mut counted: Local<(f32, u32, u32)>,
+    mut last_second: Local<LastSecond>,
     mut text: Query<&mut Text, With<FrameRateCapText>>,
 ) {
-    let (elapsed, frames, last_second) = &mut *counted;
-    *elapsed += time.delta_secs();
-    *frames += 1;
-    if *elapsed >= 1.0 {
-        *last_second = *frames;
-        *elapsed -= 1.0;
-        *frames = 0;
+    let frame = time.delta_secs() * 1000.0;
+    last_second.elapsed += time.delta_secs();
+    last_second.frames.push(frame);
+    if last_second.elapsed >= 1.0 {
+        let mut frames = std::mem::take(&mut last_second.frames);
+        let fps = 1000.0 * frames.len() as f32 / frames.iter().sum::<f32>();
+        frames.sort_by(f32::total_cmp);
+        last_second.summary = format!(
+            "{fps:.0} fps, frame ms min {:.1} median {:.1} max {:.1}",
+            frames[0],
+            frames[frames.len() / 2],
+            frames[frames.len() - 1]
+        );
+        last_second.elapsed = 0.0;
     }
     let next = match *cap {
         None => Some(1),
@@ -100,8 +115,8 @@ fn cycle_frame_rate_cap(
     let Some(index) = *cap else { return };
     for mut text in &mut text {
         text.0 = format!(
-            "Frame rate cap: {} fps, last second: {last_second} frames",
-            FRAME_RATE_CAPS[index]
+            "Frame rate cap: {} fps\nLast second: {}",
+            FRAME_RATE_CAPS[index], last_second.summary
         );
     }
 }
