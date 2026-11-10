@@ -73,8 +73,8 @@ impl MotionInputs {
         }
     }
 
-    /// Approximate orbit velocity over the last `window`, in screen space pixels a second, to use
-    /// for momentum calculations.
+    /// Approximate orbit velocity over the last `window`, in screen space pixels per sixtieth of a
+    /// second, to use for momentum calculations.
     pub fn orbit_momentum(&self, window: Duration) -> DVec2 {
         self.orbit_momentum_at(Instant::now(), window)
     }
@@ -86,7 +86,7 @@ impl MotionInputs {
             screenspace_inputs, ..
         } = self
         {
-            let velocity = screenspace_inputs.smoothed_rate(now, window).as_dvec2();
+            let velocity = screenspace_inputs.smoothed_rate(now, window).as_dvec2() / 60.0;
             if !velocity.is_finite() {
                 DVec2::ZERO
             } else {
@@ -97,8 +97,8 @@ impl MotionInputs {
         }
     }
 
-    /// Approximate pan velocity over the last `window`, in screen space pixels a second, to use for
-    /// momentum calculations.
+    /// Approximate pan velocity over the last `window`, in screen space pixels per sixtieth of a
+    /// second, to use for momentum calculations.
     pub fn pan_momentum(&self, window: Duration) -> DVec2 {
         self.pan_momentum_at(Instant::now(), window)
     }
@@ -110,7 +110,7 @@ impl MotionInputs {
             screenspace_inputs, ..
         } = self
         {
-            let velocity = screenspace_inputs.smoothed_rate(now, window).as_dvec2();
+            let velocity = screenspace_inputs.smoothed_rate(now, window).as_dvec2() / 60.0;
             if !velocity.is_finite() {
                 DVec2::ZERO
             } else {

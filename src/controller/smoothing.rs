@@ -14,10 +14,17 @@ use bevy_reflect::prelude::*;
 /// after a pause would be spread back over the whole pause, and come out with no smoothing.
 const LONGEST_SAMPLE_GAP: Duration = Duration::from_micros(33_334);
 
+/// The frame time, in seconds, that a smoothing window is counted in.
+const REFERENCE_FRAME: f64 = 1.0 / 60.0;
+
+/// The most reference frames a smoothing window spans, which is the most samples the queue holds.
+const MOST_TAPS: usize = 256;
+
 /// How smooth should inputs be? Over what time window should they be averaged.
 ///
-/// Each window is the width of a moving average over time, so the same motion is smoothed the same
-/// way at any frame rate. The smoothed motion trails the input by half the window.
+/// The queue averages the input at one more point than the number of whole sixtieths of a second in
+/// the window, each a sixtieth of a second apart. At 60 Hz this averages the latest samples that
+/// arrived within the window, and the same motion is smoothed the same way at any frame rate.
 #[derive(Debug, Clone, Copy, Reflect)]
 pub struct Smoothing {
     /// Smoothing window for panning.
@@ -49,8 +56,8 @@ impl Default for Smoothing {
 ///    you can smooth something like pointer motions, and the smoothed output will arrive at the
 ///    same destination as the unsmoothed input without drifting.
 /// 3. The same motion comes out the same at any frame rate. The queue takes each sample to be
-///    motion made at an even rate since the sample before it, and lets it out through a moving
-///    average over the smoothing window.
+///    motion made at an even rate since the sample before it, and lets it out through an average
+///    over the smoothing window. See [`Smoothing`].
 #[derive(Debug, Clone, Reflect, Deref, DerefMut)]
 pub struct InputQueue<T>(pub VecDeque<InputStreamEntry<T>>);
 
@@ -241,29 +248,36 @@ impl<T: Copy + Default + Add<Output = T> + AddAssign<T> + Mul<f32, Output = T>> 
     }
 }
 
-/// The share of a sample that a moving average over `smoothing` has let out by `now`, where the
-/// sample's motion happened at an even rate from `since` until it arrived at `time`.
+/// The number of points, a reference frame apart, that a window of `smoothing` averages over.
+fn taps(smoothing: Duration) -> usize {
+    let whole_frames = (smoothing.as_secs_f64() / REFERENCE_FRAME + 1e-9).floor();
+    (1.0 + whole_frames).min(MOST_TAPS as f64) as usize
+}
+
+/// The share of a sample that the queue has let out by `now`, where the sample's motion happened at
+/// an even rate from `since` until it arrived at `time`. This is the share of the motion made by
+/// each of the times `now`, `now` less one reference frame, and so on, averaged over the taps.
 fn released_fraction(since: Instant, time: Instant, now: Instant, smoothing: Duration) -> f64 {
-    if time
-        .checked_add(smoothing)
-        .is_none_or(|settled| now >= settled)
-    {
-        return 1.0;
-    }
+    // Instants have nanosecond resolution, so a tap that lands within this of the end of the
+    // sample's motion counts as past it. Without it, rounding leaves a sliver of a sample unpaid
+    // for one more frame at 60 Hz.
+    const SLACK: f64 = 1e-7;
     let span = time.saturating_duration_since(since).as_secs_f64();
-    // The motion made by `t` seconds after `since`, as a share of the sample, integrated over time.
-    let integrated = |t: f64| {
-        if t <= 0.0 {
+    let elapsed = now.saturating_duration_since(since).as_secs_f64();
+    let made_by = |t: f64| {
+        if t >= span - SLACK {
+            1.0
+        } else if t <= SLACK {
             0.0
-        } else if t >= span {
-            span / 2.0 + (t - span)
         } else {
-            t * t / (2.0 * span)
+            t / span
         }
     };
-    let elapsed = now.saturating_duration_since(since).as_secs_f64();
-    let window = smoothing.as_secs_f64();
-    ((integrated(elapsed) - integrated(elapsed - window)) / window).clamp(0.0, 1.0)
+    let taps = taps(smoothing);
+    (0..taps)
+        .map(|tap| made_by(elapsed - tap as f64 * REFERENCE_FRAME))
+        .sum::<f64>()
+        / taps as f64
 }
 
 #[cfg(test)]
@@ -299,24 +313,21 @@ mod tests {
         position
     }
 
-    /// The hand position averaged over the `window` before `t`, by numerical integration.
-    fn moving_average(samples: &[(f64, f64)], t: f64, window: f64) -> f64 {
-        if window == 0.0 {
-            return hand_at(samples, t);
-        }
-        let steps = 4_000;
-        let step = window / steps as f64;
-        (0..steps)
-            .map(|i| hand_at(samples, t - window + (i as f64 + 0.5) * step))
+    /// The hand position averaged over `t` and the whole sixtieths of a second within `window`
+    /// before it.
+    fn average_over_window(samples: &[(f64, f64)], t: f64, window: f64) -> f64 {
+        let taps = 1 + (window * 60.0 + 1e-9).floor() as usize;
+        (0..taps)
+            .map(|tap| hand_at(samples, t - tap as f64 / 60.0))
             .sum::<f64>()
-            / steps as f64
+            / taps as f64
     }
 
     // A queue that shares a sample out by the count of samples in its window, or that places all of
     // a sample's motion at one instant, lets out a different total at each frame rate. This checks
-    // the queue against an independent moving average at irregular frame times.
+    // the queue against an independent average of the hand at irregular frame times.
     #[test]
-    fn the_queue_lets_out_a_moving_average_of_the_hand_at_irregular_frame_times() {
+    fn the_queue_lets_out_an_average_of_the_hand_at_irregular_frame_times() {
         let mut random = Lcg(7);
         for case in 0..20 {
             let window = [0.0, 0.01, 0.03, 0.06, 0.15][case % 5];
@@ -344,11 +355,11 @@ mod tests {
                 queue.process_input_at(now, motion as f32, Duration::from_secs_f64(window));
                 let_out += queue.latest_smoothed().unwrap() as f64;
 
-                let expected = moving_average(&samples, elapsed, window);
+                let expected = average_over_window(&samples, elapsed, window);
                 assert!(
                     (let_out - expected).abs() < 1e-3,
-                    "case {case}, frame {frame}: the queue let out {let_out} against a moving \
-                     average of {expected} over {window} s"
+                    "case {case}, frame {frame}: the queue let out {let_out} against an average \
+                     of {expected} over {window} s"
                 );
             }
             let total: f64 = samples.iter().map(|(_, motion)| motion).sum();
@@ -356,6 +367,38 @@ mod tests {
                 (let_out - total).abs() < 1e-3,
                 "case {case}: the queue let out {let_out} of {total}"
             );
+        }
+    }
+
+    // Earlier releases shared each sample evenly over the samples that arrived within the window,
+    // and callers tuned their windows against that at 60 Hz, so 60 Hz must come out the same.
+    #[test]
+    fn at_sixty_hertz_each_sample_is_shared_evenly_over_the_samples_in_the_window() {
+        let mut random = Lcg(11);
+        let frame = Duration::from_nanos(16_666_667);
+        // Windows that are a whole number of frames long are left out, because whether the oldest
+        // sample falls inside them depends on nanoseconds of rounding.
+        for window in [0, 10, 16, 17, 30, 34, 60, 90] {
+            let window = Duration::from_millis(window);
+            let mut queue = InputQueue::<f32>::default();
+            let start = Instant::now();
+            queue.process_input_at(start, 0.0, window);
+            let in_window = 1 + (window.as_secs_f64() / frame.as_secs_f64()).floor() as usize;
+
+            let mut samples = vec![0.0; in_window];
+            for step in 1..40 {
+                let sample = (random.next() * 20.0) as f32;
+                samples.push(sample);
+                queue.process_input_at(start + frame * step, sample, window);
+                let expected: f32 =
+                    samples[samples.len() - in_window..].iter().sum::<f32>() / in_window as f32;
+                let smoothed = queue.latest_smoothed().unwrap();
+                assert!(
+                    (smoothed - expected).abs() < 1e-4,
+                    "with a {window:?} window, frame {step} let out {smoothed} instead of the \
+                     average {expected} of the last {in_window} samples"
+                );
+            }
         }
     }
 }
