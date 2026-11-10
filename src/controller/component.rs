@@ -506,33 +506,22 @@ impl EditorCam {
 
         let zoom_translation_view_space = match &mut *projection {
             Projection::Perspective(perspective) => {
-                let limits = &self.zoom_limits;
-                let speed_is_clamped = limits.zoom_through_objects
-                    && (size_at_anchor < limits.min_size_per_pixel
-                        || size_at_anchor > limits.max_size_per_pixel);
-                let zoom_amount = if limits.zoom_through_objects {
+                let zoom_amount = if self.zoom_limits.zoom_through_objects {
                     // Clamp the zoom speed at the limits
-                    zoom * size_at_anchor
-                        .clamp(limits.min_size_per_pixel, limits.max_size_per_pixel)
+                    zoom * size_at_anchor.clamp(
+                        self.zoom_limits.min_size_per_pixel,
+                        self.zoom_limits.max_size_per_pixel,
+                    )
                 } else {
                     // If we cannot zoom through objects, use the bounded input
                     zoom_bounded * size_at_anchor
                 };
+                // Callers bound this step frame by frame, for example to stop short of the anchor,
+                // so it stays a straight step of the frame's input. A step that compounds over the
+                // frame would make large, fast zooms land the same at any frame rate, but would let
+                // a short frame carry a bounded step onto the anchor.
                 // Scale this with the perspective FOV, so the zoom speed feels the same regardless.
-                let step = zoom_amount / perspective.fov as f64;
-                // An unclamped step is proportional to the distance to the anchor, so one large
-                // step goes further than several small ones that add up to it. Taking the step as
-                // a share of the distance per sixtieth of a second, compounded over the frame,
-                // gives the same zoom at any frame rate and the plain step at 60 Hz.
-                let distance = anchor.length();
-                let sixtieths = delta_time.as_secs_f64() * 60.0;
-                let step = if speed_is_clamped || distance <= 0.0 || sixtieths <= 0.0 {
-                    step
-                } else {
-                    let share_per_sixtieth = step / distance / sixtieths;
-                    distance * (1.0 - (1.0 - share_per_sixtieth).max(0.0).powf(sixtieths))
-                };
-                anchor.normalize() * step
+                anchor.normalize() * zoom_amount / perspective.fov as f64
             }
             Projection::Orthographic(ref mut ortho) => {
                 // Constants are hand-tuned to feel equivalent between perspective and ortho. Might
