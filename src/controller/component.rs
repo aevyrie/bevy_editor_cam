@@ -505,22 +505,27 @@ impl EditorCam {
 
         let zoom_translation_view_space = match &mut *projection {
             Projection::Perspective(perspective) => {
-                let zoom_amount = if self.zoom_limits.zoom_through_objects {
+                let limits = &self.zoom_limits;
+                let speed_is_clamped = limits.zoom_through_objects
+                    && !(limits.min_size_per_pixel..=limits.max_size_per_pixel)
+                        .contains(&size_at_anchor);
+                let zoom_amount = if limits.zoom_through_objects {
                     // Clamp the zoom speed at the limits
-                    zoom * size_at_anchor.clamp(
-                        self.zoom_limits.min_size_per_pixel,
-                        self.zoom_limits.max_size_per_pixel,
-                    )
+                    zoom * size_at_anchor
+                        .clamp(limits.min_size_per_pixel, limits.max_size_per_pixel)
                 } else {
                     // If we cannot zoom through objects, use the bounded input
                     zoom_bounded * size_at_anchor
                 };
-                // Callers bound this step frame by frame, for example to stop short of the anchor,
-                // so it stays a straight step of the frame's input. A step that compounds over the
-                // frame would make large, fast zooms land the same at any frame rate, but would let
-                // a short frame carry a bounded step onto the anchor.
                 // Scale this with the perspective FOV, so the zoom speed feels the same regardless.
-                anchor.normalize() * zoom_amount / perspective.fov as f64
+                let step = zoom_amount / perspective.fov as f64;
+                let step = match speed_is_clamped {
+                    // A clamped speed is a fixed distance per unit of input, which adds up the
+                    // same however the input is split into frames.
+                    true => finite_or_zero(step),
+                    false => super::zoom::proportional_zoom_step(anchor.length(), step),
+                };
+                anchor.normalize() * step
             }
             Projection::Orthographic(ref mut ortho) => {
                 // Constants are hand-tuned to feel equivalent between perspective and ortho. Might
@@ -658,6 +663,13 @@ impl EditorCam {
     /// The last known anchor depth. This value will always be negative.
     pub fn last_anchor_depth(&self) -> f64 {
         -self.last_anchor_depth.abs()
+    }
+}
+
+fn finite_or_zero(value: f64) -> f64 {
+    match value.is_finite() {
+        true => value,
+        false => 0.0,
     }
 }
 
