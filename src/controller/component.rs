@@ -522,12 +522,15 @@ impl EditorCam {
                 let step = zoom_amount / perspective.fov as f64;
                 // An unclamped step is proportional to the distance to the anchor, so one large
                 // step goes further than several small ones that add up to it. Taking the step as
-                // exponential decay of that distance gives the same zoom at any frame rate.
+                // a share of the distance per sixtieth of a second, compounded over the frame,
+                // gives the same zoom at any frame rate and the plain step at 60 Hz.
                 let distance = anchor.length();
-                let step = if speed_is_clamped || distance <= 0.0 {
+                let sixtieths = delta_time.as_secs_f64() * 60.0;
+                let step = if speed_is_clamped || distance <= 0.0 || sixtieths <= 0.0 {
                     step
                 } else {
-                    -distance * (-step / distance).exp_m1()
+                    let share_per_sixtieth = step / distance / sixtieths;
+                    distance * (1.0 - (1.0 - share_per_sixtieth).max(0.0).powf(sixtieths))
                 };
                 anchor.normalize() * step
             }
