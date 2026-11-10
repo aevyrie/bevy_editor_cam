@@ -45,6 +45,30 @@ impl Default for ZoomLimits {
     }
 }
 
+/// The largest exponent one frame's zoom can scale the anchor distance by. A zoom in that reaches
+/// it ends within a factor of e^-30 of the anchor, and a zoom out cannot grow without bound.
+const MOST_ZOOM_PER_FRAME: f64 = 30.0;
+
+/// How far to move toward an anchor `distance` away, given a straight `step` that was sized in
+/// proportion to that distance.
+///
+/// The camera moves as if each small part of the step were sized from the distance left when it is
+/// taken, so the distance shrinks by a factor of `exp(-step / distance)`. The camera never reaches
+/// the anchor, and the same input zooms equally far however it is split into frames. Returns zero
+/// for an input that is not finite, or where the anchor is not a finite positive distance away.
+pub(crate) fn proportional_zoom_step(distance: f64, step: f64) -> f64 {
+    if !(distance.is_finite() && distance > 0.0 && step.is_finite()) {
+        return 0.0;
+    }
+    let share = (step / distance).clamp(-MOST_ZOOM_PER_FRAME, MOST_ZOOM_PER_FRAME);
+    let moved = -distance * (-share).exp_m1();
+    let left = distance - moved;
+    match moved.is_finite() && left.is_finite() && left > 0.0 {
+        true => moved,
+        false => 0.0,
+    }
+}
+
 /// The size of a pixel at the anchor (under the pointer) in world space units.
 ///
 /// This is a much better way to compute scale than using camera distance from the anchor (the
@@ -91,4 +115,87 @@ fn view_to_viewport(camera: &Camera, view_space_point: DVec3) -> Option<DVec2> {
     // Flip the Y co-ordinate origin from the bottom to the top.
     viewport_position.y = target_size.y - viewport_position.y;
     Some(viewport_position)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Zoom from 10 units away at `rate` steps of the current distance per second, for `seconds`,
+    /// in frames whose lengths cycle through `frames`, and return the distance after each frame.
+    fn zoom(rate: f64, seconds: f64, frames: &[f64]) -> Vec<f64> {
+        let (mut distance, mut elapsed, mut out) = (10.0, 0.0, Vec::new());
+        for frame in frames.iter().cycle() {
+            let frame = frame.min(seconds - elapsed);
+            if frame <= 0.0 {
+                return out;
+            }
+            elapsed += frame;
+            distance -= proportional_zoom_step(distance, rate * frame * distance);
+            out.push(distance);
+        }
+        unreachable!()
+    }
+
+    // A step that compounds over the frame time, or a straight step, reaches or passes the anchor
+    // when one frame asks for more than the whole distance, and a straight step adds up to a
+    // different zoom when the same input is split into more frames.
+    #[test]
+    fn a_zoom_stays_short_of_the_anchor_and_adds_up_the_same_at_any_frame_length() {
+        let frame_lengths: [&[f64]; 8] = [
+            &[0.0001],
+            &[0.001],
+            &[1.0 / 120.0],
+            &[1.0 / 60.0],
+            &[1.0 / 30.0],
+            &[0.1],
+            &[0.0001, 0.03, 0.007, 0.1, 0.0002],
+            &[1.0 / 60.0, 1.0 / 144.0, 0.05],
+        ];
+        // Steps of the current distance per second, up to many times the distance in each frame.
+        for rate in [-600.0, -30.0, -1.0, 0.5, 6.0, 60.0, 600.0, 1.0e6, 1.0e300] {
+            let mut totals = Vec::new();
+            for frames in frame_lengths {
+                let distances = zoom(rate, 0.1, frames);
+                for distance in &distances {
+                    assert!(
+                        distance.is_finite() && *distance > 0.0,
+                        "zooming at {rate} in frames of {frames:?} s left the camera {distance} \
+                         from the anchor"
+                    );
+                }
+                totals.push(*distances.last().unwrap());
+            }
+            // A frame can only zoom so far, so a rate that hits that limit in long frames ends
+            // somewhere different; below it every split of the input must agree.
+            if rate.abs() * 0.1 < MOST_ZOOM_PER_FRAME {
+                for (frames, total) in frame_lengths.iter().zip(&totals) {
+                    assert!(
+                        (total / totals[0] - 1.0).abs() < 1e-9,
+                        "zooming at {rate} ended {total} from the anchor in frames of {frames:?} s \
+                         and {} in frames of 0.1 ms",
+                        totals[0]
+                    );
+                }
+            }
+        }
+    }
+
+    // Earlier releases took the straight step, and a normal scroll at 60 Hz must land where it did.
+    #[test]
+    fn a_normal_zoom_at_sixty_hertz_lands_where_the_straight_step_did() {
+        for share in [-0.05, -0.01, 0.002, 0.01, 0.03, 0.05] {
+            let (mut straight, mut zoomed) = (10.0_f64, 10.0_f64);
+            for _ in 0..30 {
+                straight -= share * straight;
+                zoomed -= proportional_zoom_step(zoomed, share * zoomed);
+            }
+            // Each frame differs from the straight step by about half the square of its share.
+            let budget = 30.0 * share * share * 0.6;
+            assert!(
+                (zoomed / straight - 1.0).abs() < budget,
+                "30 frames of {share} of the distance landed {zoomed} away against {straight}"
+            );
+        }
+    }
 }
