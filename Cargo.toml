@@ -38,7 +38,7 @@ bevy_core_pipeline = { version = "0.19", optional = true }
 bevy_gizmos = { version = "0.19", optional = true }
 
 [dev-dependencies]
-bevy_framepace = "0.22"
+bevy_framepace = "0.22.1"
 big_space = "0.13.0"
 indoc = "2.0.5"
 rand = "0.10"
