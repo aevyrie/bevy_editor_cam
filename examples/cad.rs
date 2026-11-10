@@ -13,6 +13,7 @@ use bevy::{
     anti_alias::smaa::Smaa,
     camera::primitives::Aabb,
     core_pipeline::tonemapping::Tonemapping,
+    diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     pbr::ScreenSpaceAmbientOcclusion,
     platform::time::Instant,
     post_process::bloom::Bloom,
@@ -41,6 +42,7 @@ fn main() {
             DefaultEditorCamPlugins,
             MeshPickingPlugin,
             bevy_framepace::FramepacePlugin,
+            FrameTimeDiagnosticsPlugin::default(),
         ))
         // The camera controller works with reactive rendering:
         // .insert_resource(bevy::winit::WinitSettings::desktop_app())
@@ -65,23 +67,36 @@ const FRAME_RATE_CAPS: [f64; 3] = [30.0, 60.0, 120.0];
 #[derive(Component)]
 struct FrameRateCapText;
 
-/// Starts the cap at 60 fps, and moves to the next cap each time F is pressed.
+/// Starts the cap at 60 fps, moves to the next cap each time F is pressed, and shows the cap with
+/// the measured frame rate.
 fn cycle_frame_rate_cap(
     keys: Res<ButtonInput<KeyCode>>,
     mut settings: ResMut<FramepaceSettings>,
+    diagnostics: Res<DiagnosticsStore>,
     mut cap: Local<Option<usize>>,
     mut text: Query<&mut Text, With<FrameRateCapText>>,
 ) {
     let next = match *cap {
-        None => 1,
-        Some(index) if keys.just_pressed(KeyCode::KeyF) => (index + 1) % FRAME_RATE_CAPS.len(),
-        Some(_) => return,
+        None => Some(1),
+        Some(index) if keys.just_pressed(KeyCode::KeyF) => {
+            Some((index + 1) % FRAME_RATE_CAPS.len())
+        }
+        Some(_) => None,
     };
-    *cap = Some(next);
-    let fps = FRAME_RATE_CAPS[next];
-    settings.limiter = Limiter::from_framerate(fps);
+    let measured = diagnostics
+        .get(&FrameTimeDiagnosticsPlugin::FPS)
+        .and_then(|fps| fps.smoothed());
+    if let Some(next) = next {
+        *cap = Some(next);
+        settings.limiter = Limiter::from_framerate(FRAME_RATE_CAPS[next]);
+    }
+    let Some(index) = *cap else { return };
+    let measured = measured.map_or("-".to_string(), |fps| format!("{fps:.0}"));
     for mut text in &mut text {
-        text.0 = format!("Frame rate cap: {fps} fps");
+        text.0 = format!(
+            "Frame rate cap: {} fps, measured: {measured} fps",
+            FRAME_RATE_CAPS[index]
+        );
     }
 }
 
