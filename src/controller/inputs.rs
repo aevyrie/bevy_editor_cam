@@ -3,6 +3,7 @@
 use std::time::Duration;
 
 use bevy_math::{prelude::*, DVec2};
+use bevy_platform::time::Instant;
 use bevy_reflect::prelude::*;
 
 use super::smoothing::InputQueue;
@@ -72,13 +73,20 @@ impl MotionInputs {
         }
     }
 
-    /// Approximate orbit velocity over the last `window`. to use for momentum calculations.
+    /// Approximate orbit velocity over the last `window`, in screen space pixels per sixtieth of a
+    /// second, to use for momentum calculations.
     pub fn orbit_momentum(&self, window: Duration) -> DVec2 {
+        self.orbit_momentum_at(Instant::now(), window)
+    }
+
+    /// Approximate orbit velocity over the `window` before `now`. See
+    /// [`MotionInputs::orbit_momentum`].
+    pub fn orbit_momentum_at(&self, now: Instant, window: Duration) -> DVec2 {
         if let Self::OrbitZoom {
             screenspace_inputs, ..
         } = self
         {
-            let velocity = screenspace_inputs.average_smoothed_value(window).as_dvec2();
+            let velocity = screenspace_inputs.smoothed_rate(now, window).as_dvec2() / 60.0;
             if !velocity.is_finite() {
                 DVec2::ZERO
             } else {
@@ -89,13 +97,20 @@ impl MotionInputs {
         }
     }
 
-    /// Approximate pan velocity over the last `window`. to use for momentum calculations.
+    /// Approximate pan velocity over the last `window`, in screen space pixels per sixtieth of a
+    /// second, to use for momentum calculations.
     pub fn pan_momentum(&self, window: Duration) -> DVec2 {
+        self.pan_momentum_at(Instant::now(), window)
+    }
+
+    /// Approximate pan velocity over the `window` before `now`. See
+    /// [`MotionInputs::pan_momentum`].
+    pub fn pan_momentum_at(&self, now: Instant, window: Duration) -> DVec2 {
         if let Self::PanZoom {
             screenspace_inputs, ..
         } = self
         {
-            let velocity = screenspace_inputs.average_smoothed_value(window).as_dvec2();
+            let velocity = screenspace_inputs.smoothed_rate(now, window).as_dvec2() / 60.0;
             if !velocity.is_finite() {
                 DVec2::ZERO
             } else {
