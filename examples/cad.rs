@@ -5,7 +5,7 @@
 //! - Toggle between free and constrained orbit (should the camera always be "facing up"?) (C)
 //! - Snap to 6 axis-aligned views (1-6)
 //! - Explode the model, separating its parts for inspection (E)
-//! - Cap the frame rate at 30, 60 or 120 fps, to compare camera motion at each (F)
+//! - Cap the frame rate at 30, 60 or 120 fps or turn the cap off, to compare camera motion (F)
 
 use std::time::Duration;
 
@@ -63,7 +63,8 @@ fn main() {
     app.run();
 }
 
-const FRAME_RATE_CAPS: [f64; 3] = [30.0, 60.0, 120.0];
+/// The frame rate caps F cycles through, where `None` turns the limiter off.
+const FRAME_RATE_CAPS: [Option<f64>; 4] = [Some(30.0), Some(60.0), Some(120.0), None];
 
 #[derive(Component)]
 struct FrameRateCapText;
@@ -76,7 +77,7 @@ struct LastSecond {
     summary: String,
 }
 
-/// Starts the cap at 60 fps, moves to the next cap each time F is pressed, and shows the cap with
+/// Starts the cap at 60 fps, moves to the next one each time F is pressed, and shows the cap with
 /// the frame rate and frame times of the last second.
 fn cycle_frame_rate_cap(
     keys: Res<ButtonInput<KeyCode>>,
@@ -110,13 +111,20 @@ fn cycle_frame_rate_cap(
     };
     if let Some(next) = next {
         *cap = Some(next);
-        settings.limiter = Limiter::from_framerate(FRAME_RATE_CAPS[next]);
+        settings.limiter = match FRAME_RATE_CAPS[next] {
+            Some(fps) => Limiter::from_framerate(fps),
+            None => Limiter::Off,
+        };
     }
     let Some(index) = *cap else { return };
+    let cap = match FRAME_RATE_CAPS[index] {
+        Some(fps) => format!("{fps} fps"),
+        None => "off".to_string(),
+    };
     for mut text in &mut text {
         text.0 = format!(
-            "Frame rate cap: {} fps\nLast second: {}",
-            FRAME_RATE_CAPS[index], last_second.summary
+            "Frame rate cap: {cap}\nLast second: {}",
+            last_second.summary
         );
     }
 }
