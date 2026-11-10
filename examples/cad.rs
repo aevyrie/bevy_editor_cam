@@ -121,77 +121,220 @@ fn cycle_frame_rate_cap(
     }
 }
 
-/// A frame rate cap and present mode that the measurement runs for a few seconds.
+/// How a measurement step paces frames.
+#[derive(Clone, Copy, PartialEq)]
+enum Pacing {
+    /// The frame limiter, at this many frames a second.
+    Cap(f64),
+    /// No frame limiter.
+    Off,
+    /// No frame limiter. Instead each frame waits, on the render thread where the limiter waits,
+    /// until the next frame will present [`REFRESH_MARGIN`] before a display refresh.
+    RefreshAligned,
+}
+
+/// A pacing, present mode and number of window textures that the measurement runs for a few
+/// seconds.
 struct MeasureStep {
     label: &'static str,
-    cap: Option<f64>,
+    pacing: Pacing,
     present_mode: PresentMode,
+    /// The window's desired maximum frame latency. The window has one more texture than this.
+    frame_latency: Option<u32>,
 }
 
 /// The settings `CAD_MEASURE` steps through, twice.
-const MEASURE_STEPS: [MeasureStep; 5] = [
+const MEASURE_STEPS: [MeasureStep; 6] = [
     MeasureStep {
-        label: "120 fps cap, Immediate",
-        cap: Some(120.0),
-        present_mode: PresentMode::Immediate,
-    },
-    MeasureStep {
-        label: "60 fps cap, Immediate",
-        cap: Some(60.0),
-        present_mode: PresentMode::Immediate,
-    },
-    MeasureStep {
-        label: "no cap, Immediate",
-        cap: None,
-        present_mode: PresentMode::Immediate,
-    },
-    MeasureStep {
-        label: "no cap, Fifo",
-        cap: None,
+        label: "refresh aligned, Fifo, 3 textures",
+        pacing: Pacing::RefreshAligned,
         present_mode: PresentMode::Fifo,
+        frame_latency: None,
     },
     MeasureStep {
-        label: "60 fps cap, Fifo",
-        cap: Some(60.0),
+        label: "120 fps cap, Immediate, 3 textures",
+        pacing: Pacing::Cap(120.0),
+        present_mode: PresentMode::Immediate,
+        frame_latency: None,
+    },
+    MeasureStep {
+        label: "120 fps cap, Immediate, 4 textures",
+        pacing: Pacing::Cap(120.0),
+        present_mode: PresentMode::Immediate,
+        frame_latency: Some(3),
+    },
+    MeasureStep {
+        label: "refresh aligned, Immediate, 3 textures",
+        pacing: Pacing::RefreshAligned,
+        present_mode: PresentMode::Immediate,
+        frame_latency: None,
+    },
+    MeasureStep {
+        label: "60 fps cap, Immediate, 3 textures",
+        pacing: Pacing::Cap(60.0),
+        present_mode: PresentMode::Immediate,
+        frame_latency: None,
+    },
+    MeasureStep {
+        label: "no limiter, Fifo, 3 textures",
+        pacing: Pacing::Off,
         present_mode: PresentMode::Fifo,
+        frame_latency: None,
     },
 ];
 
-/// How long, in milliseconds, each frame's render waited to get a window texture to draw into,
-/// shared from the render world.
+/// How far ahead of a display refresh a refresh aligned frame aims to present.
+const REFRESH_MARGIN: Duration = Duration::from_millis(1);
+
+/// A wait for a window texture longer than this ended because the window compositor released a
+/// texture, which it does at a display refresh.
+const BLOCKED_WAIT: Duration = Duration::from_millis(1);
+
+/// Timings the render world collects for the measurement, and the refresh aligned pacing state.
+#[derive(Default)]
+struct RenderTimings {
+    /// Milliseconds each frame waited for a window texture.
+    texture_waits: Vec<f32>,
+    /// Milliseconds from the start of the main world update that read input to the call that
+    /// presents its frame.
+    latencies: Vec<f32>,
+    pacing: Option<Pacing>,
+    refresh_period: Duration,
+    /// The end of the latest wait for a window texture that waited for a display refresh.
+    last_refresh: Option<Instant>,
+    /// Recent times from the start of a render to its present call.
+    render_times: std::collections::VecDeque<Duration>,
+}
+
 #[derive(Resource, Clone, Default)]
-struct DrawableWaits(std::sync::Arc<std::sync::Mutex<Vec<f32>>>);
+struct SharedTimings(std::sync::Arc<std::sync::Mutex<RenderTimings>>);
 
+/// When the main world started its latest update, which is when it read input.
+#[derive(Resource, Clone, Copy)]
+struct InputSampled(Instant);
+
+/// Times within the frame the render world is drawing.
 #[derive(Resource, Default)]
-struct DrawableWaitStart(Option<Instant>);
+struct RenderFrame {
+    input_sampled: Option<Instant>,
+    started: Option<Instant>,
+    texture_wait_started: Option<Instant>,
+}
 
-/// With `CAD_MEASURE` set, steps through [`MEASURE_STEPS`] and prints the frame times and the
-/// waits for a window texture at each, then exits.
+/// With `CAD_MEASURE` set, steps through [`MEASURE_STEPS`] and prints, for each, the frame times,
+/// the waits for a window texture, and the latency from reading input to presenting, then exits.
 fn add_frame_time_measurement(app: &mut App) {
-    use bevy::render::{view::window::prepare_windows, Render, RenderApp, RenderSystems};
-    let waits = DrawableWaits::default();
-    app.insert_resource(waits.clone())
+    use bevy::render::{
+        renderer::render_system, view::window::prepare_windows, Extract, ExtractSchedule, Render,
+        RenderApp, RenderSystems,
+    };
+    let shared = SharedTimings::default();
+    app.insert_resource(shared.clone())
+        .insert_resource(InputSampled(Instant::now()))
+        .add_systems(First, |mut sampled: ResMut<InputSampled>| {
+            sampled.0 = Instant::now();
+        })
         .add_systems(Update, measure_frame_times.after(cycle_frame_rate_cap));
     app.sub_app_mut(RenderApp)
-        .insert_resource(waits)
-        .init_resource::<DrawableWaitStart>()
+        .insert_resource(shared)
+        .init_resource::<RenderFrame>()
+        .add_systems(
+            ExtractSchedule,
+            |sampled: Extract<Res<InputSampled>>, mut frame: ResMut<RenderFrame>| {
+                frame.input_sampled = Some(sampled.0);
+                frame.started = Some(Instant::now());
+            },
+        )
         .add_systems(
             Render,
             (
-                start_drawable_wait.before(prepare_windows),
-                end_drawable_wait.after(prepare_windows),
-            )
-                .in_set(RenderSystems::PrepareViews),
+                (
+                    start_texture_wait.before(prepare_windows),
+                    end_texture_wait.after(prepare_windows),
+                )
+                    .in_set(RenderSystems::PrepareViews),
+                note_present
+                    .after(render_system)
+                    .in_set(RenderSystems::Render),
+                wait_for_refresh.in_set(RenderSystems::Cleanup),
+            ),
         );
 }
 
-fn start_drawable_wait(mut start: ResMut<DrawableWaitStart>) {
-    start.0 = Some(Instant::now());
+fn start_texture_wait(mut frame: ResMut<RenderFrame>) {
+    frame.texture_wait_started = Some(Instant::now());
 }
 
-fn end_drawable_wait(start: Res<DrawableWaitStart>, waits: Res<DrawableWaits>) {
-    if let (Some(start), Ok(mut waits)) = (start.0, waits.0.lock()) {
-        waits.push(start.elapsed().as_secs_f32() * 1000.0);
+fn end_texture_wait(frame: Res<RenderFrame>, shared: Res<SharedTimings>) {
+    let Some(started) = frame.texture_wait_started else {
+        return;
+    };
+    let waited = started.elapsed();
+    let mut timings = shared.0.lock().unwrap();
+    timings.texture_waits.push(waited.as_secs_f32() * 1000.0);
+    if waited > BLOCKED_WAIT {
+        timings.last_refresh = Some(Instant::now());
+    }
+}
+
+fn note_present(frame: Res<RenderFrame>, shared: Res<SharedTimings>) {
+    let now = Instant::now();
+    let mut timings = shared.0.lock().unwrap();
+    if let Some(sampled) = frame.input_sampled {
+        let latency = now.saturating_duration_since(sampled);
+        timings.latencies.push(latency.as_secs_f32() * 1000.0);
+    }
+    if let Some(started) = frame.started {
+        timings
+            .render_times
+            .push_back(now.saturating_duration_since(started));
+        if timings.render_times.len() > 60 {
+            timings.render_times.pop_front();
+        }
+    }
+}
+
+/// Waits so that the next frame presents [`REFRESH_MARGIN`] before a display refresh, using the
+/// longest of the recent render times as the time from the end of this wait to the next present.
+/// Until a texture wait has shown where the refreshes fall, waits one refresh period from the
+/// start of this frame instead.
+fn wait_for_refresh(frame: Res<RenderFrame>, shared: Res<SharedTimings>) {
+    let (period, last_refresh, render) = {
+        let timings = shared.0.lock().unwrap();
+        if timings.pacing != Some(Pacing::RefreshAligned) {
+            return;
+        }
+        let render = timings.render_times.iter().max().copied();
+        (timings.refresh_period, timings.last_refresh, render)
+    };
+    let target = match (last_refresh, render) {
+        (Some(refresh), Some(render)) => {
+            let earliest = Instant::now() + render + REFRESH_MARGIN;
+            let since = earliest.saturating_duration_since(refresh);
+            let periods = (since.as_secs_f64() / period.as_secs_f64()).ceil();
+            refresh + period.mul_f64(periods) - REFRESH_MARGIN - render
+        }
+        _ => match frame.started {
+            Some(started) => started + period,
+            None => return,
+        },
+    };
+    sleep_until(target);
+}
+
+/// Waits until `deadline` by sleeping a quarter of the time left at a time and spinning through
+/// the last 200 microseconds, the way the frame limiter waits.
+fn sleep_until(deadline: Instant) {
+    let spin = Duration::from_micros(200);
+    loop {
+        let left = deadline.saturating_duration_since(Instant::now());
+        if left <= spin {
+            break;
+        }
+        std::thread::sleep((left - spin) / 4);
+    }
+    while Instant::now() < deadline {
+        std::hint::spin_loop();
     }
 }
 
@@ -205,23 +348,37 @@ struct Measurement {
 fn measure_frame_times(
     mut measurement: Local<Measurement>,
     time: Res<Time<Real>>,
-    waits: Res<DrawableWaits>,
+    shared: Res<SharedTimings>,
+    monitors: Query<&bevy::window::Monitor>,
     mut settings: ResMut<FramepaceSettings>,
     mut windows: Query<&mut Window>,
     mut exit: MessageWriter<AppExit>,
 ) {
     let step = &MEASURE_STEPS[measurement.step % MEASURE_STEPS.len()];
+    let refresh_hz = monitors
+        .iter()
+        .filter_map(|monitor| monitor.refresh_rate_millihertz)
+        .max()
+        .map_or(120.0, |millihertz| millihertz as f64 / 1000.0);
+    let mut timings = shared.0.lock().unwrap();
     if measurement.elapsed == 0.0 {
-        settings.limiter = step.cap.map_or(Limiter::Off, Limiter::from_framerate);
+        settings.limiter = match step.pacing {
+            Pacing::Cap(fps) => Limiter::from_framerate(fps),
+            Pacing::Off | Pacing::RefreshAligned => Limiter::Off,
+        };
         for mut window in &mut windows {
             window.present_mode = step.present_mode;
+            window.desired_maximum_frame_latency =
+                step.frame_latency.and_then(std::num::NonZero::new);
         }
+        timings.pacing = Some(step.pacing);
+        timings.refresh_period = Duration::from_secs_f64(1.0 / refresh_hz);
     }
     measurement.elapsed += time.delta_secs();
-    let mut waits = waits.0.lock().unwrap();
     // The first second of each step lets the new settings take hold.
     if measurement.elapsed < 1.0 {
-        waits.clear();
+        timings.texture_waits.clear();
+        timings.latencies.clear();
         return;
     }
     measurement.frames.push(time.delta_secs() * 1000.0);
@@ -241,11 +398,12 @@ fn measure_frame_times(
         })
         .collect();
     println!(
-        "FRAMES {}: {fps:.1} fps, frame ms {}, frames in ms <7,7-9.5,9.5-15,15-18,18-25,>25 \
-         {counts:?}, texture wait ms {}",
+        "FRAMES {} ({refresh_hz:.0} Hz display): {fps:.1} fps, frame ms {}, frames in ms \
+         <7,7-9.5,9.5-15,15-18,18-25,>25 {counts:?}, texture wait ms {}, input to present ms {}",
         step.label,
         spread(frames),
-        spread(std::mem::take(&mut *waits)),
+        spread(std::mem::take(&mut timings.texture_waits)),
+        spread(std::mem::take(&mut timings.latencies)),
     );
     measurement.step += 1;
     measurement.elapsed = 0.0;
