@@ -259,6 +259,12 @@ impl EditorCam {
     /// Send screen space camera inputs. This will be interpreted as panning or orbiting depending
     /// on the current motion. See [`EditorCam`] for usage.
     pub fn send_screenspace_input(&mut self, screenspace_input: Vec2) {
+        self.send_screenspace_input_at(Instant::now(), screenspace_input);
+    }
+
+    /// Send screen space camera inputs that arrived at `now`. See
+    /// [`EditorCam::send_screenspace_input`].
+    pub fn send_screenspace_input_at(&mut self, now: Instant, screenspace_input: Vec2) {
         if let CurrentMotion::UserControlled {
             ref mut motion_inputs,
             ..
@@ -268,11 +274,11 @@ impl EditorCam {
                 MotionInputs::OrbitZoom {
                     screenspace_inputs: ref mut movement,
                     ..
-                } => movement.process_input(screenspace_input, self.smoothing.orbit),
+                } => movement.process_input_at(now, screenspace_input, self.smoothing.orbit),
                 MotionInputs::PanZoom {
                     screenspace_inputs: ref mut movement,
                     ..
-                } => movement.process_input(screenspace_input, self.smoothing.pan),
+                } => movement.process_input_at(now, screenspace_input, self.smoothing.pan),
                 MotionInputs::Zoom { .. } => (), // When in zoom-only, we ignore pan and zoom
             }
         }
@@ -280,16 +286,26 @@ impl EditorCam {
 
     /// Send zoom inputs. See [`EditorCam`] for usage.
     pub fn send_zoom_input(&mut self, zoom_amount: f32) {
+        self.send_zoom_input_at(Instant::now(), zoom_amount);
+    }
+
+    /// Send zoom inputs that arrived at `now`. See [`EditorCam::send_zoom_input`].
+    pub fn send_zoom_input_at(&mut self, now: Instant, zoom_amount: f32) {
         if let CurrentMotion::UserControlled { motion_inputs, .. } = &mut self.current_motion {
             motion_inputs
                 .zoom_inputs_mut()
-                .process_input(zoom_amount, self.smoothing.zoom)
+                .process_input_at(now, zoom_amount, self.smoothing.zoom)
         }
     }
 
     /// End the current camera motion, allowing other motions on this camera to begin. See
     /// [`EditorCam`] for usage.
     pub fn end_move(&mut self) {
+        self.end_move_at(Instant::now());
+    }
+
+    /// End the current camera motion at `now`. See [`EditorCam::end_move`].
+    pub fn end_move_at(&mut self, now: Instant) {
         let velocity = match self.current_motion {
             CurrentMotion::Stationary => return,
             CurrentMotion::Momentum { .. } => return,
@@ -300,19 +316,18 @@ impl EditorCam {
             } => match motion_inputs {
                 MotionInputs::OrbitZoom { .. } => Velocity::Orbit {
                     anchor,
-                    velocity: motion_inputs.orbit_momentum(self.momentum.init_orbit),
+                    velocity: motion_inputs.orbit_momentum_at(now, self.momentum.init_orbit),
                 },
                 MotionInputs::PanZoom { .. } => Velocity::Pan {
                     anchor,
-                    velocity: motion_inputs.pan_momentum(self.momentum.init_pan),
+                    velocity: motion_inputs.pan_momentum_at(now, self.momentum.init_pan),
                 },
                 MotionInputs::Zoom { .. } => Velocity::None,
             },
         };
-        let momentum_start = Instant::now();
         self.current_motion = CurrentMotion::Momentum {
             velocity,
-            momentum_start,
+            momentum_start: now,
         };
     }
 
@@ -385,14 +400,14 @@ impl EditorCam {
             CurrentMotion::Momentum {
                 ref mut velocity, ..
             } => {
-                velocity.decay(self.momentum, delta_time);
+                let travel = velocity.coast(self.momentum, delta_time);
                 match velocity {
                     Velocity::None => {
                         self.current_motion = CurrentMotion::Stationary;
                         return None;
                     }
-                    Velocity::Orbit { anchor, velocity } => (anchor, *velocity, DVec2::ZERO, 0.0),
-                    Velocity::Pan { anchor, velocity } => (anchor, DVec2::ZERO, *velocity, 0.0),
+                    Velocity::Orbit { anchor, .. } => (anchor, travel, DVec2::ZERO, 0.0),
+                    Velocity::Pan { anchor, .. } => (anchor, DVec2::ZERO, travel, 0.0),
                 }
             }
             CurrentMotion::UserControlled {
@@ -491,18 +506,30 @@ impl EditorCam {
 
         let zoom_translation_view_space = match &mut *projection {
             Projection::Perspective(perspective) => {
-                let zoom_amount = if self.zoom_limits.zoom_through_objects {
+                let limits = &self.zoom_limits;
+                let speed_is_clamped = limits.zoom_through_objects
+                    && (size_at_anchor < limits.min_size_per_pixel
+                        || size_at_anchor > limits.max_size_per_pixel);
+                let zoom_amount = if limits.zoom_through_objects {
                     // Clamp the zoom speed at the limits
-                    zoom * size_at_anchor.clamp(
-                        self.zoom_limits.min_size_per_pixel,
-                        self.zoom_limits.max_size_per_pixel,
-                    )
+                    zoom * size_at_anchor
+                        .clamp(limits.min_size_per_pixel, limits.max_size_per_pixel)
                 } else {
                     // If we cannot zoom through objects, use the bounded input
                     zoom_bounded * size_at_anchor
                 };
                 // Scale this with the perspective FOV, so the zoom speed feels the same regardless.
-                anchor.normalize() * zoom_amount / perspective.fov as f64
+                let step = zoom_amount / perspective.fov as f64;
+                // An unclamped step is proportional to the distance to the anchor, so one large
+                // step goes further than several small ones that add up to it. Taking the step as
+                // exponential decay of that distance gives the same zoom at any frame rate.
+                let distance = anchor.length();
+                let step = if speed_is_clamped || distance <= 0.0 {
+                    step
+                } else {
+                    -distance * (-step / distance).exp_m1()
+                };
+                anchor.normalize() * step
             }
             Projection::Orthographic(ref mut ortho) => {
                 // Constants are hand-tuned to feel equivalent between perspective and ortho. Might
@@ -680,6 +707,9 @@ pub enum OrbitConstraint {
     /// The camera's up direction is fixed.
     Fixed {
         /// The camera's up direction must always be parallel with this unit vector.
+        ///
+        /// The controller reads this every frame, so you can update it while the camera moves, for
+        /// example to keep up pointing away from the center of a planet.
         up: DVec3,
         /// Should the camera be allowed to pass over top dead center (TDC), making the camera
         /// upside down compared to the up direction?
