@@ -13,7 +13,6 @@ use bevy::{
     anti_alias::smaa::Smaa,
     camera::primitives::Aabb,
     core_pipeline::tonemapping::Tonemapping,
-    diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     pbr::ScreenSpaceAmbientOcclusion,
     platform::time::Instant,
     post_process::bloom::Bloom,
@@ -29,37 +28,39 @@ use bevy_framepace::{FramepaceSettings, Limiter};
 use bevy_math::DVec3;
 
 fn main() {
-    App::new()
-        .add_plugins((
-            // Without vsync, so a cap above the display's refresh rate is reached.
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    present_mode: PresentMode::AutoNoVsync,
-                    ..default()
-                }),
+    let mut app = App::new();
+    app.add_plugins((
+        // Without vsync, so a cap above the display's refresh rate is reached.
+        DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                present_mode: PresentMode::AutoNoVsync,
                 ..default()
             }),
-            DefaultEditorCamPlugins,
-            MeshPickingPlugin,
-            bevy_framepace::FramepacePlugin,
-            FrameTimeDiagnosticsPlugin::default(),
-        ))
-        // The camera controller works with reactive rendering:
-        // .insert_resource(bevy::winit::WinitSettings::desktop_app())
-        .insert_resource(GlobalAmbientLight::NONE)
-        .add_systems(Startup, setup)
-        .add_systems(
-            Update,
-            (
-                toggle_projection,
-                toggle_constraint,
-                explode,
-                switch_direction,
-                cycle_frame_rate_cap,
-            )
-                .chain(),
+            ..default()
+        }),
+        DefaultEditorCamPlugins,
+        MeshPickingPlugin,
+        bevy_framepace::FramepacePlugin,
+    ))
+    // The camera controller works with reactive rendering:
+    // .insert_resource(bevy::winit::WinitSettings::desktop_app())
+    .insert_resource(GlobalAmbientLight::NONE)
+    .add_systems(Startup, setup)
+    .add_systems(
+        Update,
+        (
+            toggle_projection,
+            toggle_constraint,
+            explode,
+            switch_direction,
+            cycle_frame_rate_cap,
         )
-        .run();
+            .chain(),
+    );
+    if std::env::var_os("CAD_MEASURE").is_some() {
+        add_frame_time_measurement(&mut app);
+    }
+    app.run();
 }
 
 const FRAME_RATE_CAPS: [f64; 3] = [30.0, 60.0, 120.0];
@@ -68,14 +69,23 @@ const FRAME_RATE_CAPS: [f64; 3] = [30.0, 60.0, 120.0];
 struct FrameRateCapText;
 
 /// Starts the cap at 60 fps, moves to the next cap each time F is pressed, and shows the cap with
-/// the measured frame rate.
+/// the number of frames in the last second.
 fn cycle_frame_rate_cap(
     keys: Res<ButtonInput<KeyCode>>,
+    time: Res<Time<Real>>,
     mut settings: ResMut<FramepaceSettings>,
-    diagnostics: Res<DiagnosticsStore>,
     mut cap: Local<Option<usize>>,
+    mut counted: Local<(f32, u32, u32)>,
     mut text: Query<&mut Text, With<FrameRateCapText>>,
 ) {
+    let (elapsed, frames, last_second) = &mut *counted;
+    *elapsed += time.delta_secs();
+    *frames += 1;
+    if *elapsed >= 1.0 {
+        *last_second = *frames;
+        *elapsed -= 1.0;
+        *frames = 0;
+    }
     let next = match *cap {
         None => Some(1),
         Some(index) if keys.just_pressed(KeyCode::KeyF) => {
@@ -83,21 +93,167 @@ fn cycle_frame_rate_cap(
         }
         Some(_) => None,
     };
-    let measured = diagnostics
-        .get(&FrameTimeDiagnosticsPlugin::FPS)
-        .and_then(|fps| fps.smoothed());
     if let Some(next) = next {
         *cap = Some(next);
         settings.limiter = Limiter::from_framerate(FRAME_RATE_CAPS[next]);
     }
     let Some(index) = *cap else { return };
-    let measured = measured.map_or("-".to_string(), |fps| format!("{fps:.0}"));
     for mut text in &mut text {
         text.0 = format!(
-            "Frame rate cap: {} fps, measured: {measured} fps",
+            "Frame rate cap: {} fps, last second: {last_second} frames",
             FRAME_RATE_CAPS[index]
         );
     }
+}
+
+/// A frame rate cap and present mode that the measurement runs for a few seconds.
+struct MeasureStep {
+    label: &'static str,
+    cap: Option<f64>,
+    present_mode: PresentMode,
+}
+
+/// The settings `CAD_MEASURE` steps through, twice.
+const MEASURE_STEPS: [MeasureStep; 5] = [
+    MeasureStep {
+        label: "120 fps cap, Immediate",
+        cap: Some(120.0),
+        present_mode: PresentMode::Immediate,
+    },
+    MeasureStep {
+        label: "60 fps cap, Immediate",
+        cap: Some(60.0),
+        present_mode: PresentMode::Immediate,
+    },
+    MeasureStep {
+        label: "no cap, Immediate",
+        cap: None,
+        present_mode: PresentMode::Immediate,
+    },
+    MeasureStep {
+        label: "no cap, Fifo",
+        cap: None,
+        present_mode: PresentMode::Fifo,
+    },
+    MeasureStep {
+        label: "60 fps cap, Fifo",
+        cap: Some(60.0),
+        present_mode: PresentMode::Fifo,
+    },
+];
+
+/// How long, in milliseconds, each frame's render waited to get a window texture to draw into,
+/// shared from the render world.
+#[derive(Resource, Clone, Default)]
+struct DrawableWaits(std::sync::Arc<std::sync::Mutex<Vec<f32>>>);
+
+#[derive(Resource, Default)]
+struct DrawableWaitStart(Option<Instant>);
+
+/// With `CAD_MEASURE` set, steps through [`MEASURE_STEPS`] and prints the frame times and the
+/// waits for a window texture at each, then exits.
+fn add_frame_time_measurement(app: &mut App) {
+    use bevy::render::{view::window::prepare_windows, Render, RenderApp, RenderSystems};
+    let waits = DrawableWaits::default();
+    app.insert_resource(waits.clone())
+        .add_systems(Update, measure_frame_times.after(cycle_frame_rate_cap));
+    app.sub_app_mut(RenderApp)
+        .insert_resource(waits)
+        .init_resource::<DrawableWaitStart>()
+        .add_systems(
+            Render,
+            (
+                start_drawable_wait.before(prepare_windows),
+                end_drawable_wait.after(prepare_windows),
+            )
+                .in_set(RenderSystems::PrepareViews),
+        );
+}
+
+fn start_drawable_wait(mut start: ResMut<DrawableWaitStart>) {
+    start.0 = Some(Instant::now());
+}
+
+fn end_drawable_wait(start: Res<DrawableWaitStart>, waits: Res<DrawableWaits>) {
+    if let (Some(start), Ok(mut waits)) = (start.0, waits.0.lock()) {
+        waits.push(start.elapsed().as_secs_f32() * 1000.0);
+    }
+}
+
+#[derive(Default)]
+struct Measurement {
+    step: usize,
+    elapsed: f32,
+    frames: Vec<f32>,
+}
+
+fn measure_frame_times(
+    mut measurement: Local<Measurement>,
+    time: Res<Time<Real>>,
+    waits: Res<DrawableWaits>,
+    mut settings: ResMut<FramepaceSettings>,
+    mut windows: Query<&mut Window>,
+    mut exit: MessageWriter<AppExit>,
+) {
+    let step = &MEASURE_STEPS[measurement.step % MEASURE_STEPS.len()];
+    if measurement.elapsed == 0.0 {
+        settings.limiter = step.cap.map_or(Limiter::Off, Limiter::from_framerate);
+        for mut window in &mut windows {
+            window.present_mode = step.present_mode;
+        }
+    }
+    measurement.elapsed += time.delta_secs();
+    let mut waits = waits.0.lock().unwrap();
+    // The first second of each step lets the new settings take hold.
+    if measurement.elapsed < 1.0 {
+        waits.clear();
+        return;
+    }
+    measurement.frames.push(time.delta_secs() * 1000.0);
+    if measurement.elapsed < 7.0 {
+        return;
+    }
+    let frames = std::mem::take(&mut measurement.frames);
+    let fps = 1000.0 * frames.len() as f32 / frames.iter().sum::<f32>();
+    let buckets = [0.0, 7.0, 9.5, 15.0, 18.0, 25.0, f32::MAX];
+    let counts: Vec<_> = buckets
+        .windows(2)
+        .map(|range| {
+            frames
+                .iter()
+                .filter(|frame| (range[0]..range[1]).contains(*frame))
+                .count()
+        })
+        .collect();
+    println!(
+        "FRAMES {}: {fps:.1} fps, frame ms {}, frames in ms <7,7-9.5,9.5-15,15-18,18-25,>25 \
+         {counts:?}, texture wait ms {}",
+        step.label,
+        spread(frames),
+        spread(std::mem::take(&mut *waits)),
+    );
+    measurement.step += 1;
+    measurement.elapsed = 0.0;
+    if measurement.step == 2 * MEASURE_STEPS.len() {
+        exit.write(AppExit::Success);
+    }
+}
+
+/// The minimum, 10th percentile, median, 90th percentile and maximum of `values`.
+fn spread(mut values: Vec<f32>) -> String {
+    if values.is_empty() {
+        return "none".to_string();
+    }
+    values.sort_by(f32::total_cmp);
+    let at = |share: f32| values[((values.len() - 1) as f32 * share) as usize];
+    format!(
+        "min {:.2} p10 {:.2} median {:.2} p90 {:.2} max {:.2}",
+        at(0.0),
+        at(0.1),
+        at(0.5),
+        at(0.9),
+        at(1.0)
+    )
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
