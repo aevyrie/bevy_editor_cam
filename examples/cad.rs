@@ -5,25 +5,39 @@
 //! - Toggle between free and constrained orbit (should the camera always be "facing up"?) (C)
 //! - Snap to 6 axis-aligned views (1-6)
 //! - Explode the model, separating its parts for inspection (E)
+//! - Cap the frame rate at 30, 60 or 120 fps, to compare camera motion at each (F)
 
 use std::time::Duration;
 
 use bevy::{
-    anti_alias::smaa::Smaa, camera::primitives::Aabb, core_pipeline::tonemapping::Tonemapping,
-    pbr::ScreenSpaceAmbientOcclusion, platform::time::Instant, post_process::bloom::Bloom,
-    prelude::*, window::RequestRedraw,
+    anti_alias::smaa::Smaa,
+    camera::primitives::Aabb,
+    core_pipeline::tonemapping::Tonemapping,
+    pbr::ScreenSpaceAmbientOcclusion,
+    platform::time::Instant,
+    post_process::bloom::Bloom,
+    prelude::*,
+    window::{PresentMode, RequestRedraw},
 };
 use bevy_camera::Hdr;
 use bevy_editor_cam::{
     extensions::{dolly_zoom::DollyZoomTrigger, look_to::LookToTrigger},
     prelude::*,
 };
+use bevy_framepace::{FramepaceSettings, Limiter};
 use bevy_math::DVec3;
 
 fn main() {
     App::new()
         .add_plugins((
-            DefaultPlugins,
+            // Without vsync, so a cap above the display's refresh rate is reached.
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    present_mode: PresentMode::AutoNoVsync,
+                    ..default()
+                }),
+                ..default()
+            }),
             DefaultEditorCamPlugins,
             MeshPickingPlugin,
             bevy_framepace::FramepacePlugin,
@@ -39,10 +53,36 @@ fn main() {
                 toggle_constraint,
                 explode,
                 switch_direction,
+                cycle_frame_rate_cap,
             )
                 .chain(),
         )
         .run();
+}
+
+const FRAME_RATE_CAPS: [f64; 3] = [30.0, 60.0, 120.0];
+
+#[derive(Component)]
+struct FrameRateCapText;
+
+/// Starts the cap at 60 fps, and moves to the next cap each time F is pressed.
+fn cycle_frame_rate_cap(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut settings: ResMut<FramepaceSettings>,
+    mut cap: Local<Option<usize>>,
+    mut text: Query<&mut Text, With<FrameRateCapText>>,
+) {
+    let next = match *cap {
+        None => 1,
+        Some(index) if keys.just_pressed(KeyCode::KeyF) => (index + 1) % FRAME_RATE_CAPS.len(),
+        Some(_) => return,
+    };
+    *cap = Some(next);
+    let fps = FRAME_RATE_CAPS[next];
+    settings.limiter = Limiter::from_framerate(fps);
+    for mut text in &mut text {
+        text.0 = format!("Frame rate cap: {fps} fps");
+    }
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -198,6 +238,7 @@ fn setup_ui(mut commands: Commands, camera: Entity) {
         C           - Toggle orbit constraint
         E           - Toggle explode
         1-6         - Switch direction
+        F           - Cycle frame rate cap
     "};
     commands.spawn((
         Text::new(text),
@@ -209,6 +250,22 @@ fn setup_ui(mut commands: Commands, camera: Entity) {
             margin: UiRect::all(Val::Px(20.0)),
             ..Default::default()
         },
+        Pickable::IGNORE,
+        UiTargetCamera(camera),
+    ));
+    commands.spawn((
+        Text::new(""),
+        TextFont {
+            font_size: FontSize::Px(20.0),
+            ..default()
+        },
+        Node {
+            position_type: PositionType::Absolute,
+            left: Val::Px(20.0),
+            bottom: Val::Px(20.0),
+            ..Default::default()
+        },
+        FrameRateCapText,
         Pickable::IGNORE,
         UiTargetCamera(camera),
     ));
