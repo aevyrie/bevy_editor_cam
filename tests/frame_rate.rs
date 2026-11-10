@@ -303,7 +303,7 @@ fn an_orbit_follows_the_hand_the_same_way_at_every_frame_rate() {
 fn zoom_distances(hertz: u32) -> Vec<f64> {
     let mut rig = Rig::new(hertz, |_| {});
     rig.start(MotionKind::Zoom);
-    let hand = ramped_1d(100.0);
+    let hand = ramped_1d(600.0);
     let per_sample = rig.frames_per_tenth_of_a_second();
     let mut samples = Vec::new();
     for _ in 0..8 {
@@ -316,22 +316,20 @@ fn zoom_distances(hertz: u32) -> Vec<f64> {
 }
 
 // Zoom smoothing has the longest window of all, so it trailed the hand by the most when the window
-// was counted in samples.
+// was counted in samples, and each zoom step was a straight step of a size proportional to the
+// distance left, so a few large steps went less far than many small ones.
 #[test]
 fn a_zoom_follows_the_hand_the_same_way_at_every_frame_rate() {
     let runs: Vec<_> = RATES.iter().map(|&hertz| zoom_distances(hertz)).collect();
     assert!(
-        runs[0].last().unwrap() < &(DISTANCE * 0.95),
+        runs[0].last().unwrap() < &(DISTANCE * 0.8),
         "the zoom barely moved the camera, so this test checks nothing"
     );
     for (hertz, run) in RATES.iter().zip(&runs).skip(1) {
         for (tenth, (a, b)) in runs[0].iter().zip(run).enumerate() {
             let ratio = b / a;
-            // Each frame's zoom is a straight step of a size proportional to the distance left, so
-            // a few large steps go slightly less far than many small ones. For this zoom that
-            // leaves a few parts in 10,000 between rates; the smoothing used to leave about 50.
             assert!(
-                (ratio - 1.0).abs() < 1e-3,
+                (ratio - 1.0).abs() < 1e-5,
                 "{} ms into a zoom the camera was {b} from the anchor at {hertz} Hz and {a} at \
                  30 Hz",
                 (tenth + 1) * 100
